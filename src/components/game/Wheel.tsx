@@ -59,7 +59,7 @@ export function Wheel({ players, isSpinning, spinDegrees, status }: WheelProps) 
       parts.push(`${p.color} ${acc}% ${next}%`);
       acc = next;
     });
-    return `conic-gradient(from -90deg, ${parts.join(", ")})`;
+    return `conic-gradient(from 0deg, ${parts.join(", ")})`;
   }, [displayPlayers, total]);
 
   return (

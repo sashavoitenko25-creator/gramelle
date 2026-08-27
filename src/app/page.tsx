@@ -60,7 +60,7 @@ export default function Home() {
     startParam,
   });
 
-  const { history, saveItem } = useHistory();
+  const { history, saveItem } = useHistory(telegramId);
 
   const [mode, setMode] = useState<RoomMode>(DEFAULT_ROOM);
 
@@ -185,11 +185,11 @@ export default function Home() {
         chance: winner
           ? +((winner.amount / total) * 100).toFixed(2)
           : 0,
-        win: total,
+        win: potAfterFee ?? total,
         mult,
         bet: winner?.amount || 0,
         time: new Date(),
-        type: "Classic",
+        type: "PvP",
         isMe,
       });
 

@@ -12,7 +12,7 @@ interface UseProfileOptions {
   startParam: string | null;
 }
 
-const LOCAL_KEY = "gramelle_profile_v3";
+const LOCAL_KEY = "gramelle_profile_v5";
 
 function loadLocal(name: string, telegramId: number | null): Profile {
   try {
@@ -61,6 +61,10 @@ export function useProfile({
 
   const load = useCallback(async () => {
     if (!isReady) return;
+    try {
+      localStorage.removeItem("gramelle_profile_v3");
+      localStorage.removeItem("gramelle_history_v2");
+    } catch {}
 
     const name =
       username ||

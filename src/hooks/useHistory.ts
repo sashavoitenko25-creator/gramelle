@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { apiFetch } from "@/lib/api";
 import type { HistoryItem } from "@/lib/types";
 
-const LOCAL_HISTORY_KEY = "gramelle_history_v2";
+const LOCAL_HISTORY_KEY = "gramelle_history_v4";
 
 function loadLocalHistory(): HistoryItem[] {
   try {
@@ -19,55 +19,66 @@ function loadLocalHistory(): HistoryItem[] {
 
 function saveLocalHistory(items: HistoryItem[]) {
   try {
-    localStorage.setItem(
-      LOCAL_HISTORY_KEY,
-      JSON.stringify(items.slice(0, 50))
-    );
+    localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(items.slice(0, 50)));
   } catch {
     // ignore
   }
 }
 
-export function useHistory() {
+export function useHistory(telegramId?: number | null) {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    // Clear legacy junk keys once
+    try {
+      localStorage.removeItem("gramelle_history_v2");
+      localStorage.removeItem("gramelle_history_v3");
+    } catch {}
+
     const local = loadLocalHistory();
     setHistory(local);
 
     try {
-      const { data, error } = await supabase
-        .from("game_history")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(50);
+      const data = await apiFetch<{
+        items: Array<{
+          id: number;
+          winner: string;
+          chance: number;
+          win: number;
+          mult: number;
+          bet: number;
+          time: string;
+          isMe?: boolean;
+          iWon?: boolean;
+        }>;
+        demo?: boolean;
+      }>("/api/history?limit=40");
 
-      if (!error && data?.length) {
-        const remote = data.map((h) => ({
-          id: h.roll_id,
-          winner: h.winner,
-          chance: Number(h.chance),
-          win: Number(h.win_amount),
-          mult: Number(h.mult),
-          bet: Number(h.bet),
-          time: new Date(h.created_at),
-          type: "Classic",
-          isMe: !!h.is_me,
-        }));
-        // Prefer remote if available, merge unique by id
-        const map = new Map<number, HistoryItem>();
-        [...remote, ...local].forEach((h) => {
-          if (!map.has(h.id)) map.set(h.id, h);
-        });
-        const merged = Array.from(map.values()).sort(
-          (a, b) => b.time.getTime() - a.time.getTime()
-        );
-        setHistory(merged);
-        saveLocalHistory(merged);
+      if (data.demo) {
+        setLoading(false);
+        return;
       }
-    } catch (e) {
-      console.warn("History remote error", e);
+
+      if (data.items?.length) {
+        const remote: HistoryItem[] = data.items.map((h) => ({
+          id: h.id,
+          winner: h.iWon ? "You" : h.winner,
+          chance: h.chance,
+          win: h.win,
+          mult: h.mult,
+          bet: h.bet,
+          time: new Date(h.time),
+          type: "PvP",
+          isMe: !!h.iWon,
+        }));
+        setHistory(remote);
+        saveLocalHistory(remote);
+      } else if (!local.length) {
+        setHistory([]);
+      }
+    } catch {
+      // keep local
     } finally {
       setLoading(false);
     }
@@ -75,29 +86,24 @@ export function useHistory() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, telegramId]);
 
+  /** Local optimistic row after a spin (server already wrote DB) */
   const saveItem = useCallback(async (item: HistoryItem) => {
     setHistory((prev) => {
+      if (prev.some((h) => h.id === item.id && h.bet === item.bet)) return prev;
       const next = [item, ...prev].slice(0, 50);
       saveLocalHistory(next);
       return next;
     });
-
-    try {
-      await supabase.from("game_history").insert({
-        roll_id: item.id,
-        winner: item.winner,
-        chance: item.chance,
-        win_amount: item.win,
-        mult: item.mult,
-        bet: item.bet,
-        is_me: item.isMe,
-      });
-    } catch (e) {
-      console.warn("Save history error", e);
-    }
   }, []);
 
-  return { history, saveItem, loading, reload: load };
+  const clearLocal = useCallback(() => {
+    setHistory([]);
+    try {
+      localStorage.removeItem(LOCAL_HISTORY_KEY);
+    } catch {}
+  }, []);
+
+  return { history, saveItem, loading, reload: load, clearLocal };
 }

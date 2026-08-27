@@ -89,7 +89,7 @@ export async function ensureOpenRound(
     .order("roll_id", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const rollId = (last?.roll_id || 600000) + 1;
+  const rollId = (last?.roll_id || 999) + 1;
 
   const { data, error } = await db
     .from("rounds")
@@ -360,7 +360,7 @@ export async function spinRound(
       win_amount: potAfterFee,
       mult,
       bet: b.amount,
-      is_me: b.telegram_id === winner.telegram_id,
+      is_me: b.telegram_id === winner.telegram_id, // true = this player won
       telegram_id: b.telegram_id,
     });
   }

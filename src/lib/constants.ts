@@ -14,7 +14,7 @@ export const COLORS = [
 ];
 
 export const MIN_BET = 0.1;
-export const START_BALANCE = 25;
+export const START_BALANCE = 10;
 export const SPIN_DURATION_MS = 4200;
 export const SPIN_FINISH_DELAY_MS = 4500;
 export const MAX_PLAYERS = 10;
