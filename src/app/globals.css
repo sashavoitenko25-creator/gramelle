@@ -1,19 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #07070b;
-  --bg-elevated: #0e0e14;
+  --bg: #06060a;
+  --bg-elevated: #0c0c12;
   --card: #12121a;
   --card-hover: #181822;
-  --border: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.1);
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.12);
   --text: #f4f4f5;
-  --text-muted: rgba(255, 255, 255, 0.45);
+  --text-muted: rgba(255, 255, 255, 0.48);
   --text-dim: rgba(255, 255, 255, 0.28);
   --accent: #22d3ee;
-  --accent-soft: rgba(34, 211, 238, 0.12);
+  --accent-soft: rgba(34, 211, 238, 0.14);
   --gold: #f5c542;
-  --gold-soft: rgba(245, 197, 66, 0.15);
+  --gold-soft: rgba(245, 197, 66, 0.16);
   --success: #34d399;
   --danger: #f87171;
   --purple: #a78bfa;
@@ -32,6 +32,7 @@
 
 html {
   height: 100%;
+  color-scheme: dark;
 }
 
 body {
@@ -47,44 +48,47 @@ body {
 
 .app-bg {
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(88, 28, 135, 0.18), transparent),
-    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(14, 116, 144, 0.1), transparent),
+    radial-gradient(ellipse 90% 55% at 50% -25%, rgba(109, 40, 217, 0.22), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 100% 100%, rgba(6, 182, 212, 0.12), transparent 50%),
+    radial-gradient(ellipse 50% 35% at 0% 80%, rgba(245, 197, 66, 0.05), transparent 45%),
     var(--bg);
+  min-height: 100dvh;
 }
 
 .glass {
-  background: rgba(18, 18, 26, 0.75);
+  background: rgba(16, 16, 24, 0.78);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border);
 }
 
 .glass-strong {
-  background: rgba(18, 18, 26, 0.92);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(14, 14, 22, 0.94);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   border: 1px solid var(--border-strong);
 }
 
 .wheel-glow {
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 0 40px rgba(139, 92, 246, 0.25),
-    0 0 80px rgba(34, 211, 238, 0.08),
-    inset 0 0 40px rgba(0, 0, 0, 0.4);
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 0 6px rgba(255, 255, 255, 0.03),
+    0 0 48px rgba(139, 92, 246, 0.28),
+    0 0 96px rgba(34, 211, 238, 0.1),
+    inset 0 0 48px rgba(0, 0, 0, 0.45);
 }
 
 .wheel-empty {
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 0 30px rgba(80, 80, 100, 0.12),
-    inset 0 0 30px rgba(0, 0, 0, 0.3);
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 36px rgba(80, 80, 120, 0.14),
+    inset 0 0 36px rgba(0, 0, 0, 0.35);
 }
 
 .modal-backdrop {
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 @keyframes slide-up {
@@ -103,16 +107,21 @@ body {
 }
 
 @keyframes pulse-soft {
-  0%, 100% { opacity: 0.5; }
+  0%, 100% { opacity: 0.45; }
   50% { opacity: 1; }
 }
 
+@keyframes float-glow {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.03); }
+}
+
 .slide-up {
-  animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slide-up 0.38s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .fade-in {
-  animation: fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: fade-in 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .scale-in {
@@ -124,11 +133,11 @@ body {
 }
 
 .safe-bottom {
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 14px);
 }
 
 .safe-top {
-  padding-top: max(env(safe-area-inset-top, 0px), 8px);
+  padding-top: max(env(safe-area-inset-top, 0px), 10px);
 }
 
 ::-webkit-scrollbar { width: 3px; }
@@ -155,7 +164,7 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 
 .text-gradient-cyan {
-  background: linear-gradient(135deg, #22d3ee 0%, #67e8f9 100%);
+  background: linear-gradient(135deg, #22d3ee 0%, #a5f3fc 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -166,20 +175,20 @@ input[type="number"] { -moz-appearance: textfield; }
   color: #0a0a0f;
   font-weight: 600;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.2) inset,
-    0 4px 16px rgba(245, 197, 66, 0.25);
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 4px 18px rgba(245, 197, 66, 0.28);
   transition: all 0.2s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.25) inset,
-    0 6px 20px rgba(245, 197, 66, 0.35);
+    0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 6px 22px rgba(245, 197, 66, 0.38);
   filter: brightness(1.05);
 }
 
 .btn-primary:disabled {
-  opacity: 0.45;
+  opacity: 0.42;
   cursor: not-allowed;
 }
 
@@ -191,12 +200,12 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.09);
   border-color: var(--border-strong);
 }
 
 @keyframes confetti-fall {
-  0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+  0% { transform: translateY(-12vh) rotate(0deg); opacity: 1; }
   100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
 }
 
@@ -208,12 +217,12 @@ input[type="number"] { -moz-appearance: textfield; }
   background: linear-gradient(
     90deg,
     rgba(255, 255, 255, 0.04) 25%,
-    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.09) 50%,
     rgba(255, 255, 255, 0.04) 75%
   );
   background-size: 200% 100%;
   animation: skeleton-shine 1.4s ease-in-out infinite;
-  border-radius: 12px;
+  border-radius: 14px;
 }
 
 @keyframes skeleton-shine {
@@ -221,19 +230,7 @@ input[type="number"] { -moz-appearance: textfield; }
   100% { background-position: -200% 0; }
 }
 
-/* Telegram theme support */
+/* Always dark premium UI inside Mini App — ignore Telegram light scheme */
 html.tg-light {
-  --bg: #f4f4f7;
-  --bg-elevated: #ffffff;
-  --card: #ffffff;
-  --text: #0a0a0f;
-  --text-muted: rgba(0, 0, 0, 0.45);
-  --text-dim: rgba(0, 0, 0, 0.28);
-  --border: rgba(0, 0, 0, 0.06);
-  --border-strong: rgba(0, 0, 0, 0.1);
-}
-
-html.tg-light body {
-  background: var(--bg);
-  color: var(--text);
+  color-scheme: dark;
 }

@@ -12,7 +12,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#07070b",
+  themeColor: "#06060a",
 };
 
 export default function RootLayout({
@@ -29,7 +29,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col app-bg text-white">
-        {children}
+        <div className="flex-1 flex flex-col w-full max-w-lg mx-auto relative">
+          {children}
+        </div>
       </body>
     </html>
   );

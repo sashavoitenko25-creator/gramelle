@@ -478,7 +478,7 @@ export default function Home() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="relative min-h-[100dvh] w-full">
       {screen === "pvp" && (
         <PvpScreen
           players={players}

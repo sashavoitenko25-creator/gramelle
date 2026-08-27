@@ -56,12 +56,10 @@ export function useTelegram() {
       try {
         tg.ready();
         tg.expand();
-        const scheme = tg.colorScheme || "dark";
-        document.documentElement.classList.toggle("tg-light", scheme === "light");
-        if (scheme === "dark") {
-          tg.setHeaderColor?.("#07070b");
-          tg.setBackgroundColor?.("#07070b");
-        }
+        document.documentElement.classList.remove("tg-light");
+        // Always dark premium UI inside Mini App
+        tg.setHeaderColor?.("#06060a");
+        tg.setBackgroundColor?.("#06060a");
       } catch {
         // ignore
       }
