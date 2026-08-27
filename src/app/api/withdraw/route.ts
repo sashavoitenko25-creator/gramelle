@@ -7,6 +7,8 @@ import {
   MAX_WITHDRAW_TON,
   GRAM_PER_TON,
 } from "@/lib/constants";
+import { rateLimit } from "@/lib/server/rateLimit";
+import { assertNotBanned } from "@/lib/server/ban";
 
 /**
  * Request TON withdrawal.
@@ -19,6 +21,13 @@ export async function POST(req: NextRequest) {
     }
 
     const auth = await requireTelegramUser(req);
+
+    const rl = rateLimit(`wd:${auth.user.id}`, 5, 60_000);
+    if (!rl.ok) {
+      return NextResponse.json({ error: "Too many withdraw requests" }, { status: 429 });
+    }
+    await assertNotBanned(auth.user.id);
+
     const body = await req.json();
     const amountTon = Number(body.amountTon ?? body.amount);
     const wallet = String(body.wallet || body.address || "").trim();

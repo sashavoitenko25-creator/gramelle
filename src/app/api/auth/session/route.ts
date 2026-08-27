@@ -86,6 +86,8 @@ export async function POST(req: NextRequest) {
         biggest_win: Number((profile as { biggest_win?: number }).biggest_win || 0),
         wins: Number((profile as { wins?: number }).wins || 0),
         games: Number((profile as { games?: number }).games || 0),
+        banned: Boolean((profile as { banned?: boolean }).banned),
+        ban_reason: (profile as { ban_reason?: string }).ban_reason || null,
       },
     });
   } catch (e) {

@@ -76,3 +76,31 @@ Process in Supabase: set `status=completed`, fill `tx_hash` after you send TON f
 ## Deploy
 
 Vercel + env + SQL migrations + setWebhook.
+
+## Phase 5 — Infra
+
+| Feature | How |
+|---------|-----|
+| Rate limit | In-memory on bet / withdraw / stars / ton (per telegram id) |
+| Admin panel | `/admin` + header `x-admin-secret: ADMIN_SECRET` |
+| Bans | `profiles.banned` checked on bet/withdraw/ton |
+| Sentry | Optional `SENTRY_DSN` — errors posted to Sentry store API |
+| Analytics | `analytics_events` table (deposits/withdraws tracked from admin) |
+| CI | `.github/workflows/ci.yml` — lint + build on push |
+
+### Admin
+
+1. Set `ADMIN_SECRET` in Vercel env (long random string)
+2. Open `https://YOUR_DOMAIN/admin`
+3. Paste secret → manage withdrawals (Complete / Reject+refund), bans, stats
+
+### Staging
+
+Create a second Vercel project pointing to the same repo with different env:
+- different `TELEGRAM_BOT_TOKEN` (staging bot)
+- different Supabase project (or schema)
+- different `ADMIN_SECRET`
+
+### SQL
+
+Run `supabase/phase5.sql` after phase3.

@@ -3,6 +3,8 @@ import { AuthError, requireTelegramUser } from "@/lib/server/telegram";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 import { buildTonMemo } from "@/lib/payments";
 import { gramFromTon } from "@/lib/payments";
+import { rateLimit } from "@/lib/server/rateLimit";
+import { assertNotBanned } from "@/lib/server/ban";
 
 /**
  * Register a pending TON deposit intent (memo + expected amount).
@@ -15,6 +17,11 @@ export async function POST(req: NextRequest) {
     }
 
     const auth = await requireTelegramUser(req);
+    const rl = rateLimit(`ton:${auth.user.id}`, 10, 60_000);
+    if (!rl.ok) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+    await assertNotBanned(auth.user.id);
     const body = await req.json();
     const ton = Number(body.ton);
     if (!Number.isFinite(ton) || ton <= 0) {

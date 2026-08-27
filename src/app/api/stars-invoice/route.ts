@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTelegramUser, getBotToken } from "@/lib/server/telegram";
 import { GRAM_PER_STAR } from "@/lib/constants";
+import { rateLimit } from "@/lib/server/rateLimit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,6 +27,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+    const rl = rateLimit(`stars:${telegramId}`, 10, 60_000);
+    if (!rl.ok) {
+      return NextResponse.json({ error: "Too many invoice requests" }, { status: 429 });
+    }
+
     const stars = Math.floor(Number(body.stars) || 0);
     if (stars < 1 || stars > 100_000) {
       return NextResponse.json({ error: "Invalid stars amount" }, { status: 400 });
