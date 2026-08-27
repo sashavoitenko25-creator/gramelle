@@ -37,7 +37,7 @@ export interface Profile {
 }
 
 export type Screen = "pvp" | "history" | "profile" | "referrals";
-export type HistoryFilter = "all" | "wins" | "my";
+export type HistoryFilter = "all" | "lucky" | "top" | "wins" | "my";
 export type DepositMethod = "stars" | "ton";
 
 export type RoundStatus = "open" | "countdown" | "spinning" | "finished";

@@ -12,7 +12,7 @@ export function useRound(
 ) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [rollId, setRollId] = useState(
-    () => 1000
+    () => 0
   );
   const [roundStatus, setRoundStatus] = useState<string>("open");
   const [countdownEndsAt, setCountdownEndsAt] = useState<string | null>(null);

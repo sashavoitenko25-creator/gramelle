@@ -89,7 +89,7 @@ export async function ensureOpenRound(
     .order("roll_id", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const rollId = (last?.roll_id || 999) + 1;
+  const rollId = (last?.roll_id ?? -1) + 1; // first round = 0
 
   const { data, error } = await db
     .from("rounds")

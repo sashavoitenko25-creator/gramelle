@@ -13,7 +13,7 @@ export const COLORS = [
   "#4ade80",
 ];
 
-export const MIN_BET = 0.1;
+export const MIN_BET = 0.25;
 export const START_BALANCE = 10;
 export const SPIN_DURATION_MS = 4200;
 export const SPIN_FINISH_DELAY_MS = 4500;
@@ -24,36 +24,42 @@ export const BOT_USERNAME = "Gramelle_bot";
 export const ROUND_COUNTDOWN_SEC = 8;
 
 /**
- * Rates — GRAM is 1:1 with TON (same coin unit in-game).
- * Stars stay configurable via env.
+ * Rates
+ * - TON ↔ GRAM = 1:1 (same unit in-game)
+ * - Stars: ~market value vs TON. 1 Star ≈ $0.02, 1 TON ≈ $5–7 → ~0.003–0.004 TON/star.
+ *   We use 0.01 GRAM per Star as a clean playable rate (100 Stars = 1 GRAM).
+ *   Override with NEXT_PUBLIC_GRAM_PER_STAR.
  */
-export const GRAM_PER_STAR = Number(process.env.NEXT_PUBLIC_GRAM_PER_STAR) || 1;
-export const GRAM_PER_TON = Number(process.env.NEXT_PUBLIC_GRAM_PER_TON) || 1;
+export const GRAM_PER_STAR =
+  Number(process.env.NEXT_PUBLIC_GRAM_PER_STAR) || 0.01;
+export const GRAM_PER_TON =
+  Number(process.env.NEXT_PUBLIC_GRAM_PER_TON) || 1;
 
 /** Deposit limits */
-export const MIN_DEPOSIT_STARS = 10;
+export const MIN_DEPOSIT_STARS = 50;
 export const MAX_DEPOSIT_STARS = 100_000;
 export const MIN_DEPOSIT_TON = 0.1;
 export const MAX_DEPOSIT_TON = 500;
 
-/** Withdraw limits (TON only — Stars cannot be paid out by bots) */
+/** Withdraw limits (TON only) */
 export const MIN_WITHDRAW_TON = 1;
 export const MAX_WITHDRAW_TON = 200;
 export const WITHDRAW_FEE_PCT = 0;
 
-/** Referral: % of referred user's deposit credited to referrer */
+/** Referral: % of referred user's deposit */
 export const REFERRAL_DEPOSIT_PCT = 0.05; // 5%
 /** One-time bonus when friend joins via link */
-export const REFERRAL_JOIN_BONUS = 1;
+export const REFERRAL_JOIN_BONUS = 0.25;
 
+/** Star packages — gram derived from GRAM_PER_STAR (+ small bonus on large packs) */
 export const STAR_PACKAGES = [
-  { stars: 50, gram: 50, label: "50" },
-  { stars: 100, gram: 100, label: "100", popular: true },
-  { stars: 250, gram: 260, label: "250", bonus: "+10" },
-  { stars: 500, gram: 550, label: "500", bonus: "+50" },
+  { stars: 50, gram: 0.5, label: "50" },
+  { stars: 100, gram: 1, label: "100", popular: true },
+  { stars: 250, gram: 2.75, label: "250", bonus: "+0.25" },
+  { stars: 500, gram: 6, label: "500", bonus: "+1" },
 ] as const;
 
-/** TON packages — 1 TON = 1 GRAM (plus small bonuses on larger packs) */
+/** TON packages — 1 TON = 1 GRAM (+ bonuses) */
 export const TON_PACKAGES = [
   { ton: 1, gram: 1, label: "1" },
   { ton: 5, gram: 5, label: "5", popular: true },
@@ -65,7 +71,6 @@ export const TON_DEPOSIT_ADDRESS =
   process.env.NEXT_PUBLIC_TON_WALLET ||
   "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ";
 
-/** Phase 2 — room modes */
 export type RoomMode = "classic" | "high";
 
 export interface RoomConfig {
@@ -74,7 +79,6 @@ export interface RoomConfig {
   description: string;
   minBet: number;
   maxBet: number;
-  /** House edge 0..1 (e.g. 0.02 = 2%) taken from bank before payout */
   houseEdge: number;
   maxPlayers: number;
   countdownSec: number;
@@ -85,7 +89,7 @@ export const ROOMS: Record<RoomMode, RoomConfig> = {
     id: "classic",
     name: "Classic",
     description: "Standard stakes",
-    minBet: 0.1,
+    minBet: 0.25,
     maxBet: 500,
     houseEdge: 0.02,
     maxPlayers: 10,
