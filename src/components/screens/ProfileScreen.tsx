@@ -2,6 +2,7 @@
 
 import { formatGram } from "@/lib/utils";
 import { TonIcon } from "@/components/ui/TonIcon";
+import { ConnectWalletButton } from "@/components/ton/ConnectWalletButton";
 
 interface ProfileScreenProps {
   username: string;
@@ -90,6 +91,10 @@ export function ProfileScreen({
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="mx-4 mt-4">
+        <ConnectWalletButton />
       </div>
 
       <div className="mx-4 mt-4 space-y-2">

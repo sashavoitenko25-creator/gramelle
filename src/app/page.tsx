@@ -536,6 +536,8 @@ export default function Home() {
         <ReferralsScreen
           earned={profile?.ref_earned ?? 0}
           count={profile?.ref_count ?? 0}
+          active={(profile as { ref_active?: number })?.ref_active ?? 0}
+          turnover={(profile as { ref_turnover?: number })?.ref_turnover ?? 0}
           username={username}
           onBack={() => setScreen("profile")}
           onHowItWorks={() => setHowRefOpen(true)}

@@ -6,13 +6,15 @@ import {
   MIN_WITHDRAW_TON,
   MAX_WITHDRAW_TON,
   GRAM_PER_TON,
+  WITHDRAW_FEE_GRAM,
 } from "@/lib/constants";
+import { creditHouse } from "@/lib/server/house";
 import { rateLimit } from "@/lib/server/rateLimit";
 import { assertNotBanned } from "@/lib/server/ban";
 
 /**
  * Request TON withdrawal.
- * Debits balance immediately; admin/manual process sends TON on-chain.
+ * Debits (amount + 0.2 fee) immediately; admin sends amount on-chain.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -49,14 +51,21 @@ export async function POST(req: NextRequest) {
     }
 
     const amountGram = +(amountTon * GRAM_PER_TON).toFixed(4);
+    const fee = WITHDRAW_FEE_GRAM;
+    const totalDebit = +(amountGram + fee).toFixed(4);
+
     const profile = await getOrCreateProfile(auth.user.id);
-    if (Number(profile.balance) < amountGram) {
-      return NextResponse.json({ error: "Insufficient balance" }, { status: 400 });
+    if (Number(profile.balance) < totalDebit) {
+      return NextResponse.json(
+        {
+          error: `Need ${totalDebit} GRAM (incl. ${fee} fee)`,
+        },
+        { status: 400 }
+      );
     }
 
     const db = getAdminClient();
 
-    // pending withdrawal limit: max 3 open
     const { count } = await db
       .from("withdrawals")
       .select("id", { count: "exact", head: true })
@@ -70,10 +79,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { balance } = await creditBalance(auth.user.id, -amountGram, "withdraw", {
+    const { balance } = await creditBalance(auth.user.id, -totalDebit, "withdraw", {
       amount_ton: amountTon,
+      amount_gram: amountGram,
+      fee,
       wallet,
     });
+
+    try {
+      await creditHouse(fee, "profit", "withdraw_fee", {
+        telegram_id: auth.user.id,
+        amount_ton: amountTon,
+      });
+    } catch {}
 
     const { data: row, error } = await db
       .from("withdrawals")
@@ -84,13 +102,15 @@ export async function POST(req: NextRequest) {
         amount_ton: amountTon,
         wallet_address: wallet,
         status: "pending",
+        fee_gram: fee,
       })
       .select("id, amount_ton, amount_gram, status, created_at")
       .single();
 
     if (error) {
-      // refund on insert failure
-      await creditBalance(auth.user.id, amountGram, "refund", { reason: "withdraw_failed" });
+      await creditBalance(auth.user.id, totalDebit, "refund", {
+        reason: "withdraw_failed",
+      });
       throw error;
     }
 
@@ -98,6 +118,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       withdrawal: row,
       balance,
+      fee,
     });
   } catch (e) {
     if (e instanceof AuthError) {
@@ -119,7 +140,9 @@ export async function GET(req: NextRequest) {
     const db = getAdminClient();
     const { data } = await db
       .from("withdrawals")
-      .select("id, amount_ton, amount_gram, wallet_address, status, created_at, processed_at, tx_hash")
+      .select(
+        "id, amount_ton, amount_gram, wallet_address, status, created_at, processed_at, tx_hash, fee_gram"
+      )
       .eq("telegram_id", auth.user.id)
       .order("created_at", { ascending: false })
       .limit(30);

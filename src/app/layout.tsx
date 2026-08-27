@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
+import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "Gramelle — PvP Roulette",
@@ -30,7 +31,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col app-bg text-white">
         <div className="flex-1 flex flex-col w-full max-w-lg mx-auto relative">
-          {children}
+          <Providers>{children}</Providers>
         </div>
       </body>
     </html>

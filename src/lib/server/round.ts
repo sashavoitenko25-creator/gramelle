@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import { getAdminClient } from "./supabase";
 import { creditBalance, recordWinStats } from "./ledger";
+import { creditHouse } from "./house";
+import { payReferralFromHouseFee } from "./referral";
 import {
   ROOMS,
   DEFAULT_ROOM,
@@ -337,6 +339,23 @@ export async function spinRound(
     mult,
     house_fee: houseFee,
   });
+
+  // Project profit = house fee (5% of bank)
+  try {
+    await creditHouse(houseFee, "profit", "house_fee", {
+      round_id: round.id,
+      roll_id: round.roll_id,
+      bank: total,
+    });
+  } catch {}
+
+  // Referral share of house fee proportional to each player's bet
+  for (const b of bets) {
+    const slice = +((Number(b.amount) / total) * houseFee).toFixed(6);
+    try {
+      await payReferralFromHouseFee(b.telegram_id, Number(b.amount), slice);
+    } catch {}
+  }
 
   await db
     .from("rounds")

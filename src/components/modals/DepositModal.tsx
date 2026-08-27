@@ -254,7 +254,7 @@ export function DepositModal({
         {method === "stars" && (
           <div className="space-y-2.5">
             <p className="text-xs text-white/35 mb-3 leading-relaxed">
-              Pay with Telegram Stars. Rate: 100 Stars ≈ 1 GRAM (TON is 1:1). Credited after Telegram confirms payment.
+              Pay with Telegram Stars. Rate: 500 Stars = 4.25 GRAM · TON is 1:1. Min deposit 0.5 GRAM. Credited after confirmation.
             </p>
             {STAR_PACKAGES.map((p) => (
               <button

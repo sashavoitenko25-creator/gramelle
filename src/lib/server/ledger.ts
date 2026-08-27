@@ -1,5 +1,6 @@
 import { getAdminClient } from "./supabase";
-import { START_BALANCE, REFERRAL_DEPOSIT_PCT } from "@/lib/constants";
+import { START_BALANCE } from "@/lib/constants";
+import { creditHouse } from "./house";
 
 export type LedgerReason =
   | "deposit_stars"
@@ -10,7 +11,8 @@ export type LedgerReason =
   | "withdraw"
   | "withdraw_fee"
   | "adjust"
-  | "refund";
+  | "refund"
+  | "house_fee";
 
 export interface ProfileRow {
   id: string;
@@ -25,12 +27,11 @@ export interface ProfileRow {
   biggest_win?: number | null;
   wins?: number | null;
   games?: number | null;
+  ton_wallet?: string | null;
+  ref_turnover?: number | null;
+  ref_active?: number | null;
 }
 
-/**
- * Atomic balance change via ledger.
- * Never update profiles.balance from the client.
- */
 export async function creditBalance(
   telegramId: number,
   amount: number,
@@ -40,7 +41,10 @@ export async function creditBalance(
   if (amount === 0) throw new Error("Amount must be non-zero");
   const db = getAdminClient();
 
-  const profile = await getOrCreateProfile(telegramId, meta.username as string | undefined);
+  const profile = await getOrCreateProfile(
+    telegramId,
+    meta.username as string | undefined
+  );
 
   const newBalance = +(Number(profile.balance) + amount).toFixed(4);
   if (newBalance < -0.0001) {
@@ -62,6 +66,14 @@ export async function creditBalance(
     meta,
   });
 
+  try {
+    if ((reason === "deposit_stars" || reason === "deposit_ton") && amount > 0) {
+      await creditHouse(amount, "reserve", reason, meta);
+    }
+  } catch {
+    // non-fatal
+  }
+
   return { balance: newBalance, profileId: profile.id };
 }
 
@@ -79,11 +91,12 @@ export async function getOrCreateProfile(
 
   if (existing) return existing as ProfileRow;
 
-  const name =
-    usernameHint ||
-    "Player" + String(telegramId).slice(-4);
-
-  const code = "ref_" + name.toLowerCase().replace(/\s+/g, "") + "_" + String(telegramId).slice(-4);
+  const name = usernameHint || "Player" + String(telegramId).slice(-4);
+  const code =
+    "ref_" +
+    name.toLowerCase().replace(/\s+/g, "") +
+    "_" +
+    String(telegramId).slice(-4);
 
   const { data: created, error } = await db
     .from("profiles")
@@ -97,6 +110,8 @@ export async function getOrCreateProfile(
       biggest_win: 0,
       wins: 0,
       games: 0,
+      ref_turnover: 0,
+      ref_active: 0,
     })
     .select("*")
     .single();
@@ -119,49 +134,9 @@ export async function getBalance(telegramId: number): Promise<number> {
   return Number(p.balance) || 0;
 }
 
-/**
- * After a successful deposit, credit referrer % of deposit amount.
- */
-export async function creditReferralOnDeposit(
-  depositorTelegramId: number,
-  depositGram: number,
-  meta: Record<string, unknown> = {}
-): Promise<void> {
-  if (depositGram <= 0 || REFERRAL_DEPOSIT_PCT <= 0) return;
-  const db = getAdminClient();
-
-  const { data: me } = await db
-    .from("profiles")
-    .select("id, referred_by")
-    .eq("telegram_id", depositorTelegramId)
-    .maybeSingle();
-
-  if (!me?.referred_by) return;
-
-  const { data: referrer } = await db
-    .from("profiles")
-    .select("id, telegram_id, ref_earned")
-    .eq("id", me.referred_by)
-    .maybeSingle();
-
-  if (!referrer?.telegram_id || referrer.telegram_id === depositorTelegramId) return;
-
-  const bonus = +(depositGram * REFERRAL_DEPOSIT_PCT).toFixed(4);
-  if (bonus <= 0) return;
-
-  await creditBalance(referrer.telegram_id, bonus, "referral", {
-    ...meta,
-    from: depositorTelegramId,
-    deposit_gram: depositGram,
-    pct: REFERRAL_DEPOSIT_PCT,
-  });
-
-  await db
-    .from("profiles")
-    .update({
-      ref_earned: +(Number(referrer.ref_earned || 0) + bonus).toFixed(4),
-    })
-    .eq("id", referrer.id);
+/** @deprecated deposit % removed — referral is % of house fee on bets */
+export async function creditReferralOnDeposit(): Promise<void> {
+  return;
 }
 
 export async function recordWinStats(
@@ -173,7 +148,10 @@ export async function recordWinStats(
   const p = await getOrCreateProfile(telegramId);
   const games = (Number(p.games) || 0) + 1;
   const wins = (Number(p.wins) || 0) + (isWinner ? 1 : 0);
-  const biggest = Math.max(Number(p.biggest_win) || 0, isWinner ? winAmount : 0);
+  const biggest = Math.max(
+    Number(p.biggest_win) || 0,
+    isWinner ? winAmount : 0
+  );
   await db
     .from("profiles")
     .update({ games, wins, biggest_win: biggest })
