@@ -5,14 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Gramelle — PvP Roulette</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          colors: {
-            dark: '#0a0a0f',
-            card: '#16161f',
-          }
+          colors: { dark: '#0a0a0f', card: '#16161f' }
         }
       }
     }
@@ -20,15 +18,12 @@
   <style>
     * { box-sizing: border-box; }
     body {
-      background: #0a0a0f;
-      color: white;
+      background: #0a0a0f; color: white;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      overflow-x: hidden;
-      margin: 0;
-      min-height: 100dvh;
+      overflow-x: hidden; margin: 0; min-height: 100dvh;
     }
     .starfield {
-      background-image: 
+      background-image:
         radial-gradient(1px 1px at 20px 30px, #fff 1px, transparent 0),
         radial-gradient(1px 1px at 40px 70px, #fff 1px, transparent 0),
         radial-gradient(1px 1px at 50px 160px, #fff 1px, transparent 0),
@@ -39,8 +34,7 @@
         radial-gradient(1px 1px at 250px 180px, #fff 1px, transparent 0),
         radial-gradient(1px 1px at 300px 90px, #fff 1px, transparent 0),
         radial-gradient(1.5px 1.5px at 350px 140px, #fff 1px, transparent 0);
-      background-size: 400px 200px;
-      background-repeat: repeat;
+      background-size: 400px 200px; background-repeat: repeat;
     }
     .wheel-container { position: relative; width: 240px; height: 240px; }
     .wheel {
@@ -65,10 +59,7 @@
     }
     .modal-backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); }
     .slide-up { animation: slideUp 0.3s ease-out; }
-    @keyframes slideUp {
-      from { transform: translateY(40px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
+    @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .fade-in { animation: fadeIn 0.25s ease-out; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .pulse-dot { animation: pulse 1.5s infinite; }
@@ -105,7 +96,7 @@
         <div class="wheel-pointer">▼</div>
         <div id="wheel" class="wheel empty"></div>
         <div class="wheel-center">
-          <div id="wheel-avatar" class="w-7 h-7 rounded-full bg-gradient-to-br from-gray-500 to-gray-700 mb-1 flex items-center justify-center text-xs">👤</div>
+          <div class="w-7 h-7 rounded-full bg-gradient-to-br from-gray-500 to-gray-700 mb-1 flex items-center justify-center text-xs">👤</div>
           <span id="wheel-status" class="text-[11px] text-white/60 font-medium">Waiting</span>
         </div>
       </div>
@@ -325,6 +316,13 @@
   <div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2 rounded-full bg-white text-black text-sm font-medium shadow-lg"></div>
 
   <script>
+    // ===================== SUPABASE =====================
+    const SUPABASE_URL = 'https://aixewpzjnhbsiaulzuer.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpeGV3cHpqbmhic2lhdWx6dWVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MjY4MTQsImV4cCI6MjEwMzQwMjgxNH0.qwj9eI2N3-K3Rvrn6RxSeCoMt-xSDqTXz3Rfp8i-Dl4';
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ===================== STATE =====================
     const COLORS = ['#a855f7','#22d3ee','#f59e0b','#ef4444','#10b981','#ec4899','#3b82f6','#eab308','#8b5cf6','#14b8a6','#f97316','#06b6d4','#d946ef','#84cc16'];
 
     let state = {
@@ -336,29 +334,12 @@
       isSpinning: false,
       refEarned: 0,
       refCount: 0,
-      username: 'You',
+      username: 'Player' + Math.floor(Math.random() * 9000 + 1000),
+      profileId: null,
       online: 72 + Math.floor(Math.random() * 20)
     };
 
-    function seedHistory() {
-      const names = ['gxwerr','nikipopus','lqpdwasd','cryptoKing','tonMaster','luckyRoll','gramWhale'];
-      const now = Date.now();
-      for (let i = 0; i < 18; i++) {
-        const chance = +(5 + Math.random() * 90).toFixed(2);
-        const bet = +(0.5 + Math.random() * 40).toFixed(2);
-        const win = +(bet * (100 / chance) * (0.7 + Math.random() * 0.5)).toFixed(2);
-        const mult = +(win / bet).toFixed(2);
-        state.history.push({
-          id: 624899 - i,
-          winner: names[Math.floor(Math.random() * names.length)],
-          chance, win, mult, bet,
-          time: new Date(now - i * 60000 * (2 + Math.random() * 8)),
-          type: 'Classic', isMe: false
-        });
-      }
-    }
-    seedHistory();
-
+    // ===================== HELPERS =====================
     function $(id) { return document.getElementById(id); }
     function showToast(msg) {
       const t = $('toast');
@@ -381,6 +362,100 @@
       return h + '...' + c[Math.floor(Math.random()*16)] + c[Math.floor(Math.random()*16)] + c[Math.floor(Math.random()*16)] + c[Math.floor(Math.random()*16)];
     }
 
+    // ===================== SUPABASE PROFILE =====================
+    async function loadOrCreateProfile() {
+      let savedName = localStorage.getItem('gramelle_username');
+      if (savedName) state.username = savedName;
+      else localStorage.setItem('gramelle_username', state.username);
+
+      try {
+        let { data, error } = await sb.from('profiles').select('*').eq('username', state.username).maybeSingle();
+        if (error) console.warn('Profile load error', error);
+
+        if (!data) {
+          const code = 'ref_' + state.username.toLowerCase();
+          const { data: created, error: createErr } = await sb.from('profiles').insert({
+            username: state.username,
+            balance: 25.00,
+            referral_code: code,
+            ref_earned: 0,
+            ref_count: 0
+          }).select().single();
+          if (createErr) console.warn('Create profile error', createErr);
+          else data = created;
+        }
+
+        if (data) {
+          state.profileId = data.id;
+          state.balance = Number(data.balance) || 25;
+          state.refEarned = Number(data.ref_earned) || 0;
+          state.refCount = Number(data.ref_count) || 0;
+        }
+      } catch (e) {
+        console.warn('Profile exception', e);
+      }
+      updateBalanceUI();
+    }
+
+    async function saveBalance() {
+      if (!state.profileId) return;
+      try {
+        await sb.from('profiles').update({
+          balance: state.balance,
+          ref_earned: state.refEarned,
+          ref_count: state.refCount
+        }).eq('id', state.profileId);
+      } catch (e) {
+        console.warn('Save balance error', e);
+      }
+    }
+
+    async function loadHistoryFromDB() {
+      try {
+        const { data, error } = await sb
+          .from('game_history')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (error) {
+          console.warn('History load error', error);
+          return;
+        }
+        if (data && data.length) {
+          state.history = data.map(h => ({
+            id: h.roll_id,
+            winner: h.winner,
+            chance: Number(h.chance),
+            win: Number(h.win_amount),
+            mult: Number(h.mult),
+            bet: Number(h.bet),
+            time: new Date(h.created_at),
+            type: 'Classic',
+            isMe: h.is_me
+          }));
+        }
+      } catch (e) {
+        console.warn('History exception', e);
+      }
+    }
+
+    async function saveHistoryItem(item) {
+      try {
+        await sb.from('game_history').insert({
+          roll_id: item.id,
+          winner: item.winner,
+          chance: item.chance,
+          win_amount: item.win,
+          mult: item.mult,
+          bet: item.bet,
+          is_me: item.isMe
+        });
+      } catch (e) {
+        console.warn('Save history error', e);
+      }
+    }
+
+    // ===================== SCREENS =====================
     function showScreen(name) {
       ['pvp','history','profile','referrals'].forEach(s => {
         const el = $('screen-' + s);
@@ -403,6 +478,7 @@
       }
     }
 
+    // ===================== WHEEL =====================
     function updateWheel() {
       const wheel = $('wheel');
       const total = state.players.reduce((s, p) => s + p.amount, 0);
@@ -450,6 +526,7 @@
       }).join('');
     }
 
+    // ===================== BET =====================
     function openAddBet() {
       if (state.isSpinning) return showToast('Round in progress');
       $('bet-amount').value = Math.min(1, state.balance).toFixed(1);
@@ -460,13 +537,14 @@
       if (v === 'max') $('bet-amount').value = state.balance.toFixed(2);
       else $('bet-amount').value = v;
     }
-    function confirmBet() {
+    async function confirmBet() {
       const amount = parseFloat($('bet-amount').value);
       if (isNaN(amount) || amount < 0.1) return showToast('Min bet 0.1 GRAM');
       if (amount > state.balance) return showToast('Not enough balance');
 
       state.balance = +(state.balance - amount).toFixed(2);
       updateBalanceUI();
+      await saveBalance();
 
       let me = state.players.find(p => p.isMe);
       if (me) me.amount = +(me.amount + amount).toFixed(2);
@@ -502,6 +580,7 @@
       if (Math.random() > 0.3) startSpin();
     }
 
+    // ===================== SPIN =====================
     function startSpin() {
       if (state.isSpinning || state.players.length < 2) return;
       state.isSpinning = true;
@@ -535,7 +614,7 @@
       setTimeout(() => finishRound(winner, total), 4400);
     }
 
-    function finishRound(winner, total) {
+    async function finishRound(winner, total) {
       state.isSpinning = false;
       const mult = +(total / winner.amount).toFixed(2);
       const winAmount = +total.toFixed(2);
@@ -543,18 +622,25 @@
       if (winner.isMe) {
         state.balance = +(state.balance + winAmount).toFixed(2);
         updateBalanceUI();
+        await saveBalance();
         showToast('You won ' + formatGram(winAmount) + ' GRAM! x' + mult);
       } else {
         showToast('@' + winner.name + ' won ' + formatGram(winAmount) + ' GRAM');
       }
 
-      state.history.unshift({
+      const item = {
         id: state.rollId,
         winner: winner.isMe ? 'You' : winner.name,
         chance: +((winner.amount / total) * 100).toFixed(2),
-        win: winAmount, mult, bet: winner.amount,
-        time: new Date(), type: 'Classic', isMe: winner.isMe
-      });
+        win: winAmount,
+        mult,
+        bet: winner.amount,
+        time: new Date(),
+        type: 'Classic',
+        isMe: winner.isMe
+      };
+      state.history.unshift(item);
+      await saveHistoryItem(item);
 
       state.players = [];
       state.rollId++;
@@ -564,6 +650,7 @@
       updateWheel();
     }
 
+    // ===================== HISTORY =====================
     function setHistoryFilter(f) {
       state.historyFilter = f;
       document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -602,6 +689,7 @@
       }).join('');
     }
 
+    // ===================== PROFILE / BALANCE =====================
     function updateBalanceUI() {
       $('user-balance').textContent = formatGram(state.balance);
       $('bet-btn-balance').textContent = formatGram(state.balance) + ' Gram';
@@ -615,9 +703,10 @@
       $('modal-deposit').classList.remove('hidden');
       $('modal-deposit').classList.add('flex');
     }
-    function doDeposit(amount) {
+    async function doDeposit(amount) {
       state.balance = +(state.balance + amount).toFixed(2);
       updateBalanceUI();
+      await saveBalance();
       closeModals();
       showToast('+' + amount + ' GRAM deposited');
     }
@@ -640,11 +729,15 @@
       });
     }
 
-    function init() {
+    // ===================== INIT =====================
+    async function init() {
+      await loadOrCreateProfile();
+      await loadHistoryFromDB();
       updateWheel();
       updateBalanceUI();
       $('online-count').textContent = state.online + ' online';
       $('online-count-2').textContent = state.online + ' online';
+      $('profile-username').textContent = '@' + state.username;
       setInterval(() => {
         state.online = 60 + Math.floor(Math.random() * 40);
         document.querySelectorAll('#online-count, #online-count-2').forEach(e => e.textContent = state.online + ' online');
