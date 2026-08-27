@@ -1,5 +1,5 @@
 import { getAdminClient } from "./supabase";
-import { START_BALANCE } from "@/lib/constants";
+import { START_BALANCE, REFERRAL_DEPOSIT_PCT } from "@/lib/constants";
 
 export type LedgerReason =
   | "deposit_stars"
@@ -7,6 +7,8 @@ export type LedgerReason =
   | "bet"
   | "win"
   | "referral"
+  | "withdraw"
+  | "withdraw_fee"
   | "adjust"
   | "refund";
 
@@ -18,6 +20,11 @@ export interface ProfileRow {
   ref_earned: number;
   ref_count: number;
   telegram_id: number | null;
+  referred_by?: string | null;
+  photo_url?: string | null;
+  biggest_win?: number | null;
+  wins?: number | null;
+  games?: number | null;
 }
 
 /**
@@ -87,12 +94,14 @@ export async function getOrCreateProfile(
       ref_earned: 0,
       ref_count: 0,
       telegram_id: telegramId,
+      biggest_win: 0,
+      wins: 0,
+      games: 0,
     })
     .select("*")
     .single();
 
   if (error) {
-    // race: already created
     const { data: again } = await db
       .from("profiles")
       .select("*")
@@ -108,4 +117,65 @@ export async function getOrCreateProfile(
 export async function getBalance(telegramId: number): Promise<number> {
   const p = await getOrCreateProfile(telegramId);
   return Number(p.balance) || 0;
+}
+
+/**
+ * After a successful deposit, credit referrer % of deposit amount.
+ */
+export async function creditReferralOnDeposit(
+  depositorTelegramId: number,
+  depositGram: number,
+  meta: Record<string, unknown> = {}
+): Promise<void> {
+  if (depositGram <= 0 || REFERRAL_DEPOSIT_PCT <= 0) return;
+  const db = getAdminClient();
+
+  const { data: me } = await db
+    .from("profiles")
+    .select("id, referred_by")
+    .eq("telegram_id", depositorTelegramId)
+    .maybeSingle();
+
+  if (!me?.referred_by) return;
+
+  const { data: referrer } = await db
+    .from("profiles")
+    .select("id, telegram_id, ref_earned")
+    .eq("id", me.referred_by)
+    .maybeSingle();
+
+  if (!referrer?.telegram_id || referrer.telegram_id === depositorTelegramId) return;
+
+  const bonus = +(depositGram * REFERRAL_DEPOSIT_PCT).toFixed(4);
+  if (bonus <= 0) return;
+
+  await creditBalance(referrer.telegram_id, bonus, "referral", {
+    ...meta,
+    from: depositorTelegramId,
+    deposit_gram: depositGram,
+    pct: REFERRAL_DEPOSIT_PCT,
+  });
+
+  await db
+    .from("profiles")
+    .update({
+      ref_earned: +(Number(referrer.ref_earned || 0) + bonus).toFixed(4),
+    })
+    .eq("id", referrer.id);
+}
+
+export async function recordWinStats(
+  telegramId: number,
+  winAmount: number,
+  isWinner: boolean
+): Promise<void> {
+  const db = getAdminClient();
+  const p = await getOrCreateProfile(telegramId);
+  const games = (Number(p.games) || 0) + 1;
+  const wins = (Number(p.wins) || 0) + (isWinner ? 1 : 0);
+  const biggest = Math.max(Number(p.biggest_win) || 0, isWinner ? winAmount : 0);
+  await db
+    .from("profiles")
+    .update({ games, wins, biggest_win: biggest })
+    .eq("id", p.id);
 }

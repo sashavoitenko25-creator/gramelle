@@ -1,5 +1,7 @@
 "use client";
 
+import { REFERRAL_DEPOSIT_PCT, REFERRAL_JOIN_BONUS } from "@/lib/constants";
+
 interface HowRefModalProps {
   open: boolean;
   onClose: () => void;
@@ -8,6 +10,7 @@ interface HowRefModalProps {
 
 export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
   if (!open) return null;
+  const pct = Math.round(REFERRAL_DEPOSIT_PCT * 100);
 
   return (
     <div
@@ -30,8 +33,8 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
         <div className="space-y-3 mb-5">
           {[
             { n: "1", t: "Share your unique link" },
-            { n: "2", t: "Friend opens the Mini App" },
-            { n: "3", t: "You both get rewards" },
+            { n: "2", t: `Friend joins — you get ${REFERRAL_JOIN_BONUS} GRAM` },
+            { n: "3", t: `Earn ${pct}% of every deposit they make` },
           ].map((s) => (
             <div key={s.n} className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center text-xs font-bold text-violet-300">

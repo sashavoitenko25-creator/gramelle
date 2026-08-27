@@ -2,6 +2,7 @@
 
 import { Wheel } from "@/components/game/Wheel";
 import { PlayerList } from "@/components/game/PlayerList";
+import { TonIcon } from "@/components/ui/TonIcon";
 import type { Player } from "@/lib/types";
 import { formatGram, cn } from "@/lib/utils";
 import { ROOMS, type RoomMode } from "@/lib/constants";
@@ -41,7 +42,6 @@ export function PvpScreen({
 
   return (
     <div className="flex flex-col min-h-screen pb-28 safe-top">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500/30 to-cyan-500/20 border border-white/10 flex items-center justify-center">
@@ -63,7 +63,6 @@ export function PvpScreen({
         </div>
       </div>
 
-      {/* Room switcher */}
       <div className="mx-4 mb-3 flex gap-2 p-1 rounded-2xl bg-black/30 border border-white/[0.06]">
         {(Object.keys(ROOMS) as RoomMode[]).map((id) => {
           const r = ROOMS[id];
@@ -91,16 +90,15 @@ export function PvpScreen({
         })}
       </div>
 
-      {/* Bank */}
       <div className="mx-4 mt-1 mb-4 flex items-center justify-center">
-        <div className="px-6 py-2.5 rounded-full glass border border-white/[0.08]">
-          <span className="text-[11px] text-white/40 uppercase tracking-widest mr-2">
+        <div className="px-6 py-2.5 rounded-full glass border border-white/[0.08] flex items-center gap-2">
+          <span className="text-[11px] text-white/40 uppercase tracking-widest">
             Bank
           </span>
           <span className="text-base font-semibold text-gradient-cyan tabular-nums">
             {formatGram(total)}
           </span>
-          <span className="text-xs text-white/30 ml-1">GRAM</span>
+          <span className="text-xs text-white/30">GRAM</span>
         </div>
       </div>
 
@@ -111,7 +109,6 @@ export function PvpScreen({
         status={status}
       />
 
-      {/* Provably fair hash (compact) */}
       {serverSeedHash && (
         <div className="mx-4 mb-2 text-center">
           <p className="text-[9px] text-white/20 font-mono truncate">
@@ -120,21 +117,19 @@ export function PvpScreen({
         </div>
       )}
 
-      {/* Balance */}
       <div className="mx-4 mb-4 flex items-center gap-3">
         <div className="flex-1 flex items-center justify-between bg-white/[0.03] rounded-2xl px-4 py-3 border border-white/[0.06]">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-cyan-400">
-                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
-              </svg>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#0098EA]/15 border border-[#0098EA]/25 flex items-center justify-center">
+              <TonIcon size={18} />
             </div>
             <div>
               <div className="text-[10px] text-white/30 uppercase tracking-wider">
                 Balance
               </div>
-              <div className="text-sm font-semibold tabular-nums">
+              <div className="text-sm font-semibold tabular-nums flex items-center gap-1">
                 {formatGram(balance)}
+                <span className="text-[10px] text-white/35 font-medium">GRAM</span>
               </div>
             </div>
           </div>

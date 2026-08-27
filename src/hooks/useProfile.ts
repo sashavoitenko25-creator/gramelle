@@ -90,6 +90,10 @@ export function useProfile({
             ref_earned: session.profile.ref_earned,
             ref_count: session.profile.ref_count,
             telegram_id: session.user?.telegramId ?? telegramId,
+            photo_url: session.profile.photo_url,
+            biggest_win: session.profile.biggest_win,
+            wins: session.profile.wins,
+            games: session.profile.games,
           };
           setProfile(p);
           setBalance(p.balance);

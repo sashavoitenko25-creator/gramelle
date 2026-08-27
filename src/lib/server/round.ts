@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { getAdminClient } from "./supabase";
-import { creditBalance } from "./ledger";
+import { creditBalance, recordWinStats } from "./ledger";
 import {
   ROOMS,
   DEFAULT_ROOM,
@@ -363,6 +363,16 @@ export async function spinRound(
       is_me: b.telegram_id === winner.telegram_id,
       telegram_id: b.telegram_id,
     });
+  }
+
+  for (const b of bets) {
+    try {
+      await recordWinStats(
+        b.telegram_id,
+        potAfterFee,
+        b.telegram_id === winner.telegram_id
+      );
+    } catch {}
   }
 
   return {

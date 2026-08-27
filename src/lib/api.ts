@@ -36,6 +36,10 @@ export async function fetchSession() {
       referral_code: string;
       ref_earned: number;
       ref_count: number;
+      photo_url?: string | null;
+      biggest_win?: number;
+      wins?: number;
+      games?: number;
     };
     user?: { telegramId: number; username: string };
   }>("/api/auth/session", { method: "POST", body: "{}" });
@@ -169,4 +173,44 @@ export async function checkTonDeposits() {
     credited: Array<{ memo: string; gram: number }>;
     error?: string;
   }>("/api/ton/check", { method: "POST", body: "{}" });
+}
+
+
+export async function requestWithdraw(amountTon: number, wallet: string) {
+  return apiFetch<{
+    ok: boolean;
+    balance: number;
+    withdrawal: { id: string; amount_ton: number; status: string };
+  }>("/api/withdraw", {
+    method: "POST",
+    body: JSON.stringify({ amountTon, wallet }),
+  });
+}
+
+export async function fetchLedger(limit = 50) {
+  return apiFetch<{
+    items: Array<{
+      id: string;
+      amount: number;
+      balance_after: number;
+      reason: string;
+      meta: Record<string, unknown>;
+      created_at: string;
+    }>;
+    demo?: boolean;
+  }>(`/api/ledger?limit=${limit}`);
+}
+
+export async function fetchWithdrawals() {
+  return apiFetch<{
+    items: Array<{
+      id: string;
+      amount_ton: number;
+      amount_gram: number;
+      wallet_address: string;
+      status: string;
+      created_at: string;
+      tx_hash?: string;
+    }>;
+  }>("/api/withdraw");
 }

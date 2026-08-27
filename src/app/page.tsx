@@ -14,6 +14,9 @@ import { BetModal } from "@/components/modals/BetModal";
 import { DepositModal } from "@/components/modals/DepositModal";
 import { HowRefModal } from "@/components/modals/HowRefModal";
 import { Toast } from "@/components/ui/Toast";
+import { Confetti } from "@/components/ui/Confetti";
+import { WithdrawModal } from "@/components/modals/WithdrawModal";
+import { playSpinSound, playWinSound, playLoseSound } from "@/lib/sounds";
 import { placeBetApi } from "@/lib/api";
 import {
   MIN_BET,
@@ -75,6 +78,7 @@ export default function Home() {
     clearRound,
     refresh: refreshRound,
     serverSeedHash,
+    setAnimating,
   } = useRound(telegramId, username, mode);
 
   const [screen, setScreen] = useState<Screen>("pvp");
@@ -86,6 +90,12 @@ export default function Home() {
   const [betOpen, setBetOpen] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
   const [howRefOpen, setHowRefOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [confetti, setConfetti] = useState(false);
+  const [onboarded, setOnboarded] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("gramelle_onboarded") === "1";
+  });
 
   const playersRef = useRef(players);
   const spinningRef = useRef(isSpinning);
@@ -137,9 +147,11 @@ export default function Home() {
       pendingSpin;
 
     setIsSpinning(true);
+    setAnimating(true);
     setStatus("Spinning");
     setSpinDegrees(deg);
     haptic("medium");
+    playSpinSound();
     clearCountdown();
 
     const list = playersRef.current;
@@ -154,13 +166,18 @@ export default function Home() {
 
       if (isMe) {
         hapticSuccess();
+        playWinSound();
+        setConfetti(true);
+        setTimeout(() => setConfetti(false), 2400);
         showToast("You won " + (potAfterFee ?? total).toFixed(2) + " GRAM · x" + mult);
         await reloadProfile();
       } else {
         haptic("medium");
+        playLoseSound();
         showToast("@" + winnerUsername + " won " + total.toFixed(2) + " GRAM");
         await reloadProfile();
       }
+      setAnimating(false);
 
       await saveItem({
         id: rollIdRef.current,
@@ -193,6 +210,7 @@ export default function Home() {
     clearRound,
     refreshRound,
     clearCountdown,
+    setAnimating,
   ]);
 
   // Demo-mode local spin (when server not available)
@@ -246,6 +264,7 @@ export default function Home() {
     setIsSpinning(true);
     setStatus("Spinning");
     haptic("medium");
+    playSpinSound();
 
     const total = list.reduce((s, p) => s + p.amount, 0);
     let r = Math.random() * total;
@@ -445,16 +464,15 @@ export default function Home() {
 
   if (profileLoading) {
     return (
-      <div className="min-h-screen app-bg flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl border border-white/10 bg-white/[0.03] flex items-center justify-center pulse-soft">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-cyan-400/70">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 3v18M3 12h18" opacity="0.4" />
-            </svg>
-          </div>
-          <div className="text-white/30 text-xs tracking-wider uppercase">Loading</div>
+      <div className="min-h-screen app-bg px-4 pt-8 safe-top">
+        <div className="flex items-center justify-between mb-6">
+          <div className="skeleton h-8 w-28" />
+          <div className="skeleton h-7 w-16 rounded-full" />
         </div>
+        <div className="skeleton h-10 w-full rounded-2xl mb-4" />
+        <div className="skeleton h-[260px] w-[260px] mx-auto rounded-full mb-6" />
+        <div className="skeleton h-14 w-full rounded-2xl mb-3" />
+        <div className="skeleton h-12 w-full rounded-2xl" />
       </div>
     );
   }
@@ -498,9 +516,17 @@ export default function Home() {
         <ProfileScreen
           username={username}
           balance={balance}
+          photoUrl={profile?.photo_url}
+          wins={profile?.wins}
+          games={profile?.games}
+          biggestWin={profile?.biggest_win}
           onDeposit={() => {
             haptic("light");
             setDepositOpen(true);
+          }}
+          onWithdraw={() => {
+            haptic("light");
+            setWithdrawOpen(true);
           }}
           onReferrals={() => setScreen("referrals")}
         />
@@ -555,6 +581,46 @@ export default function Home() {
         onClose={() => setHowRefOpen(false)}
         onCopy={copyRefLink}
       />
+
+      <WithdrawModal
+        open={withdrawOpen}
+        onClose={() => setWithdrawOpen(false)}
+        balance={balance}
+        serverMode={serverMode}
+        onDone={(b) => {
+          if (typeof b === "number") setBalanceFromServer(b);
+          else reloadProfile();
+        }}
+        showToast={showToast}
+        haptic={haptic}
+        hapticSuccess={hapticSuccess}
+        hapticError={hapticError}
+      />
+
+      <Confetti active={confetti} />
+
+      {!onboarded && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center modal-backdrop">
+          <div className="w-full max-w-md glass-strong rounded-t-3xl p-6 slide-up border-t border-white/10 safe-bottom">
+            <h3 className="text-xl font-semibold tracking-tight mb-2">How it works</h3>
+            <div className="space-y-3 mb-5 text-sm text-white/70">
+              <p><span className="text-cyan-300 font-medium">1. Bet</span> — put GRAM into the round bank</p>
+              <p><span className="text-cyan-300 font-medium">2. Chance</span> — your share of the bank is your win chance</p>
+              <p><span className="text-cyan-300 font-medium">3. Spin</span> — winner takes the pot (minus 2% house)</p>
+            </div>
+            <button
+              className="w-full h-12 rounded-2xl btn-primary text-sm btn-press"
+              onClick={() => {
+                localStorage.setItem("gramelle_onboarded", "1");
+                setOnboarded(true);
+                haptic("light");
+              }}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
 
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>

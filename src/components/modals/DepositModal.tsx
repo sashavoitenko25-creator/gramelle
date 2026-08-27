@@ -302,7 +302,7 @@ export function DepositModal({
         {method === "ton" && tonStep === "pick" && (
           <div className="space-y-2.5">
             <p className="text-xs text-white/35 mb-3 leading-relaxed">
-              Send TON with the exact memo. Server verifies on-chain and credits GRAM.
+              Send TON with the exact memo. 1 TON = 1 GRAM. Server verifies on-chain and credits balance.
             </p>
             {TON_PACKAGES.map((p) => (
               <button

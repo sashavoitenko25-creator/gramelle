@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTelegramUser } from "@/lib/server/telegram";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
-import { creditBalance } from "@/lib/server/ledger";
+import { creditBalance, creditReferralOnDeposit } from "@/lib/server/ledger";
 import { TON_DEPOSIT_ADDRESS } from "@/lib/constants";
 
 /**
@@ -104,6 +104,12 @@ export async function POST(req: NextRequest) {
               tx: ev.event_id,
               ton: dep.amount_ton,
             });
+            try {
+              await creditReferralOnDeposit(auth.user.id, gram, {
+                memo,
+                tx: ev.event_id,
+              });
+            } catch {}
             credited.push({ memo, gram });
           }
         }

@@ -1,0 +1,124 @@
+import { NextRequest, NextResponse } from "next/server";
+import { AuthError, requireTelegramUser } from "@/lib/server/telegram";
+import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
+import { creditBalance, getOrCreateProfile } from "@/lib/server/ledger";
+import {
+  MIN_WITHDRAW_TON,
+  MAX_WITHDRAW_TON,
+  GRAM_PER_TON,
+} from "@/lib/constants";
+
+/**
+ * Request TON withdrawal.
+ * Debits balance immediately; admin/manual process sends TON on-chain.
+ */
+export async function POST(req: NextRequest) {
+  try {
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json({ error: "Server not configured" }, { status: 503 });
+    }
+
+    const auth = await requireTelegramUser(req);
+    const body = await req.json();
+    const amountTon = Number(body.amountTon ?? body.amount);
+    const wallet = String(body.wallet || body.address || "").trim();
+
+    if (!Number.isFinite(amountTon) || amountTon < MIN_WITHDRAW_TON) {
+      return NextResponse.json(
+        { error: `Minimum withdraw is ${MIN_WITHDRAW_TON} TON` },
+        { status: 400 }
+      );
+    }
+    if (amountTon > MAX_WITHDRAW_TON) {
+      return NextResponse.json(
+        { error: `Maximum withdraw is ${MAX_WITHDRAW_TON} TON` },
+        { status: 400 }
+      );
+    }
+    if (!wallet || wallet.length < 20) {
+      return NextResponse.json({ error: "Invalid TON wallet address" }, { status: 400 });
+    }
+
+    const amountGram = +(amountTon * GRAM_PER_TON).toFixed(4);
+    const profile = await getOrCreateProfile(auth.user.id);
+    if (Number(profile.balance) < amountGram) {
+      return NextResponse.json({ error: "Insufficient balance" }, { status: 400 });
+    }
+
+    const db = getAdminClient();
+
+    // pending withdrawal limit: max 3 open
+    const { count } = await db
+      .from("withdrawals")
+      .select("id", { count: "exact", head: true })
+      .eq("telegram_id", auth.user.id)
+      .in("status", ["pending", "processing"]);
+
+    if ((count || 0) >= 3) {
+      return NextResponse.json(
+        { error: "Too many pending withdrawals" },
+        { status: 429 }
+      );
+    }
+
+    const { balance } = await creditBalance(auth.user.id, -amountGram, "withdraw", {
+      amount_ton: amountTon,
+      wallet,
+    });
+
+    const { data: row, error } = await db
+      .from("withdrawals")
+      .insert({
+        telegram_id: auth.user.id,
+        profile_id: profile.id,
+        amount_gram: amountGram,
+        amount_ton: amountTon,
+        wallet_address: wallet,
+        status: "pending",
+      })
+      .select("id, amount_ton, amount_gram, status, created_at")
+      .single();
+
+    if (error) {
+      // refund on insert failure
+      await creditBalance(auth.user.id, amountGram, "refund", { reason: "withdraw_failed" });
+      throw error;
+    }
+
+    return NextResponse.json({
+      ok: true,
+      withdrawal: row,
+      balance,
+    });
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return NextResponse.json({ error: e.message }, { status: 401 });
+    }
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Withdraw failed" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json({ items: [], demo: true });
+    }
+    const auth = await requireTelegramUser(req);
+    const db = getAdminClient();
+    const { data } = await db
+      .from("withdrawals")
+      .select("id, amount_ton, amount_gram, wallet_address, status, created_at, processed_at, tx_hash")
+      .eq("telegram_id", auth.user.id)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    return NextResponse.json({ items: data || [] });
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return NextResponse.json({ error: e.message }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
+  }
+}

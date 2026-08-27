@@ -26,12 +26,14 @@ export function useRound(
     potAfterFee: number;
     houseFee: number;
     serverSeed?: string;
+    bets?: Player[];
   } | null>(null);
 
   const myIdRef = useRef(myTelegramId);
   const myNameRef = useRef(myName);
   const modeRef = useRef(mode);
   const handledSpinRoll = useRef<number | null>(null);
+  const animatingRef = useRef(false);
 
   myIdRef.current = myTelegramId;
   myNameRef.current = myName;
@@ -67,6 +69,7 @@ export function useRound(
       if (data.spinResult) {
         const rid = data.spinResult.rollId;
         if (handledSpinRoll.current !== rid) {
+          const mapped = mapBets(data.bets);
           setPendingSpin({
             spinDegrees: data.spinResult.spinDegrees,
             winnerTelegramId: data.spinResult.winnerTelegramId,
@@ -76,11 +79,17 @@ export function useRound(
             potAfterFee: data.spinResult.potAfterFee,
             houseFee: data.spinResult.houseFee,
             serverSeed: data.spinResult.serverSeed,
+            bets: mapped,
           });
+          if (mapped.length) setPlayers(mapped);
         }
-        setPlayers(mapBets(data.bets));
         if (data.round) setRollId(data.round.rollId);
         setRoundStatus("finished");
+        return;
+      }
+
+      // While client is animating a spin, ignore empty open-round overwrites
+      if (animatingRef.current) {
         return;
       }
 
@@ -100,13 +109,13 @@ export function useRound(
     }
   }, [mapBets]);
 
-  // Reset when room changes
   useEffect(() => {
     setPlayers([]);
     setPendingSpin(null);
     setCountdownEndsAt(null);
     setRoundStatus("open");
     handledSpinRoll.current = null;
+    animatingRef.current = false;
     refresh();
   }, [mode, refresh]);
 
@@ -156,8 +165,13 @@ export function useRound(
     setPendingSpin(null);
   }, [pendingSpin, rollId]);
 
+  const setAnimating = useCallback((v: boolean) => {
+    animatingRef.current = v;
+  }, []);
+
   const triggerSpin = useCallback(async () => {
     const result = await requestSpin(modeRef.current);
+    const mapped = result.bets ? mapBets(result.bets) : undefined;
     setPendingSpin({
       spinDegrees: result.spinDegrees,
       winnerTelegramId: result.winner.telegramId,
@@ -167,8 +181,9 @@ export function useRound(
       potAfterFee: result.potAfterFee,
       houseFee: result.houseFee,
       serverSeed: result.serverSeed,
+      bets: mapped,
     });
-    if (result.bets) setPlayers(mapBets(result.bets));
+    if (mapped) setPlayers(mapped);
     return result;
   }, [mapBets]);
 
@@ -178,6 +193,7 @@ export function useRound(
     setRoundStatus("open");
     setCountdownEndsAt(null);
     setPendingSpin(null);
+    animatingRef.current = false;
   }, []);
 
   return {
@@ -194,5 +210,6 @@ export function useRound(
     applyServerBets,
     triggerSpin,
     clearRound: clearRoundLocal,
+    setAnimating,
   };
 }

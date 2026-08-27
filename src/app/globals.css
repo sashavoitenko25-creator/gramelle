@@ -194,3 +194,46 @@ input[type="number"] { -moz-appearance: textfield; }
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--border-strong);
 }
+
+@keyframes confetti-fall {
+  0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
+
+.confetti-piece {
+  animation: confetti-fall 2.2s ease-in forwards;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shine 1.4s ease-in-out infinite;
+  border-radius: 12px;
+}
+
+@keyframes skeleton-shine {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Telegram theme support */
+html.tg-light {
+  --bg: #f4f4f7;
+  --bg-elevated: #ffffff;
+  --card: #ffffff;
+  --text: #0a0a0f;
+  --text-muted: rgba(0, 0, 0, 0.45);
+  --text-dim: rgba(0, 0, 0, 0.28);
+  --border: rgba(0, 0, 0, 0.06);
+  --border-strong: rgba(0, 0, 0, 0.1);
+}
+
+html.tg-light body {
+  background: var(--bg);
+  color: var(--text);
+}

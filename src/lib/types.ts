@@ -30,6 +30,10 @@ export interface Profile {
   ref_earned: number;
   ref_count: number;
   telegram_id?: number | null;
+  photo_url?: string | null;
+  biggest_win?: number;
+  wins?: number;
+  games?: number;
 }
 
 export type Screen = "pvp" | "history" | "profile" | "referrals";

@@ -56,8 +56,12 @@ export function useTelegram() {
       try {
         tg.ready();
         tg.expand();
-        tg.setHeaderColor?.("#07070b");
-        tg.setBackgroundColor?.("#07070b");
+        const scheme = tg.colorScheme || "dark";
+        document.documentElement.classList.toggle("tg-light", scheme === "light");
+        if (scheme === "dark") {
+          tg.setHeaderColor?.("#07070b");
+          tg.setBackgroundColor?.("#07070b");
+        }
       } catch {
         // ignore
       }

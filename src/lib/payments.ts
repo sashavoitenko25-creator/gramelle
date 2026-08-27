@@ -1,4 +1,9 @@
-import { GRAM_PER_STAR, GRAM_PER_TON, TON_DEPOSIT_ADDRESS } from "./constants";
+import {
+  GRAM_PER_STAR,
+  GRAM_PER_TON,
+  TON_DEPOSIT_ADDRESS,
+  TON_PACKAGES,
+} from "./constants";
 
 export type PaymentProvider = "stars" | "ton";
 
@@ -6,8 +11,11 @@ export function gramFromStars(stars: number): number {
   return stars * GRAM_PER_STAR;
 }
 
+/** 1 TON = 1 GRAM base rate (package bonuses applied via package.gram) */
 export function gramFromTon(ton: number): number {
-  return Math.round(ton * GRAM_PER_TON * 100) / 100;
+  const pack = TON_PACKAGES.find((p) => p.ton === ton);
+  if (pack) return pack.gram;
+  return Math.round(ton * GRAM_PER_TON * 10000) / 10000;
 }
 
 export function buildTonTransferLink(amountTon: number, comment: string): string {
