@@ -75,3 +75,4 @@ Vercel + set env + run schema.sql + setWebhook.
 - Cron tick: `/api/round/tick` every minute (`vercel.json`)
 
 Run migration: `supabase/phase2.sql`
+Vercel deployment test
