@@ -6,7 +6,6 @@
   <title>Gramelle — PvP Roulette</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -324,11 +323,7 @@
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // ===================== STATE =====================
-    const tg = window.Telegram?.WebApp;
-    if (tg) {
-      tg.ready();
-      tg.expand();
-    }
+    const COLORS = ['#a855f7','#22d3ee','#f59e0b','#ef4444','#10b981','#ec4899','#3b82f6','#eab308','#8b5cf6','#14b8a6','#f97316','#06b6d4','#d946ef','#84cc16'];
 
     let state = {
       balance: 25.00,
@@ -339,11 +334,10 @@
       isSpinning: false,
       refEarned: 0,
       refCount: 0,
-      username: tg?.initDataUnsafe?.user?.username || tg?.initDataUnsafe?.user?.first_name || ('Player' + Math.floor(Math.random() * 9000 + 1000)),
-      telegramId: tg?.initDataUnsafe?.user?.id || null,
+      username: 'Player' + Math.floor(Math.random() * 9000 + 1000),
       profileId: null,
       online: 72 + Math.floor(Math.random() * 20)
-};
+    };
 
     // ===================== HELPERS =====================
     function $(id) { return document.getElementById(id); }
@@ -370,69 +364,38 @@
 
     // ===================== SUPABASE PROFILE =====================
     async function loadOrCreateProfile() {
-      // Берём имя из Telegram или из localStorage
-      const saved = localStorage.getItem('gramelle_username');
-      if (saved && !state.telegramId) state.username = saved;
-      localStorage.setItem('gramelle_username', state.username);
+      let savedName = localStorage.getItem('gramelle_username');
+      if (savedName) state.username = savedName;
+      else localStorage.setItem('gramelle_username', state.username);
 
       try {
-        let data = null;
+        let { data, error } = await sb.from('profiles').select('*').eq('username', state.username).maybeSingle();
+        if (error) console.warn('Profile load error', error);
 
-        // Сначала ищем по telegram_id (если есть)
-        if (state.telegramId) {
-          const { data: byTg, error: tgErr } = await sb
-            .from('profiles')
-            .select('*')
-            .eq('telegram_id', state.telegramId)
-            .maybeSingle();
-          if (tgErr) console.warn('Profile by tg error', tgErr);
-          data = byTg;
-        }
-
-        // Если не нашли — ищем по username
         if (!data) {
-          const { data: byName, error } = await sb
-            .from('profiles')
-            .select('*')
-            .eq('username', state.username)
-            .maybeSingle();
-          if (error) console.warn('Profile load error', error);
-          data = byName;
-        }
-
-        // Если профиля нет — создаём
-        if (!data) {
-          const code = 'ref_' + state.username.toLowerCase().replace(/\s/g, '');
-          const insertData = {
+          const code = 'ref_' + state.username.toLowerCase();
+          const { data: created, error: createErr } = await sb.from('profiles').insert({
             username: state.username,
             balance: 25.00,
             referral_code: code,
             ref_earned: 0,
             ref_count: 0
-          };
-          if (state.telegramId) insertData.telegram_id = state.telegramId;
-
-          const { data: created, error: createErr } = await sb
-            .from('profiles')
-            .insert(insertData)
-            .select()
-            .single();
+          }).select().single();
           if (createErr) console.warn('Create profile error', createErr);
           else data = created;
         }
 
-    if (data) {
-      state.profileId = data.id;
-      state.balance = Number(data.balance) || 25;
-      state.refEarned = Number(data.ref_earned) || 0;
-      state.refCount = Number(data.ref_count) || 0;
-      if (data.username) state.username = data.username;
+        if (data) {
+          state.profileId = data.id;
+          state.balance = Number(data.balance) || 25;
+          state.refEarned = Number(data.ref_earned) || 0;
+          state.refCount = Number(data.ref_count) || 0;
+        }
+      } catch (e) {
+        console.warn('Profile exception', e);
+      }
+      updateBalanceUI();
     }
-  } catch (e) {
-    console.warn('Profile exception', e);
-  }
-  updateBalanceUI();
-}
 
     async function saveBalance() {
       if (!state.profileId) return;
