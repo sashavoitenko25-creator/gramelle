@@ -226,7 +226,7 @@ export default function Home() {
 
   const copyRefLink = useCallback(() => {
     const link =
-      "https://t.me/share/url?url=https://t.me/your_bot?start=ref_" +
+      "https://t.me/share/url?url=https://t.me/Gramelle_bot?start=ref_" +
       username.toLowerCase();
     if (navigator.clipboard) {
       navigator.clipboard
