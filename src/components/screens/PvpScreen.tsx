@@ -3,7 +3,8 @@
 import { Wheel } from "@/components/game/Wheel";
 import { PlayerList } from "@/components/game/PlayerList";
 import type { Player } from "@/lib/types";
-import { formatGram } from "@/lib/utils";
+import { formatGram, cn } from "@/lib/utils";
+import { ROOMS, type RoomMode } from "@/lib/constants";
 
 interface PvpScreenProps {
   players: Player[];
@@ -13,10 +14,12 @@ interface PvpScreenProps {
   isSpinning: boolean;
   spinDegrees: number;
   status: string;
+  mode: RoomMode;
+  onModeChange: (m: RoomMode) => void;
+  serverSeedHash?: string | null;
   onOpenBet: () => void;
   onOpenDeposit: () => void;
   onOpenHistory: () => void;
-  onClose?: () => void;
 }
 
 export function PvpScreen({
@@ -27,63 +30,80 @@ export function PvpScreen({
   isSpinning,
   spinDegrees,
   status,
+  mode,
+  onModeChange,
+  serverSeedHash,
   onOpenBet,
   onOpenDeposit,
-  onOpenHistory,
-  onClose,
 }: PvpScreenProps) {
   const total = players.reduce((s, p) => s + p.amount, 0);
+  const room = ROOMS[mode];
 
   return (
-    <div className="flex flex-col min-h-screen pb-20">
-      {/* Top bar */}
+    <div className="flex flex-col min-h-screen pb-28 safe-top">
+      {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <div className="flex items-center gap-1.5 text-xs text-emerald-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span>{online} online</span>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={onOpenHistory}
-            className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/60 hover:bg-white/10 transition text-sm"
-          >
-            ⏱
-          </button>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/60 text-sm"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Tournament banner */}
-      <div className="mx-4 mb-3">
-        <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 px-3 py-2.5 shadow-lg shadow-emerald-500/20">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🏆</span>
-            <span className="text-sm font-semibold text-white">
-              USDT PvP Tournament
-            </span>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500/30 to-cyan-500/20 border border-white/10 flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-cyan-300">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 3v18M3 12h18" opacity="0.5" />
+            </svg>
           </div>
-          <span className="text-white/80 text-lg">›</span>
+          <div>
+            <div className="text-sm font-semibold tracking-tight">Gramelle</div>
+            <div className="text-[10px] text-white/35 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+              {online > 0 ? `${online} in round` : "lobby"}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 bg-white/[0.04] rounded-full px-3 py-1.5 border border-white/[0.06]">
+          <span className="text-[10px] text-white/30 font-medium">#{rollId}</span>
         </div>
       </div>
 
-      {/* Total bank */}
-      <div className="mx-4 mb-4 flex items-center justify-center">
-        <div className="px-5 py-2 rounded-full bg-[#16161f] border border-white/10">
-          <span className="text-sm font-semibold tracking-wide">
-            TOTAL{" "}
-            <span className="text-cyan-300">{formatGram(total)} GRAM</span>
+      {/* Room switcher */}
+      <div className="mx-4 mb-3 flex gap-2 p-1 rounded-2xl bg-black/30 border border-white/[0.06]">
+        {(Object.keys(ROOMS) as RoomMode[]).map((id) => {
+          const r = ROOMS[id];
+          const active = mode === id;
+          return (
+            <button
+              key={id}
+              disabled={isSpinning}
+              onClick={() => onModeChange(id)}
+              className={cn(
+                "flex-1 py-2 rounded-xl text-xs font-semibold transition btn-press",
+                active
+                  ? id === "high"
+                    ? "bg-amber-500/20 text-amber-200 border border-amber-500/25"
+                    : "bg-white/10 text-white border border-white/10"
+                  : "text-white/40 hover:text-white/60 border border-transparent"
+              )}
+            >
+              {r.name}
+              <span className="block text-[9px] font-normal opacity-60 mt-0.5">
+                {r.minBet}+ GRAM
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Bank */}
+      <div className="mx-4 mt-1 mb-4 flex items-center justify-center">
+        <div className="px-6 py-2.5 rounded-full glass border border-white/[0.08]">
+          <span className="text-[11px] text-white/40 uppercase tracking-widest mr-2">
+            Bank
           </span>
+          <span className="text-base font-semibold text-gradient-cyan tabular-nums">
+            {formatGram(total)}
+          </span>
+          <span className="text-xs text-white/30 ml-1">GRAM</span>
         </div>
       </div>
 
-      {/* Wheel */}
       <Wheel
         players={players}
         isSpinning={isSpinning}
@@ -91,40 +111,63 @@ export function PvpScreen({
         status={status}
       />
 
-      {/* Balance row */}
-      <div className="mx-4 mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 bg-[#16161f] rounded-full px-2 py-1 border border-white/5">
-          <span className="text-xs text-white/40">#{rollId}</span>
+      {/* Provably fair hash (compact) */}
+      {serverSeedHash && (
+        <div className="mx-4 mb-2 text-center">
+          <p className="text-[9px] text-white/20 font-mono truncate">
+            hash {serverSeedHash.slice(0, 16)}…
+          </p>
         </div>
-        <div className="flex items-center gap-1.5 bg-[#16161f] rounded-full px-3 py-1.5 border border-white/5">
-          <span className="text-cyan-300 text-sm">💎</span>
-          <span className="text-sm font-medium">{formatGram(balance)}</span>
+      )}
+
+      {/* Balance */}
+      <div className="mx-4 mb-4 flex items-center gap-3">
+        <div className="flex-1 flex items-center justify-between bg-white/[0.03] rounded-2xl px-4 py-3 border border-white/[0.06]">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-cyan-400">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-[10px] text-white/30 uppercase tracking-wider">
+                Balance
+              </div>
+              <div className="text-sm font-semibold tabular-nums">
+                {formatGram(balance)}
+              </div>
+            </div>
+          </div>
           <button
             onClick={onOpenDeposit}
-            className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-xs ml-1"
+            className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-white/60 hover:bg-white/10 transition btn-press"
           >
-            +
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
           </button>
         </div>
       </div>
 
-      {/* Bet button */}
       <div className="mx-4 mb-5">
         <button
           onClick={onOpenBet}
           disabled={isSpinning}
-          className="w-full h-12 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition"
+          className="w-full py-3.5 rounded-2xl btn-primary text-sm tracking-wide btn-press disabled:opacity-40"
         >
-          💎 {formatGram(balance)} Gram — Place Bet
+          Place Bet · {room.minBet}–{room.maxBet}
         </button>
+        <p className="text-center text-[10px] text-white/20 mt-2">
+          House edge {(room.houseEdge * 100).toFixed(0)}% · max {room.maxPlayers} players
+        </p>
       </div>
 
-      {/* Players */}
       <div className="mx-4 mb-2 flex items-center justify-between">
-        <span className="text-xs text-white/40 uppercase tracking-wide">
-          Players ({players.length})
+        <span className="text-[11px] text-white/30 uppercase tracking-widest font-medium">
+          Players · {players.length}
         </span>
       </div>
+
       <PlayerList players={players} total={total} />
     </div>
   );

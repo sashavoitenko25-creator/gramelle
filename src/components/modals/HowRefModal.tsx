@@ -11,69 +11,46 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center modal-backdrop"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="w-full max-w-sm bg-[#16161f] rounded-2xl p-5 slide-up border border-white/10">
+      <div className="w-full max-w-md glass-strong rounded-t-3xl p-5 slide-up border-t border-white/10 safe-bottom">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">How Referrals Work</h3>
+          <h3 className="text-lg font-semibold tracking-tight">How referrals work</h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/50"
+            className="w-8 h-8 rounded-xl bg-white/[0.05] flex items-center justify-center text-white/40 btn-press"
           >
-            ✕
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
-        <div className="flex items-center justify-center gap-3 mb-5 py-3 bg-[#0a0a0f] rounded-xl">
-          <div className="text-center">
-            <div className="w-10 h-10 rounded-full bg-purple-500/30 flex items-center justify-center mx-auto mb-1 text-lg">
-              👥
+        <div className="space-y-3 mb-5">
+          {[
+            { n: "1", t: "Share your unique link" },
+            { n: "2", t: "Friend opens the Mini App" },
+            { n: "3", t: "You both get rewards" },
+          ].map((s) => (
+            <div key={s.n} className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center text-xs font-bold text-violet-300">
+                {s.n}
+              </div>
+              <span className="text-sm text-white/70">{s.t}</span>
             </div>
-            <div className="text-[10px] text-white/50">Invite friends</div>
-          </div>
-          <span className="text-white/30">→</span>
-          <div className="text-center">
-            <div className="w-10 h-10 rounded-full bg-cyan-500/30 flex items-center justify-center mx-auto mb-1 text-lg">
-              💎
-            </div>
-            <div className="text-[10px] text-white/50">Earn GRAM</div>
-          </div>
+          ))}
         </div>
 
-        <ol className="space-y-3 text-sm text-white/70 mb-5">
-          <li>
-            <strong className="text-white">1.</strong> Copy or share your personal link
-          </li>
-          <li>
-            <strong className="text-white">2.</strong> Friends start playing via your link
-          </li>
-          <li>
-            <strong className="text-white">3.</strong> Earn 10% of their fees — credited to
-            your balance
-          </li>
-        </ol>
-
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              onCopy();
-              onClose();
-            }}
-            className="flex-1 h-11 rounded-xl bg-white/10 text-sm font-medium"
-          >
-            Copy link
-          </button>
-          <button
-            onClick={() => {
-              onCopy();
-              onClose();
-            }}
-            className="flex-1 h-11 rounded-xl bg-white text-black text-sm font-semibold"
-          >
-            Invite
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            onCopy();
+            onClose();
+          }}
+          className="w-full h-11 rounded-xl btn-primary text-sm btn-press"
+        >
+          Copy my link
+        </button>
       </div>
     </div>
   );

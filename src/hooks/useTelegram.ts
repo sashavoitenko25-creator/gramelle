@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 interface TelegramUser {
   id: number;
@@ -14,12 +14,27 @@ interface TelegramWebApp {
   ready: () => void;
   expand: () => void;
   close: () => void;
+  initData?: string;
   initDataUnsafe?: {
     user?: TelegramUser;
     start_param?: string;
   };
   colorScheme?: "light" | "dark";
   themeParams?: Record<string, string>;
+  setHeaderColor?: (color: string) => void;
+  setBackgroundColor?: (color: string) => void;
+  openInvoice?: (
+    url: string,
+    callback?: (status: "paid" | "cancelled" | "failed" | "pending") => void
+  ) => void;
+  openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
+  openTelegramLink?: (url: string) => void;
+  HapticFeedback?: {
+    impactOccurred: (style: "light" | "medium" | "heavy" | "rigid" | "soft") => void;
+    notificationOccurred: (type: "error" | "success" | "warning") => void;
+  };
+  platform?: string;
+  isExpanded?: boolean;
 }
 
 declare global {
@@ -38,8 +53,14 @@ export function useTelegram() {
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     if (tg) {
-      tg.ready();
-      tg.expand();
+      try {
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor?.("#07070b");
+        tg.setBackgroundColor?.("#07070b");
+      } catch {
+        // ignore
+      }
       if (tg.initDataUnsafe?.user) {
         setUser(tg.initDataUnsafe.user);
       }
@@ -52,8 +73,60 @@ export function useTelegram() {
 
   const username =
     user?.username ||
-    user?.first_name ||
-    null;
+    (user?.first_name
+      ? user.first_name + (user.last_name ? " " + user.last_name : "")
+      : null);
+
+  const haptic = useCallback((style: "light" | "medium" | "heavy" = "light") => {
+    try {
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(style);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const hapticSuccess = useCallback(() => {
+    try {
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("success");
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const hapticError = useCallback(() => {
+    try {
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("error");
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  /** Open Telegram Stars invoice. Returns final status. */
+  const openStarsInvoice = useCallback(
+    (invoiceLink: string): Promise<"paid" | "cancelled" | "failed" | "pending"> => {
+      return new Promise((resolve) => {
+        const tg = window.Telegram?.WebApp;
+        if (!tg?.openInvoice) {
+          resolve("failed");
+          return;
+        }
+        tg.openInvoice(invoiceLink, (status) => {
+          resolve(status);
+        });
+      });
+    },
+    []
+  );
+
+  /** Open external / TON wallet link inside Telegram */
+  const openLink = useCallback((url: string) => {
+    const tg = window.Telegram?.WebApp;
+    if (tg?.openLink) {
+      tg.openLink(url);
+    } else {
+      window.open(url, "_blank");
+    }
+  }, []);
 
   return {
     user,
@@ -62,5 +135,11 @@ export function useTelegram() {
     isReady,
     startParam,
     close: () => window.Telegram?.WebApp?.close(),
+    haptic,
+    hapticSuccess,
+    hapticError,
+    openStarsInvoice,
+    openLink,
+    initData: typeof window !== "undefined" ? window.Telegram?.WebApp?.initData : undefined,
   };
 }

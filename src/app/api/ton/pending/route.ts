@@ -1,0 +1,62 @@
+import { NextRequest, NextResponse } from "next/server";
+import { AuthError, requireTelegramUser } from "@/lib/server/telegram";
+import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
+import { buildTonMemo } from "@/lib/payments";
+import { gramFromTon } from "@/lib/payments";
+
+/**
+ * Register a pending TON deposit intent (memo + expected amount).
+ * Client opens wallet; /api/ton/check will poll chain and credit.
+ */
+export async function POST(req: NextRequest) {
+  try {
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json({ error: "Server not configured" }, { status: 503 });
+    }
+
+    const auth = await requireTelegramUser(req);
+    const body = await req.json();
+    const ton = Number(body.ton);
+    if (!Number.isFinite(ton) || ton <= 0) {
+      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+    }
+
+    const username =
+      auth.user.username ||
+      auth.user.first_name ||
+      String(auth.user.id);
+
+    const memo = buildTonMemo(auth.user.id, username);
+    const gram = gramFromTon(ton);
+    const db = getAdminClient();
+
+    const { data, error } = await db
+      .from("ton_deposits")
+      .insert({
+        telegram_id: auth.user.id,
+        memo,
+        amount_ton: ton,
+        amount_gram: gram,
+        status: "pending",
+      })
+      .select("id, memo, amount_ton, amount_gram")
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      ok: true,
+      deposit: data,
+      memo,
+      gram,
+    });
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return NextResponse.json({ error: e.message }, { status: 401 });
+    }
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Failed" },
+      { status: 500 }
+    );
+  }
+}

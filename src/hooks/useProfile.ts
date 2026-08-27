@@ -1,131 +1,157 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { START_BALANCE } from "@/lib/constants";
+import { fetchSession } from "@/lib/api";
 import type { Profile } from "@/lib/types";
 
 interface UseProfileOptions {
   username: string | null;
   telegramId: number | null;
   isReady: boolean;
+  startParam: string | null;
 }
 
-export function useProfile({ username, telegramId, isReady }: UseProfileOptions) {
+const LOCAL_KEY = "gramelle_profile_v3";
+
+function loadLocal(name: string, telegramId: number | null): Profile {
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if (raw) {
+      const p = JSON.parse(raw) as Profile;
+      if (telegramId && p.telegram_id === telegramId) return p;
+      if (!telegramId && p.username === name) return p;
+    }
+  } catch {
+    // ignore
+  }
+  return {
+    id: "local_" + (telegramId || name),
+    username: name,
+    balance: START_BALANCE,
+    referral_code: "ref_" + name.toLowerCase().replace(/\s+/g, ""),
+    ref_earned: 0,
+    ref_count: 0,
+    telegram_id: telegramId,
+  };
+}
+
+function saveLocal(p: Profile) {
+  try {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(p));
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Profile + balance.
+ * Production: balance comes only from server session / bet / payment APIs.
+ * Demo (no server): localStorage fallback.
+ */
+export function useProfile({
+  username,
+  telegramId,
+  isReady,
+}: UseProfileOptions) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [balance, setBalance] = useState(START_BALANCE);
   const [loading, setLoading] = useState(true);
+  const [serverMode, setServerMode] = useState(false);
 
-  const loadOrCreate = useCallback(async () => {
+  const load = useCallback(async () => {
     if (!isReady) return;
+
     const name =
       username ||
-      localStorage.getItem("gramelle_username") ||
+      (typeof window !== "undefined"
+        ? localStorage.getItem("gramelle_username")
+        : null) ||
       "Player" + Math.floor(Math.random() * 9000 + 1000);
 
-    localStorage.setItem("gramelle_username", name);
-
-    try {
-      let data: Profile | null = null;
-
-      if (telegramId) {
-        const { data: byTg } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("telegram_id", telegramId)
-          .maybeSingle();
-        data = byTg as Profile | null;
-      }
-
-      if (!data) {
-        const { data: byName } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("username", name)
-          .maybeSingle();
-        data = byName as Profile | null;
-      }
-
-      if (!data) {
-        const code = "ref_" + name.toLowerCase().replace(/\s/g, "");
-        const insertData: Record<string, unknown> = {
-          username: name,
-          balance: START_BALANCE,
-          referral_code: code,
-          ref_earned: 0,
-          ref_count: 0,
-        };
-        if (telegramId) insertData.telegram_id = telegramId;
-
-        const { data: created, error } = await supabase
-          .from("profiles")
-          .insert(insertData)
-          .select()
-          .single();
-
-        if (!error && created) data = created as Profile;
-      }
-
-      if (data) {
-        setProfile(data);
-        setBalance(Number(data.balance) || START_BALANCE);
-      } else {
-        setProfile({
-          id: "",
-          username: name,
-          balance: START_BALANCE,
-          referral_code: "ref_" + name.toLowerCase(),
-          ref_earned: 0,
-          ref_count: 0,
-          telegram_id: telegramId,
-        });
-      }
-    } catch (e) {
-      console.warn("Profile error", e);
-      setProfile({
-        id: "",
-        username: name,
-        balance: START_BALANCE,
-        referral_code: "ref_" + name.toLowerCase(),
-        ref_earned: 0,
-        ref_count: 0,
-        telegram_id: telegramId,
-      });
-    } finally {
-      setLoading(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("gramelle_username", name);
     }
+
+    // Try secure server session first
+    try {
+      const initData =
+        typeof window !== "undefined"
+          ? window.Telegram?.WebApp?.initData
+          : "";
+      if (initData) {
+        const session = await fetchSession();
+        if (session.ok && session.profile) {
+          const p: Profile = {
+            id: session.profile.id,
+            username: session.profile.username,
+            balance: session.profile.balance,
+            referral_code: session.profile.referral_code,
+            ref_earned: session.profile.ref_earned,
+            ref_count: session.profile.ref_count,
+            telegram_id: session.user?.telegramId ?? telegramId,
+          };
+          setProfile(p);
+          setBalance(p.balance);
+          saveLocal(p);
+          setServerMode(true);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // fall through to local demo
+    }
+
+    const local = loadLocal(name, telegramId);
+    setProfile(local);
+    setBalance(local.balance);
+    setServerMode(false);
+    setLoading(false);
   }, [username, telegramId, isReady]);
 
   useEffect(() => {
-    loadOrCreate();
-  }, [loadOrCreate]);
+    load();
+  }, [load]);
 
+  /** Local-only balance update (demo). In server mode prefer setBalanceFromServer. */
   const saveBalance = useCallback(
     async (newBalance: number, refEarned?: number, refCount?: number) => {
       setBalance(newBalance);
-      if (!profile?.id) return;
-      try {
-        await supabase
-          .from("profiles")
-          .update({
-            balance: newBalance,
-            ...(refEarned !== undefined && { ref_earned: refEarned }),
-            ...(refCount !== undefined && { ref_count: refCount }),
-          })
-          .eq("id", profile.id);
-      } catch (e) {
-        console.warn("Save balance error", e);
-      }
+      setProfile((prev) => {
+        if (!prev) return prev;
+        const next = {
+          ...prev,
+          balance: newBalance,
+          ...(refEarned !== undefined && { ref_earned: refEarned }),
+          ...(refCount !== undefined && { ref_count: refCount }),
+        };
+        saveLocal(next);
+        return next;
+      });
     },
-    [profile?.id]
+    []
   );
+
+  const setBalanceFromServer = useCallback((newBalance: number) => {
+    setBalance(newBalance);
+    setProfile((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, balance: newBalance };
+      saveLocal(next);
+      return next;
+    });
+  }, []);
 
   return {
     profile,
     balance,
     setBalance,
     saveBalance,
+    setBalanceFromServer,
     loading,
+    serverMode,
+    reload: load,
     username: profile?.username || username || "Player",
   };
 }

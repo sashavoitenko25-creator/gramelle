@@ -1,3 +1,5 @@
+import type { RoomMode } from "./constants";
+
 export interface Player {
   id: number | string;
   name: string;
@@ -5,6 +7,7 @@ export interface Player {
   color: string;
   chance?: number;
   isMe: boolean;
+  telegramId?: number | null;
 }
 
 export interface HistoryItem {
@@ -30,5 +33,36 @@ export interface Profile {
 }
 
 export type Screen = "pvp" | "history" | "profile" | "referrals";
-
 export type HistoryFilter = "all" | "wins" | "my";
+export type DepositMethod = "stars" | "ton";
+
+export type RoundStatus = "open" | "countdown" | "spinning" | "finished";
+
+export interface RoundPublic {
+  id: string;
+  rollId: number;
+  mode: RoomMode;
+  status: RoundStatus;
+  totalBank: number;
+  countdownEndsAt?: string | null;
+  serverSeedHash?: string;
+  /** Revealed only after spin */
+  serverSeed?: string | null;
+  spinDegrees?: number | null;
+  winnerTelegramId?: number | null;
+  houseFee?: number;
+  potAfterFee?: number;
+}
+
+export interface SpinResultPublic {
+  rollId: number;
+  spinDegrees: number;
+  winnerTelegramId: number;
+  winnerUsername: string;
+  mult: number;
+  total: number;
+  potAfterFee: number;
+  houseFee: number;
+  serverSeed: string;
+  serverSeedHash: string;
+}

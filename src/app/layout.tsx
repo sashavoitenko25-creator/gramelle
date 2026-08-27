@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Gramelle — PvP Roulette",
-  description: "PvP Roulette Mini App",
+  description: "Premium PvP Roulette Mini App",
 };
 
 export const viewport: Viewport = {
@@ -12,6 +12,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#07070b",
 };
 
 export default function RootLayout({
@@ -20,14 +21,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <head>
         <Script
           src="https://telegram.org/js/telegram-web-app.js"
           strategy="beforeInteractive"
         />
       </head>
-      <body className="min-h-full flex flex-col bg-[#0a0a0f] text-white">
+      <body className="min-h-full flex flex-col app-bg text-white">
         {children}
       </body>
     </html>

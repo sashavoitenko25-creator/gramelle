@@ -1,37 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gramelle — Premium PvP Roulette
 
-## Getting Started
+Telegram Mini App with **server-authoritative** balance, bets, and spin.
 
-First, run the development server:
+## Phase 1 security model
+
+| Layer | How |
+|-------|-----|
+| Auth | `initData` HMAC verified on every API call |
+| Balance | Only via `ledger` + service role (never from client) |
+| Stars | Bot webhook `successful_payment` → credit |
+| TON | Memo intent + TonAPI match → credit |
+| Spin | Server seed + HMAC RNG, result returned to clients |
+
+## Setup
+
+```bash
+npm install
+cp .env.example .env.local
+# fill keys
+```
+
+Run SQL in Supabase: `supabase/schema.sql`
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Env
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | yes | DB |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | public read |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | server writes |
+| `TELEGRAM_BOT_TOKEN` | yes | initData + Stars invoices |
+| `TELEGRAM_WEBHOOK_SECRET` | recommended | webhook auth |
+| `NEXT_PUBLIC_TON_WALLET` | for TON | deposit address |
+| `TONAPI_KEY` | recommended | on-chain verify |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Webhook (Stars)
 
-## Learn More
+```
+https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://YOUR_DOMAIN/api/webhooks/telegram&secret_token=YOUR_SECRET
+```
 
-To learn more about Next.js, take a look at the following resources:
+## API
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Route | Auth | Role |
+|-------|------|------|
+| `POST /api/auth/session` | initData | upsert profile, return balance |
+| `POST /api/bet` | initData | debit + join round |
+| `GET /api/round/state` | — | current round + auto-spin if due |
+| `POST /api/round/spin` | initData | force spin after countdown |
+| `POST /api/stars-invoice` | initData | create XTR invoice |
+| `POST /api/webhooks/telegram` | secret | Stars credit |
+| `POST /api/ton/pending` | initData | register memo |
+| `POST /api/ton/check` | initData | match chain + credit |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Demo mode
 
-## Deploy on Vercel
+Without Supabase / bot token / outside Telegram, the app falls back to localStorage (client-only). Production requires full env + opening inside Telegram.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deploy
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-"# gramelles" 
+Vercel + set env + run schema.sql + setWebhook.
+
+## Phase 2 — Multiplayer rooms
+
+- Rooms: **Classic** (0.1+) and **High** (10+)
+- Server authority spin (optimistic lock via `status` + `version`)
+- Same `spinDegrees` for all clients (seed-derived)
+- House edge 2% from bank before payout
+- Betting closed in last 1s of countdown
+- Cron tick: `/api/round/tick` every minute (`vercel.json`)
+
+Run migration: `supabase/phase2.sql`
