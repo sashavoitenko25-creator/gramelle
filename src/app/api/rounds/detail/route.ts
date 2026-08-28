@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const { data: round, error } = await db
       .from("rounds")
       .select(
-        "id, roll_id, mode, total_bank, house_fee, pot_after_fee, winner_telegram_id, server_seed_hash, server_seed, created_at, status"
+        "id, roll_id, mode, total_bank, house_fee, pot_after_fee, winner_telegram_id, server_seed_hash, server_seed, client_seed, created_at, status"
       )
       .eq("roll_id", rollId)
       .eq("status", "finished")
@@ -50,18 +50,28 @@ export async function GET(req: NextRequest) {
         .in("telegram_id", ids);
       for (const p of profiles || []) {
         if (p.telegram_id != null) {
-          if (p.photo_url) photoByTg.set(Number(p.telegram_id), String(p.photo_url));
-          if (p.username) nameByTg.set(Number(p.telegram_id), String(p.username));
+          if (p.photo_url)
+            photoByTg.set(Number(p.telegram_id), String(p.photo_url));
+          if (p.username)
+            nameByTg.set(Number(p.telegram_id), String(p.username));
         }
       }
     }
+
+    const rollInfo: Record<
+      string,
+      { amount: number; username: string }
+    > = {};
 
     const players = list.map((b) => {
       const amt = Number(b.amount) || 0;
       const chance = bank > 0 ? +((amt / bank) * 100).toFixed(2) : 0;
       const tg = Number(b.telegram_id);
+      const username = b.username || nameByTg.get(tg) || "Player";
+      rollInfo[String(tg)] = { amount: +amt.toFixed(4), username };
       return {
-        username: b.username || nameByTg.get(tg) || "Player",
+        telegramId: tg,
+        username,
         amount: amt,
         chance,
         color: b.color,
@@ -70,7 +80,9 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    players.sort((a, b) => Number(b.isWinner) - Number(a.isWinner) || b.amount - a.amount);
+    players.sort(
+      (a, b) => Number(b.isWinner) - Number(a.isWinner) || b.amount - a.amount
+    );
 
     const winnerRow = players.find((p) => p.isWinner);
     const winnerAmt = winnerRow?.amount || 0;
@@ -83,13 +95,16 @@ export async function GET(req: NextRequest) {
       pot,
       houseFee,
       winner: winnerRow?.username || "—",
+      winnerTelegramId: winnerTg,
       winnerPhoto: winnerRow?.photoUrl || null,
       chance: winnerRow?.chance || 0,
       mult,
       serverSeedHash: round.server_seed_hash,
       serverSeed: round.server_seed,
+      clientSeed: round.client_seed || "gramelle",
       at: round.created_at,
       players,
+      rollInfo,
     });
   } catch (e) {
     return NextResponse.json(

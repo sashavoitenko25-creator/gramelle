@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { formatGram, cn } from "@/lib/utils";
 
 interface PlayerRow {
+  telegramId?: number;
   username: string;
   amount: number;
   chance: number;
@@ -24,8 +25,10 @@ interface DetailData {
   mult?: number;
   serverSeedHash?: string | null;
   serverSeed?: string | null;
+  clientSeed?: string | null;
   at?: string;
   players: PlayerRow[];
+  rollInfo?: Record<string, { amount: number; username: string }>;
 }
 
 interface Props {
@@ -67,20 +70,59 @@ function copyText(text: string) {
   }
 }
 
+function CopyBtn({ text, label }: { text: string; label?: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      title={label || "Copy"}
+      onClick={(e) => {
+        e.stopPropagation();
+        copyText(text);
+        setDone(true);
+        setTimeout(() => setDone(false), 1200);
+      }}
+      className={cn(
+        "shrink-0 h-7 w-7 rounded-lg border flex items-center justify-center transition",
+        done
+          ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-300"
+          : "border-white/10 bg-white/[0.05] text-white/45 hover:text-white/80"
+      )}
+    >
+      {done ? (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="9" y="9" width="11" height="11" rx="2" />
+          <path d="M5 15V5a2 2 0 012-2h10" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 export function RoundDetailModal({ open, rollId, onClose }: Props) {
   const [data, setData] = useState<DetailData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [legit, setLegit] = useState<"idle" | "loading" | "ok" | "fail">("idle");
+  const [legitMsg, setLegitMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || rollId == null) {
       setData(null);
       setError(null);
+      setLegit("idle");
+      setLegitMsg(null);
       return;
     }
     let alive = true;
     setLoading(true);
     setError(null);
+    setLegit("idle");
+    setLegitMsg(null);
     fetch(`/api/rounds/detail?rollId=${rollId}`)
       .then(async (r) => {
         const j = await r.json();
@@ -97,6 +139,52 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
       alive = false;
     };
   }, [open, rollId]);
+
+  const downloadRollInfo = () => {
+    if (!data) return;
+    const payload =
+      data.rollInfo ||
+      Object.fromEntries(
+        (data.players || []).map((p) => [
+          String(p.telegramId || p.username),
+          { amount: +Number(p.amount).toFixed(4), username: p.username },
+        ])
+      );
+    const blob = new Blob([JSON.stringify(payload)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `gramelle-roll-${data.rollId}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const runLegitCheck = async () => {
+    if (rollId == null) return;
+    setLegit("loading");
+    setLegitMsg(null);
+    try {
+      const res = await fetch(`/api/verify?rollId=${rollId}`);
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "Verify failed");
+      const ok = Boolean(j.ok && j.hashMatches && j.winnerMatches);
+      if (ok) {
+        setLegit("ok");
+        setLegitMsg("Hash matches seed · winner recomputed correctly");
+      } else {
+        setLegit("fail");
+        const parts: string[] = [];
+        if (!j.hashMatches) parts.push("hash ≠ seed");
+        if (!j.winnerMatches) parts.push("winner mismatch");
+        setLegitMsg(parts.join(" · ") || "Verification failed");
+      }
+    } catch (e) {
+      setLegit("fail");
+      setLegitMsg(e instanceof Error ? e.message : "Verify failed");
+    }
+  };
 
   if (!open) return null;
 
@@ -149,39 +237,93 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
 
           {data && (
             <>
-              {/* Fairness */}
+              {/* Fairness rows with copy */}
               <div className="space-y-2">
                 {hash && (
-                  <button
-                    type="button"
-                    onClick={() => copyText(hash)}
-                    className="w-full flex items-center justify-between gap-2 rounded-2xl bg-white/[0.04] border border-white/[0.07] px-3.5 py-2.5 text-left"
-                  >
-                    <span className="text-[10px] text-white/35 uppercase tracking-wider shrink-0">
+                  <div className="w-full flex items-center gap-2 rounded-2xl bg-white/[0.04] border border-white/[0.07] px-3 py-2">
+                    <span className="text-[10px] text-white/35 uppercase tracking-wider shrink-0 w-10">
                       Hash
                     </span>
-                    <span className="text-[11px] font-mono text-white/60 truncate">
-                      {hash.slice(0, 10)}…{hash.slice(-6)}
+                    <span className="text-[11px] font-mono text-white/60 truncate flex-1">
+                      {hash.slice(0, 12)}…{hash.slice(-8)}
                     </span>
-                  </button>
+                    <CopyBtn text={hash} label="Copy hash" />
+                  </div>
                 )}
                 {seed && (
-                  <button
-                    type="button"
-                    onClick={() => copyText(seed)}
-                    className="w-full flex items-center justify-between gap-2 rounded-2xl bg-white/[0.04] border border-white/[0.07] px-3.5 py-2.5 text-left"
-                  >
-                    <span className="text-[10px] text-white/35 uppercase tracking-wider shrink-0">
+                  <div className="w-full flex items-center gap-2 rounded-2xl bg-white/[0.04] border border-white/[0.07] px-3 py-2">
+                    <span className="text-[10px] text-white/35 uppercase tracking-wider shrink-0 w-10">
                       Seed
                     </span>
-                    <span className="text-[11px] font-mono text-white/60 truncate">
-                      {seed.slice(0, 8)}…{seed.slice(-6)}
+                    <span className="text-[11px] font-mono text-white/60 truncate flex-1">
+                      {seed.slice(0, 10)}…{seed.slice(-8)}
                     </span>
-                  </button>
+                    <CopyBtn text={seed} label="Copy seed" />
+                  </div>
                 )}
               </div>
 
-              {/* Winner card */}
+              {/* Actions */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={downloadRollInfo}
+                  className="h-11 rounded-2xl bg-white/[0.05] border border-white/10 text-[12px] font-semibold text-white/75 hover:bg-white/[0.08] transition flex items-center justify-center gap-1.5"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 3v12M7 10l5 5 5-5M5 19h14" />
+                  </svg>
+                  Roll info
+                </button>
+                <button
+                  type="button"
+                  onClick={runLegitCheck}
+                  disabled={legit === "loading"}
+                  className={cn(
+                    "h-11 rounded-2xl border text-[12px] font-semibold transition flex items-center justify-center gap-1.5",
+                    legit === "ok"
+                      ? "bg-emerald-500/20 border-emerald-400/40 text-emerald-200 shadow-[0_0_24px_rgba(52,211,153,0.25)]"
+                      : legit === "fail"
+                        ? "bg-red-500/15 border-red-400/35 text-red-200"
+                        : "bg-cyan-500/10 border-cyan-400/25 text-cyan-100 hover:bg-cyan-500/15"
+                  )}
+                >
+                  {legit === "loading" ? (
+                    "Checking…"
+                  ) : legit === "ok" ? (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M5 13l4 4L19 7" />
+                      </svg>
+                      Legit
+                    </>
+                  ) : legit === "fail" ? (
+                    "Failed"
+                  ) : (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 3l8 4v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7l8-4z" />
+                      </svg>
+                      Legit Check
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {legitMsg && (
+                <p
+                  className={cn(
+                    "text-[11px] text-center rounded-xl px-3 py-2 border",
+                    legit === "ok"
+                      ? "text-emerald-200/90 bg-emerald-500/10 border-emerald-500/20"
+                      : "text-red-200/90 bg-red-500/10 border-red-500/20"
+                  )}
+                >
+                  {legitMsg}
+                </p>
+              )}
+
+              {/* Winner */}
               <div className="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-violet-500/5 p-4">
                 <div className="text-[10px] uppercase tracking-[0.14em] text-cyan-300/60 mb-2.5">
                   Winner
