@@ -46,6 +46,7 @@ export function useRound(
         username: string;
         amount: number;
         color: string;
+        photoUrl?: string | null;
       }>
     ): Player[] =>
       bets.map((b) => ({
@@ -57,6 +58,7 @@ export function useRound(
           ? b.telegramId === myIdRef.current
           : b.username === myNameRef.current,
         telegramId: b.telegramId,
+        photoUrl: b.photoUrl || null,
       })),
     []
   );
@@ -148,6 +150,7 @@ export function useRound(
         amount: number;
         color: string;
         isMe?: boolean;
+        photoUrl?: string | null;
       }>,
       roll: number,
       status: string,
@@ -165,6 +168,7 @@ export function useRound(
               ? b.telegramId === myIdRef.current
               : b.username === myNameRef.current),
           telegramId: b.telegramId,
+          photoUrl: b.photoUrl || null,
         }))
       );
       setRollId(roll);

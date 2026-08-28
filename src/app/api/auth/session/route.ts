@@ -19,7 +19,11 @@ export async function POST(req: NextRequest) {
       [auth.user.first_name, auth.user.last_name].filter(Boolean).join(" ") ||
       "Player" + String(auth.user.id).slice(-4);
 
-    const profile = await getOrCreateProfile(auth.user.id, username);
+    const profile = await getOrCreateProfile(
+      auth.user.id,
+      username,
+      auth.user.photo_url || null
+    );
 
     // referral once: start_param ref_*
     if (auth.startParam?.startsWith("ref_")) {

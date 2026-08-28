@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
         username: b.username,
         amount: Number(b.amount),
         color: b.color,
+        photoUrl: b.photo_url || null,
       }));
 
     if (result.action === "spun" && result.spin) {

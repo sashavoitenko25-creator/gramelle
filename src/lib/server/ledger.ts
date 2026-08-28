@@ -139,7 +139,8 @@ export async function creditBalance(
 
 export async function getOrCreateProfile(
   telegramId: number,
-  usernameHint?: string
+  usernameHint?: string,
+  photoUrl?: string | null
 ): Promise<ProfileRow> {
   const db = getAdminClient();
 
@@ -149,7 +150,25 @@ export async function getOrCreateProfile(
     .eq("telegram_id", telegramId)
     .maybeSingle();
 
-  if (existing) return existing as ProfileRow;
+  if (existing) {
+    const patch: Record<string, unknown> = {};
+    if (usernameHint && usernameHint !== existing.username) {
+      // keep username stable unless empty
+    }
+    if (photoUrl && photoUrl !== existing.photo_url) {
+      patch.photo_url = photoUrl;
+    }
+    if (Object.keys(patch).length) {
+      const { data: updated } = await db
+        .from("profiles")
+        .update(patch)
+        .eq("id", existing.id)
+        .select("*")
+        .maybeSingle();
+      if (updated) return updated as ProfileRow;
+    }
+    return existing as ProfileRow;
+  }
 
   const name = usernameHint || "Player" + String(telegramId).slice(-4);
   const code =
@@ -167,6 +186,7 @@ export async function getOrCreateProfile(
       ref_earned: 0,
       ref_count: 0,
       telegram_id: telegramId,
+      photo_url: photoUrl || null,
       biggest_win: 0,
       wins: 0,
       games: 0,

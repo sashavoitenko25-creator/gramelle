@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
       amount,
       color,
       mode,
+      photoUrl: auth.user.photo_url || null,
     });
 
     return NextResponse.json({
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
         username: b.username,
         amount: Number(b.amount),
         color: b.color,
+        photoUrl: b.photo_url || null,
         isMe: b.telegram_id === auth.user.id,
       })),
     });

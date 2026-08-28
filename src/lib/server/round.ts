@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { getAdminClient } from "./supabase";
-import { creditBalance, recordWinStats } from "./ledger";
+import { creditBalance, recordWinStats, getOrCreateProfile } from "./ledger";
 import { creditHouse } from "./house";
 import { payReferralFromHouseFee } from "./referral";
 import {
@@ -15,6 +15,7 @@ export interface RoundBet {
   username: string;
   amount: number;
   color: string;
+  photo_url?: string | null;
 }
 
 export interface RoundRow {
@@ -58,6 +59,30 @@ export function seededRandom(
 
 export function getRoomConfig(mode: RoomMode): RoomConfig {
   return ROOMS[mode] || ROOMS[DEFAULT_ROOM];
+}
+
+
+/** Attach profile photo_url to each bet (for UI avatars). */
+export async function enrichBetsWithPhotos(
+  bets: RoundBet[]
+): Promise<RoundBet[]> {
+  if (!bets.length) return bets;
+  const db = getAdminClient();
+  const ids = [...new Set(bets.map((b) => b.telegram_id))];
+  const { data: profiles } = await db
+    .from("profiles")
+    .select("telegram_id, photo_url")
+    .in("telegram_id", ids);
+  const map = new Map<number, string | null>();
+  for (const p of profiles || []) {
+    if (p.telegram_id != null) {
+      map.set(Number(p.telegram_id), p.photo_url || null);
+    }
+  }
+  return bets.map((b) => ({
+    ...b,
+    photo_url: map.get(b.telegram_id) ?? b.photo_url ?? null,
+  }));
 }
 
 export async function getOpenRound(
@@ -122,10 +147,15 @@ export async function placeBet(opts: {
   amount: number;
   color: string;
   mode?: RoomMode;
+  photoUrl?: string | null;
 }): Promise<{ round: RoundRow; bets: RoundBet[]; balance: number }> {
   const mode = opts.mode || DEFAULT_ROOM;
   const room = getRoomConfig(mode);
-  const { telegramId, username, amount, color } = opts;
+  const { telegramId, username, amount, color, photoUrl } = opts;
+  try {
+    await getOrCreateProfile(telegramId, username, photoUrl);
+  } catch {}
+
 
   if (amount < room.minBet) {
     throw new Error(`Min bet ${room.minBet} GRAM`);
@@ -223,7 +253,8 @@ export async function placeBet(opts: {
   }
 
   round.total_bank = newBank;
-  return { round, bets: list, balance };
+  const withPhotos = await enrichBetsWithPhotos(list);
+  return { round, bets: withPhotos, balance };
 }
 
 /**
@@ -394,6 +425,7 @@ export async function spinRound(
     } catch {}
   }
 
+  const betsWithPhotos = await enrichBetsWithPhotos(bets);
   return {
     round: {
       ...round,
@@ -410,7 +442,7 @@ export async function spinRound(
     mult,
     houseFee,
     potAfterFee,
-    bets,
+    bets: betsWithPhotos,
   };
 }
 
@@ -446,11 +478,16 @@ export async function tickRoom(mode: RoomMode = DEFAULT_ROOM): Promise<{
     } catch {
       // another authority won the race
       const fresh = await getOpenRound(mode);
-      return { action: "waiting", round: fresh, bets };
+      return {
+        action: "waiting",
+        round: fresh,
+        bets: await enrichBetsWithPhotos(bets),
+      };
     }
   }
 
-  return { action: "waiting", round, bets };
+  const withPhotos = await enrichBetsWithPhotos(bets);
+  return { action: "waiting", round, bets: withPhotos };
 }
 
 export async function getRoundState(mode: RoomMode = DEFAULT_ROOM) {

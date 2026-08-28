@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
         username: b.username,
         amount: Number(b.amount),
         color: b.color,
+        photoUrl: b.photo_url || null,
       })),
     });
   } catch (e) {
