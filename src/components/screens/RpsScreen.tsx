@@ -162,9 +162,11 @@ async function sha256Hex(text: string): Promise<string> {
     .join("");
 }
 
-function easeOutCubic(t: number) {
+/** Slot-like ease: stays fast longer, then gently coasts to a stop */
+function easeOutSpin(t: number) {
   const x = Math.min(1, Math.max(0, t));
-  return 1 - Math.pow(1 - x, 3);
+  // quintic ease-out
+  return 1 - Math.pow(1 - x, 5);
 }
 
 function HashRow({
@@ -208,31 +210,30 @@ function HashRow({
 /* ─── Reel ─────────────────────────────────────────────── */
 function ReelColumn({
   offset,
-  spinning,
+  settled,
   accent,
 }: {
   offset: number;
-  spinning: boolean;
+  settled: boolean;
   accent: "fuchsia" | "cyan";
 }) {
-  // Long repeating strip for continuous scroll illusion
-  const strip: RpsChoice[] = [];
-  for (let i = 0; i < 40; i++) strip.push(CYCLE[i % 3]);
+  // Long strip — enough cells for full spin distance
+  const strip = useMemo(() => {
+    const arr: RpsChoice[] = [];
+    for (let i = 0; i < 60; i++) arr.push(CYCLE[i % 3]);
+    return arr;
+  }, []);
 
-  const border = spinning
-    ? "border-white/12"
-    : accent === "fuchsia"
+  const border = settled
+    ? accent === "fuchsia"
       ? "border-fuchsia-400/40 shadow-[0_0_32px_rgba(232,121,249,0.22)]"
-      : "border-cyan-400/40 shadow-[0_0_32px_rgba(34,211,238,0.22)]";
+      : "border-cyan-400/40 shadow-[0_0_32px_rgba(34,211,238,0.22)]"
+    : "border-white/12";
 
   const glow =
     accent === "fuchsia"
       ? "from-fuchsia-500/20 to-violet-600/10"
       : "from-cyan-500/20 to-teal-600/10";
-
-  // Visual offset wraps for infinite feel while spinning
-  const cycleLen = ITEM_H * 3;
-  const visual = spinning ? offset % cycleLen : offset;
 
   return (
     <div
@@ -242,7 +243,7 @@ function ReelColumn({
       )}
       style={{ height: REEL_H }}
     >
-      {!spinning && (
+      {settled && (
         <div
           className={cn(
             "absolute inset-0 bg-gradient-to-b pointer-events-none z-[1]",
@@ -250,13 +251,16 @@ function ReelColumn({
           )}
         />
       )}
-      <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/80 to-transparent z-[2] pointer-events-none" />
-      <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/80 to-transparent z-[2] pointer-events-none" />
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[72px] border-y border-white/10 z-[2] pointer-events-none" />
+      <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/85 to-transparent z-[2] pointer-events-none" />
+      <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/85 to-transparent z-[2] pointer-events-none" />
+      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[72px] border-y border-white/[0.12] z-[2] pointer-events-none" />
 
       <div
-        className="absolute left-0 right-0 will-change-transform"
-        style={{ transform: `translateY(${-visual}px)` }}
+        className="absolute left-0 right-0"
+        style={{
+          transform: `translate3d(0, ${-offset}px, 0)`,
+          willChange: "transform",
+        }}
       >
         {strip.map((c, i) => (
           <div
@@ -267,8 +271,8 @@ function ReelColumn({
             <ChoiceIcon
               choice={c}
               className={cn(
-                "w-9 h-9",
-                spinning ? "text-white/55" : "text-white/90"
+                "w-9 h-9 transition-colors duration-300",
+                settled ? "text-white/90" : "text-white/50"
               )}
             />
           </div>
@@ -279,7 +283,8 @@ function ReelColumn({
 }
 
 /**
- * Countdown → dual reels ease-out over ~5s and land on real choices
+ * 3-2-1 → both reels roll continuously with smooth deceleration (~5s)
+ * and stop exactly on each player's real choice. No jumps / snaps.
  */
 function ReelReveal({
   room,
@@ -294,17 +299,19 @@ function ReelReveal({
   const [count, setCount] = useState(3);
   const [leftOff, setLeftOff] = useState(0);
   const [rightOff, setRightOff] = useState(0);
-  const [leftSpin, setLeftSpin] = useState(true);
-  const [rightSpin, setRightSpin] = useState(true);
+  const [leftSettled, setLeftSettled] = useState(false);
+  const [rightSettled, setRightSettled] = useState(false);
   const doneRef = useRef(false);
 
-  /** Offset so center window shows `choice` after `loops` full cycles */
-  const targetOffset = (choice: RpsChoice | null, loops: number) => {
+  /**
+   * Center of the 3-row window shows strip item at index `k` when:
+   *   offset = (k - 1) * ITEM_H
+   * strip[k] = CYCLE[k % 3]
+   */
+  const targetOffset = (choice: RpsChoice | null, fullCycles: number) => {
     const idx = choice ? CYCLE.indexOf(choice) : 0;
-    // center row = item at floor(offset/ITEM_H)+1 → want that item = choice
-    // item k in strip is CYCLE[k%3]; pick k = loops*3 + idx, center = k → offset = (k-1)*ITEM_H
-    const k = loops * 3 + idx;
-    return Math.max(0, (k - 1) * ITEM_H);
+    const k = fullCycles * 3 + idx;
+    return (k - 1) * ITEM_H;
   };
 
   useEffect(() => {
@@ -327,63 +334,58 @@ function ReelReveal({
   useEffect(() => {
     if (phase !== "spin") return;
 
-    const leftTarget = targetOffset(room.creatorChoice, 6);
-    const rightTarget = targetOffset(room.joinerChoice, 7);
-    // slight stagger: left finishes at 5s, right at 5.35s
+    // ~6–8 visual cycles, continuous path from 0 → target (no modulo jumps)
+    const leftTarget = targetOffset(room.creatorChoice, 7);
+    const rightTarget = targetOffset(room.joinerChoice, 8);
     const leftDur = SPIN_MS;
-    const rightDur = SPIN_MS + 350;
+    const rightDur = SPIN_MS + 400;
 
     const t0 = performance.now();
     let lastTickAt = 0;
-    let leftLanded = false;
-    let rightLanded = false;
+    let leftDone = false;
+    let rightDone = false;
     let raf = 0;
 
     const loop = (now: number) => {
       const el = now - t0;
 
-      // Left reel
-      if (!leftLanded) {
+      if (!leftDone) {
         const t = Math.min(1, el / leftDur);
-        const eased = easeOutCubic(t);
-        setLeftOff(leftTarget * eased);
+        setLeftOff(leftTarget * easeOutSpin(t));
         if (t >= 1) {
-          leftLanded = true;
-          setLeftSpin(false);
+          leftDone = true;
           setLeftOff(leftTarget);
+          setLeftSettled(true);
           playLand();
         }
       }
 
-      // Right reel
-      if (!rightLanded) {
+      if (!rightDone) {
         const t = Math.min(1, el / rightDur);
-        const eased = easeOutCubic(t);
-        setRightOff(rightTarget * eased);
+        setRightOff(rightTarget * easeOutSpin(t));
         if (t >= 1) {
-          rightLanded = true;
-          setRightSpin(false);
+          rightDone = true;
           setRightOff(rightTarget);
+          setRightSettled(true);
           playLand();
         }
       }
 
-      // Tick while still moving (slower as we slow down)
-      const moving = !leftLanded || !rightLanded;
-      if (moving) {
-        const progress = Math.min(1, el / rightDur);
-        const interval = 40 + progress * 140;
+      // ticks denser at start, rarer as it slows
+      if (!leftDone || !rightDone) {
+        const p = Math.min(1, el / rightDur);
+        const interval = 35 + p * p * 160;
         if (now - lastTickAt > interval) {
           lastTickAt = now;
           playTick();
         }
       }
 
-      if (leftLanded && rightLanded) {
+      if (leftDone && rightDone) {
         if (!doneRef.current) {
           doneRef.current = true;
           setPhase("done");
-          setTimeout(onDone, 900);
+          setTimeout(onDone, 850);
         }
         return;
       }
@@ -434,13 +436,13 @@ function ReelReveal({
               />
               <ReelColumn
                 offset={leftOff}
-                spinning={leftSpin && phase === "spin"}
+                settled={leftSettled}
                 accent="fuchsia"
               />
               <div className="text-[11px] text-white/40 truncate max-w-[88px]">
                 @{room.creatorUsername}
               </div>
-              {!leftSpin && room.creatorChoice && (
+              {leftSettled && room.creatorChoice && (
                 <div className="text-[12px] font-semibold text-fuchsia-200">
                   {CHOICE_LABEL[room.creatorChoice]}
                 </div>
@@ -459,13 +461,13 @@ function ReelReveal({
               />
               <ReelColumn
                 offset={rightOff}
-                spinning={rightSpin && phase === "spin"}
+                settled={rightSettled}
                 accent="cyan"
               />
               <div className="text-[11px] text-white/40 truncate max-w-[88px]">
                 @{room.joinerUsername || "…"}
               </div>
-              {!rightSpin && room.joinerChoice && (
+              {rightSettled && room.joinerChoice && (
                 <div className="text-[12px] font-semibold text-cyan-200">
                   {CHOICE_LABEL[room.joinerChoice]}
                 </div>
