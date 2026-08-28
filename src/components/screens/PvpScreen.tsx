@@ -226,11 +226,7 @@ export function PvpScreen({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 bg-white/[0.04] rounded-full px-3 py-1.5 border border-white/[0.07]">
-          <span className="text-[10px] text-white/35 font-medium tracking-wide">
-            SPIN {rollId}
-          </span>
-        </div>
+        <div className="w-9" />
       </div>
 
       {/* Last / Top game */}
@@ -377,6 +373,9 @@ export function PvpScreen({
 
       {serverSeedHash && (
         <div className="mx-4 mb-2 flex items-center justify-center gap-1.5">
+          <span className="text-[9px] text-white/40 uppercase tracking-wider font-medium">
+            Hash
+          </span>
           <span className="text-[9px] text-white/30 font-mono tracking-tight">
             {serverSeedHash.slice(0, 8)}…{serverSeedHash.slice(-6)}
           </span>
@@ -455,7 +454,7 @@ export function PvpScreen({
           Players · {players.length}
         </span>
         <span className="text-[11px] text-white/35 uppercase tracking-[0.12em] font-medium tabular-nums">
-          SPIN {rollId}
+          SPIN #{rollId}
         </span>
       </div>
 
