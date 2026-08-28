@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Wheel } from "@/components/game/Wheel";
 import { PlayerList } from "@/components/game/PlayerList";
 import { TonIcon } from "@/components/ui/TonIcon";
@@ -13,6 +13,7 @@ interface HighlightGame {
   winner: string;
   pot: number;
   chance: number;
+  photoUrl?: string | null;
 }
 
 interface PvpScreenProps {
@@ -34,6 +35,57 @@ interface PvpScreenProps {
   onOpenVerify?: () => void;
   onVerifyRoll?: (rollId: number) => void;
   myPhotoUrl?: string | null;
+}
+
+
+function Avatar({
+  name,
+  photoUrl,
+  size = 24,
+}: {
+  name: string;
+  photoUrl?: string | null;
+  size?: number;
+}) {
+  const letter = (name || "?").replace(/^@/, "").charAt(0).toUpperCase();
+  return (
+    <div
+      className="rounded-full overflow-hidden bg-white/10 border border-white/15 flex items-center justify-center shrink-0 text-white/80 font-semibold"
+      style={{ width: size, height: size, fontSize: size * 0.4 }}
+    >
+      {photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={photoUrl} alt="" className="w-full h-full object-cover" />
+      ) : (
+        letter
+      )}
+    </div>
+  );
+}
+
+/** Approximate cubic-bezier(0.12, 0.85, 0.15, 1) progress 0..1 */
+function spinEase(t: number) {
+  const x = Math.min(1, Math.max(0, t));
+  // smooth ease-out matching wheel CSS
+  return 1 - Math.pow(1 - x, 3.4);
+}
+
+function playerUnderPointer(
+  list: Player[],
+  rotationDeg: number
+): Player | null {
+  if (!list.length) return null;
+  const total = list.reduce((s, p) => s + p.amount, 0);
+  if (total <= 0) return null;
+  // Pointer at top; wheel rotated by rotationDeg clockwise
+  let angle = (360 - (rotationDeg % 360) + 360) % 360;
+  let acc = 0;
+  for (const p of list) {
+    const sweep = (p.amount / total) * 360;
+    if (angle >= acc && angle < acc + sweep) return p;
+    acc += sweep;
+  }
+  return list[list.length - 1];
 }
 
 export function PvpScreen({
@@ -73,6 +125,7 @@ export function PvpScreen({
           winner: string;
           pot: number;
           chance: number;
+          photoUrl?: string | null;
         }>;
         if (!alive || !items.length) return;
         setLastGame({
@@ -80,6 +133,7 @@ export function PvpScreen({
           winner: items[0].winner,
           pot: items[0].pot,
           chance: items[0].chance,
+          photoUrl: (items[0] as { photoUrl?: string }).photoUrl,
         });
         const top = [...items].sort((a, b) => b.pot - a.pot)[0];
         setTopGame({
@@ -87,6 +141,7 @@ export function PvpScreen({
           winner: top.winner,
           pot: top.pot,
           chance: top.chance,
+          photoUrl: (top as { photoUrl?: string }).photoUrl,
         });
       } catch {
         /* ignore */
@@ -103,6 +158,35 @@ export function PvpScreen({
   const playersWithPhoto = players.map((p) =>
     p.isMe && myPhotoUrl && !p.photoUrl ? { ...p, photoUrl: myPhotoUrl } : p
   );
+
+  const [pointedPlayer, setPointedPlayer] = useState<Player | null>(null);
+
+  const playersKey = players
+    .map((p) => `${p.id}:${p.amount}:${p.photoUrl || ""}`)
+    .join("|");
+
+  useEffect(() => {
+    if (!isSpinning || spinDegrees <= 0) {
+      setPointedPlayer(null);
+      return;
+    }
+    const list = players.map((p) =>
+      p.isMe && myPhotoUrl && !p.photoUrl ? { ...p, photoUrl: myPhotoUrl } : p
+    );
+    const duration = 4200;
+    const t0 = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - t0) / duration);
+      const rot = spinDegrees * spinEase(t);
+      setPointedPlayer(playerUnderPointer(list, rot));
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else setPointedPlayer(playerUnderPointer(list, spinDegrees));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSpinning, spinDegrees, playersKey, myPhotoUrl]);
 
   const countdownProgress =
     countdown != null && countdown > 0 && countdownTotalSec > 0
@@ -156,17 +240,18 @@ export function PvpScreen({
             Last game
           </div>
           {lastGame ? (
-            <>
-              <div className="text-[12px] font-medium text-white/80 truncate">
-                @{lastGame.winner}
+            <div className="flex items-center gap-2 min-w-0">
+              <Avatar name={lastGame.winner} photoUrl={lastGame.photoUrl} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[12px] font-medium text-white/80 truncate">
+                  @{lastGame.winner}
+                </div>
+                <div className="text-[11px] text-emerald-300/90 tabular-nums mt-0.5">
+                  +{formatGram(lastGame.pot)} GRAM
+                  <span className="text-white/25 ml-1">{lastGame.chance}%</span>
+                </div>
               </div>
-              <div className="text-[11px] text-emerald-300/90 tabular-nums mt-0.5">
-                +{formatGram(lastGame.pot)} GRAM
-                <span className="text-white/25 ml-1">
-                  {lastGame.chance}%
-                </span>
-              </div>
-            </>
+            </div>
           ) : (
             <div className="text-[11px] text-white/25">—</div>
           )}
@@ -180,15 +265,18 @@ export function PvpScreen({
             Top game
           </div>
           {topGame ? (
-            <>
-              <div className="text-[12px] font-medium text-white/80 truncate">
-                @{topGame.winner}
+            <div className="flex items-center gap-2 min-w-0">
+              <Avatar name={topGame.winner} photoUrl={topGame.photoUrl} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[12px] font-medium text-white/80 truncate">
+                  @{topGame.winner}
+                </div>
+                <div className="text-[11px] text-amber-300/90 tabular-nums mt-0.5">
+                  +{formatGram(topGame.pot)} GRAM
+                  <span className="text-white/25 ml-1">{topGame.chance}%</span>
+                </div>
               </div>
-              <div className="text-[11px] text-amber-300/90 tabular-nums mt-0.5">
-                +{formatGram(topGame.pot)} GRAM
-                <span className="text-white/25 ml-1">{topGame.chance}%</span>
-              </div>
-            </>
+            </div>
           ) : (
             <div className="text-[11px] text-white/25">—</div>
           )}
@@ -223,13 +311,13 @@ export function PvpScreen({
         })}
       </div>
 
-      {/* History + Bank */}
-      <div className="mx-4 mt-1 mb-3 flex items-center justify-center gap-2">
+      {/* History (left) + Bank/pointer (center) */}
+      <div className="mx-4 mt-1 mb-3 grid grid-cols-[40px_1fr_40px] items-center gap-2">
         <button
           type="button"
           onClick={onOpenHistory}
           aria-label="History"
-          className="w-10 h-10 rounded-full glass border border-white/[0.09] flex items-center justify-center text-white/50 hover:text-white/80 transition btn-press shrink-0"
+          className="w-10 h-10 rounded-full glass border border-white/[0.09] flex items-center justify-center text-white/50 hover:text-white/80 transition btn-press"
         >
           <svg
             width="16"
@@ -243,15 +331,33 @@ export function PvpScreen({
             <path d="M12 7v5l3 2" />
           </svg>
         </button>
-        <div className="px-5 py-2.5 rounded-full glass border border-white/[0.09] flex items-center gap-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.25)]">
-          <span className="text-[10px] text-white/40 uppercase tracking-[0.14em] font-medium">
-            Bank
-          </span>
-          <span className="text-[17px] font-semibold text-gradient-cyan tabular-nums">
-            {formatGram(total)}
-          </span>
-          <span className="text-[11px] text-white/35">GRAM</span>
+        <div className="flex justify-center min-w-0">
+          <div className="px-4 py-2 rounded-full glass border border-white/[0.09] flex items-center gap-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] max-w-full">
+            {pointedPlayer ? (
+              <>
+                <Avatar
+                  name={pointedPlayer.name}
+                  photoUrl={pointedPlayer.photoUrl}
+                  size={28}
+                />
+                <span className="text-[14px] font-semibold truncate max-w-[140px]">
+                  @{pointedPlayer.name}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-[10px] text-white/40 uppercase tracking-[0.14em] font-medium">
+                  Bank
+                </span>
+                <span className="text-[17px] font-semibold text-gradient-cyan tabular-nums">
+                  {formatGram(total)}
+                </span>
+                <span className="text-[11px] text-white/35">GRAM</span>
+              </>
+            )}
+          </div>
         </div>
+        <div aria-hidden className="w-10 h-10" />
       </div>
 
       <Wheel

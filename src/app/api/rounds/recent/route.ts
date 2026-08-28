@@ -48,8 +48,40 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const winnerIds = [
+      ...new Set(
+        rounds
+          .map((r) => r.winner_telegram_id)
+          .filter((id): id is number => id != null)
+      ),
+    ];
+    const photoByTg = new Map<number, string>();
+    if (winnerIds.length) {
+      const { data: profiles } = await db
+        .from("profiles")
+        .select("telegram_id, photo_url, username")
+        .in("telegram_id", winnerIds);
+      for (const p of profiles || []) {
+        if (p.telegram_id && p.photo_url) {
+          photoByTg.set(Number(p.telegram_id), String(p.photo_url));
+        }
+        if (p.telegram_id && p.username) {
+          const rid = rounds.find(
+            (r) => Number(r.winner_telegram_id) === Number(p.telegram_id)
+          );
+          if (rid && !byRoll.get(Number(rid.roll_id))?.winner) {
+            byRoll.set(Number(rid.roll_id), {
+              winner: String(p.username),
+              chance: byRoll.get(Number(rid.roll_id))?.chance || 0,
+            });
+          }
+        }
+      }
+    }
+
     const items = rounds.map((r) => {
       const meta = byRoll.get(Number(r.roll_id));
+      const tg = r.winner_telegram_id != null ? Number(r.winner_telegram_id) : null;
       return {
         rollId: Number(r.roll_id),
         mode: r.mode,
@@ -58,6 +90,8 @@ export async function GET(req: NextRequest) {
         houseFee: Number(r.house_fee || 0),
         winner: meta?.winner || "—",
         chance: meta?.chance || 0,
+        photoUrl: tg != null ? photoByTg.get(tg) || null : null,
+        winnerTelegramId: tg,
         serverSeedHash: r.server_seed_hash,
         hasSeed: Boolean(r.server_seed),
         at: r.created_at,

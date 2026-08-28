@@ -21,16 +21,6 @@ const items: { id: Screen; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    id: "history",
-    label: "History",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 8v4l2.5 2.5" />
-        <circle cx="12" cy="12" r="9" />
-      </svg>
-    ),
-  },
-  {
     id: "profile",
     label: "Profile",
     icon: (
