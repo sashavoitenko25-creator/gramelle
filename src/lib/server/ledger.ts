@@ -135,7 +135,9 @@ export async function getBalance(telegramId: number): Promise<number> {
 }
 
 /** @deprecated deposit % removed — referral is % of house fee on bets */
-export async function creditReferralOnDeposit(): Promise<void> {
+export async function creditReferralOnDeposit(
+  ..._args: unknown[]
+): Promise<void> {
   return;
 }
 

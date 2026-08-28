@@ -123,20 +123,36 @@ export function getReferralTier(
   return null;
 }
 
-export const STAR_PACKAGES = [
+export type StarPackage = {
+  stars: number;
+  gram: number;
+  label: string;
+  popular?: boolean;
+  bonus?: string;
+};
+
+export const STAR_PACKAGES: StarPackage[] = [
   { stars: 100, gram: 0.85, label: "100" },
   { stars: 250, gram: 2.125, label: "250" },
   { stars: 500, gram: 4.25, label: "500", popular: true },
   { stars: 1000, gram: 8.5, label: "1000", bonus: "×2" },
-] as const;
+];
 
-export const TON_PACKAGES = [
+export type TonPackage = {
+  ton: number;
+  gram: number;
+  label: string;
+  popular?: boolean;
+  bonus?: string;
+};
+
+export const TON_PACKAGES: TonPackage[] = [
   { ton: 0.5, gram: 0.5, label: "0.5" },
   { ton: 1, gram: 1, label: "1" },
   { ton: 5, gram: 5, label: "5", popular: true },
   { ton: 10, gram: 10, label: "10" },
   { ton: 25, gram: 25, label: "25" },
-] as const;
+];
 
 export const TON_DEPOSIT_ADDRESS =
   process.env.NEXT_PUBLIC_TON_WALLET ||

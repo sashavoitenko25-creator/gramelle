@@ -263,7 +263,7 @@ export function DepositModal({
                 onClick={() => payStars(p.stars)}
                 className={cn(
                   "w-full flex items-center justify-between rounded-2xl px-4 py-3.5 border transition btn-press",
-                  "popular" in p && p.popular
+                  p.popular
                     ? "bg-amber-500/[0.08] border-amber-500/25"
                     : "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]"
                 )}
@@ -278,17 +278,17 @@ export function DepositModal({
                     <div className="text-sm font-semibold">{p.label} Stars</div>
                     <div className="text-[11px] text-white/35">
                       {p.gram} GRAM
-                      {"bonus" in p && p.bonus ? (
+                      {p.bonus ? (
                         <span className="text-emerald-400 ml-1">{p.bonus}</span>
                       ) : null}
                     </div>
                   </div>
                 </div>
-                {"popular" in p && p.popular && (
+                {p.popular ? (
                   <span className="text-[9px] uppercase tracking-wider font-semibold text-amber-300/90 bg-amber-500/15 px-2 py-1 rounded-lg">
                     Popular
                   </span>
-                )}
+                ) : null}
               </button>
             ))}
             {loading && (
@@ -311,7 +311,7 @@ export function DepositModal({
                 onClick={() => startTonPay(p.ton)}
                 className={cn(
                   "w-full flex items-center justify-between rounded-2xl px-4 py-3.5 border transition btn-press",
-                  "popular" in p && p.popular
+                  p.popular
                     ? "bg-sky-500/[0.08] border-sky-500/25"
                     : "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]"
                 )}
@@ -324,7 +324,7 @@ export function DepositModal({
                     <div className="text-sm font-semibold">{p.label} TON</div>
                     <div className="text-[11px] text-white/35">
                       {p.gram} GRAM
-                      {"bonus" in p && p.bonus ? (
+                      {p.bonus ? (
                         <span className="text-emerald-400 ml-1">{p.bonus}</span>
                       ) : null}
                     </div>
