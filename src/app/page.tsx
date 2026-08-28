@@ -9,6 +9,7 @@ import { PvpScreen } from "@/components/screens/PvpScreen";
 import { HistoryScreen } from "@/components/screens/HistoryScreen";
 import { ProfileScreen } from "@/components/screens/ProfileScreen";
 import { ReferralsScreen } from "@/components/screens/ReferralsScreen";
+import { TransactionsScreen } from "@/components/screens/TransactionsScreen";
 import { BottomNav } from "@/components/game/BottomNav";
 import { BetModal } from "@/components/modals/BetModal";
 import { DepositModal } from "@/components/modals/DepositModal";
@@ -608,7 +609,12 @@ export default function Home() {
             setWithdrawOpen(true);
           }}
           onReferrals={() => setScreen("referrals")}
+          onTransactions={() => setScreen("transactions")}
         />
+      )}
+
+      {screen === "transactions" && (
+        <TransactionsScreen onBack={() => setScreen("profile")} />
       )}
 
       {screen === "referrals" && (

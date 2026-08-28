@@ -14,6 +14,7 @@ interface ProfileScreenProps {
   onDeposit: () => void;
   onWithdraw: () => void;
   onReferrals: () => void;
+  onTransactions: () => void;
 }
 
 export function ProfileScreen({
@@ -26,6 +27,7 @@ export function ProfileScreen({
   onDeposit,
   onWithdraw,
   onReferrals,
+  onTransactions,
 }: ProfileScreenProps) {
   const initial = username.charAt(0).toUpperCase();
   const winrate = games > 0 ? Math.round((wins / games) * 100) : 0;
@@ -98,6 +100,26 @@ export function ProfileScreen({
       </div>
 
       <div className="mx-4 mt-4 space-y-2">
+        <button
+          onClick={onTransactions}
+          className="w-full flex items-center justify-between rounded-2xl bg-white/[0.03] border border-white/[0.06] px-4 py-4 hover:bg-white/[0.05] transition btn-press"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/12 border border-cyan-500/20 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-cyan-300">
+                <path d="M12 8v4l2.5 2.5" />
+                <circle cx="12" cy="12" r="9" />
+              </svg>
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-medium">Transactions</div>
+              <div className="text-[11px] text-white/35">Deposits & withdrawals status</div>
+            </div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/25">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
         <button
           onClick={onReferrals}
           className="w-full flex items-center justify-between rounded-2xl bg-white/[0.03] border border-white/[0.06] px-4 py-4 hover:bg-white/[0.05] transition btn-press"
