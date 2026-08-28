@@ -14,6 +14,7 @@ import {
 import { creditHouse } from "@/lib/server/house";
 import { rateLimit } from "@/lib/server/rateLimit";
 import { assertNotBanned } from "@/lib/server/ban";
+import { notifyUser, fmtAmount } from "@/lib/server/notify";
 
 /**
  * Request TON withdrawal.
@@ -159,6 +160,16 @@ export async function POST(req: NextRequest) {
       });
       throw error;
     }
+
+    try {
+      await notifyUser(
+        auth.user.id,
+        "⏳ <b>Withdrawal requested</b>\n" +
+          fmtAmount(amountTon, "TON") +
+          " — status: <b>Processing</b>\n" +
+          "We will notify you when it is completed or rejected."
+      );
+    } catch {}
 
     try {
       const adminTg = process.env.ADMIN_TELEGRAM_ID;

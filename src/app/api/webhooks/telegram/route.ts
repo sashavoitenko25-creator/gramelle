@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBotToken } from "@/lib/server/telegram";
 import { creditBalance, creditReferralOnDeposit } from "@/lib/server/ledger";
+import { notifyUser, fmtAmount } from "@/lib/server/notify";
 import { BOT_USERNAME, GRAM_PER_STAR } from "@/lib/constants";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 
@@ -117,6 +118,12 @@ export async function POST(req: NextRequest) {
           } catch (e) {
             console.warn("referral credit failed", e);
           }
+          await notifyUser(
+            fromId,
+            `✅ <b>Deposit completed</b>\n` +
+              `+${fmtAmount(gram, "GRAM")} (Stars)\n` +
+              `Status: <b>Completed</b>`
+          );
         }
       }
     }

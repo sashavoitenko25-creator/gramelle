@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTelegramUser } from "@/lib/server/telegram";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 import { creditBalance, creditReferralOnDeposit } from "@/lib/server/ledger";
+import { notifyUser, fmtAmount } from "@/lib/server/notify";
 import { TON_DEPOSIT_ADDRESS } from "@/lib/constants";
 
 /**
@@ -111,6 +112,12 @@ export async function POST(req: NextRequest) {
               });
             } catch {}
             credited.push({ memo, gram });
+            await notifyUser(
+              auth.user.id,
+              `✅ <b>Deposit completed</b>\n` +
+                `+${fmtAmount(gram, "GRAM")} (TON)\n` +
+                `Status: <b>Completed</b>`
+            );
           }
         }
       }

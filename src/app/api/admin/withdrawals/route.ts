@@ -3,6 +3,7 @@ import { AdminError, requireAdmin } from "@/lib/server/admin";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 import { creditBalance } from "@/lib/server/ledger";
 import { trackEvent } from "@/lib/server/sentry";
+import { notifyUser, fmtAmount } from "@/lib/server/notify";
 
 export async function GET(req: NextRequest) {
   try {
@@ -71,6 +72,13 @@ export async function POST(req: NextRequest) {
         .in("status", ["pending", "processing"]);
       if (upErr) throw upErr;
       await trackEvent("withdraw_completed", { id, amount: row.amount_ton });
+      await notifyUser(
+        row.telegram_id,
+        `✅ <b>Withdrawal completed</b>\n` +
+          `${fmtAmount(Number(row.amount_ton), "TON")}` +
+          (txHash ? `\nTx: <code>${txHash}</code>` : "") +
+          `\n\nOpen Transactions in the app for details.`
+      );
       return NextResponse.json({ ok: true, status: "completed" });
     }
 
@@ -96,6 +104,13 @@ export async function POST(req: NextRequest) {
       reason: "withdraw_rejected",
     });
     await trackEvent("withdraw_rejected", { id, amount: row.amount_ton });
+    await notifyUser(
+      row.telegram_id,
+      `❌ <b>Withdrawal rejected</b>\n` +
+        `${fmtAmount(Number(row.amount_ton), "TON")} returned to balance.` +
+        (note ? `\nNote: ${note}` : "") +
+        `\n\nOpen Transactions in the app for details.`
+    );
 
     return NextResponse.json({ ok: true, status: "rejected", refunded: true });
   } catch (e) {
