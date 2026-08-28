@@ -455,7 +455,7 @@ export async function tickRoom(mode: RoomMode = DEFAULT_ROOM): Promise<{
   bets: RoundBet[];
   spin?: Awaited<ReturnType<typeof spinRound>>;
 }> {
-  const round = await getOpenRound(mode);
+  const round = await ensureOpenRound(mode);
   if (!round) {
     return { action: "none", round: null, bets: [] };
   }

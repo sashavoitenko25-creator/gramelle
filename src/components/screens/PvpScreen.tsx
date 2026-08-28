@@ -34,6 +34,7 @@ interface PvpScreenProps {
   onOpenHistory: () => void;
   onOpenVerify?: () => void;
   onVerifyRoll?: (rollId: number) => void;
+  onOpenHistoryFilter?: (filter: "all" | "top") => void;
   myPhotoUrl?: string | null;
 }
 
@@ -106,6 +107,7 @@ export function PvpScreen({
   onOpenHistory,
   onOpenVerify,
   onVerifyRoll,
+  onOpenHistoryFilter,
   myPhotoUrl,
 }: PvpScreenProps) {
   const total = players.reduce((s, p) => s + p.amount, 0);
@@ -118,7 +120,7 @@ export function PvpScreen({
     let alive = true;
     const load = async () => {
       try {
-        const res = await fetch(`/api/rounds/recent?mode=${mode}&limit=20`);
+        const res = await fetch(`/api/rounds/recent?limit=20`);
         const data = await res.json();
         const items = (data.items || []) as Array<{
           rollId: number;
@@ -153,7 +155,7 @@ export function PvpScreen({
       alive = false;
       clearInterval(id);
     };
-  }, [mode, rollId]);
+  }, [rollId]);
 
   const playersWithPhoto = players.map((p) =>
     p.isMe && myPhotoUrl && !p.photoUrl ? { ...p, photoUrl: myPhotoUrl } : p
@@ -233,7 +235,7 @@ export function PvpScreen({
       <div className="mx-4 mb-2.5 grid grid-cols-2 gap-2">
         <button
           type="button"
-          onClick={() => lastGame && onVerifyRoll?.(lastGame.rollId)}
+          onClick={() => onOpenHistoryFilter?.("all")}
           className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-3 py-2.5 text-left hover:border-white/12 transition btn-press"
         >
           <div className="text-[9px] uppercase tracking-wider text-white/30 mb-1">
@@ -258,7 +260,7 @@ export function PvpScreen({
         </button>
         <button
           type="button"
-          onClick={() => topGame && onVerifyRoll?.(topGame.rollId)}
+          onClick={() => onOpenHistoryFilter?.("top")}
           className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-3 py-2.5 text-left hover:border-amber-500/25 transition btn-press"
         >
           <div className="text-[9px] uppercase tracking-wider text-white/30 mb-1">

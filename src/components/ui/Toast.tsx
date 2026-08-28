@@ -8,10 +8,6 @@ interface ToastProps {
   durationMs?: number;
 }
 
-/**
- * Auto-hides. Uses message identity + local visible state so parent
- * re-renders (polling) do NOT reset the dismiss timer.
- */
 export function Toast({ message, onClose, durationMs = 2600 }: ToastProps) {
   const [visible, setVisible] = useState<string | null>(null);
 
@@ -26,7 +22,6 @@ export function Toast({ message, onClose, durationMs = 2600 }: ToastProps) {
       onClose();
     }, durationMs);
     return () => clearTimeout(t);
-    // only re-arm when the *text* changes, not when onClose identity changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message, durationMs]);
 
@@ -36,11 +31,11 @@ export function Toast({ message, onClose, durationMs = 2600 }: ToastProps) {
     <div
       className="fixed left-0 right-0 z-[80] flex justify-center px-4 pointer-events-none"
       style={{
-        bottom: "max(5.5rem, calc(env(safe-area-inset-bottom) + 4.5rem))",
+        top: "max(0.75rem, calc(env(safe-area-inset-top) + 0.5rem))",
       }}
     >
       <div
-        className="pointer-events-auto max-w-sm w-full scale-in rounded-2xl glass-strong border border-white/12 px-4 py-3 text-center text-sm text-white/90 shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
+        className="pointer-events-auto max-w-sm w-full scale-in rounded-2xl glass-strong border border-cyan-400/20 px-4 py-3 text-center text-sm text-white/90 shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
         onClick={() => {
           setVisible(null);
           onClose();

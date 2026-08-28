@@ -95,6 +95,7 @@ export default function Home() {
   const [howRefOpen, setHowRefOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<"all" | "lucky" | "top">("all");
   const [verifyRollId, setVerifyRollId] = useState<number | null>(null);
   const [confetti, setConfetti] = useState(false);
   const [winOverlay, setWinOverlay] = useState<{
@@ -102,6 +103,8 @@ export default function Home() {
     isWin: boolean;
     title: string;
     subtitle: string;
+    winnerName?: string;
+    photoUrl?: string | null;
   }>({ open: false, isWin: false, title: "", subtitle: "" });
   const [onboarded, setOnboarded] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -186,6 +189,11 @@ export default function Home() {
           isWin: true,
           title: "You won!",
           subtitle: (potAfterFee ?? total).toFixed(2) + " GRAM · x" + mult,
+          winnerName: winnerUsername,
+          photoUrl:
+            list.find((p) => p.telegramId === winnerTelegramId)?.photoUrl ||
+            profile?.photo_url ||
+            null,
         });
         await reloadProfile();
       } else {
@@ -197,6 +205,10 @@ export default function Home() {
           isWin: false,
           title: "@" + winnerUsername + " won",
           subtitle: (potAfterFee ?? total).toFixed(2) + " GRAM",
+          winnerName: winnerUsername,
+          photoUrl:
+            list.find((p) => p.telegramId === winnerTelegramId)?.photoUrl ||
+            null,
         });
         await reloadProfile();
       }
@@ -219,7 +231,13 @@ export default function Home() {
       clearPendingSpin();
       clearRound(rollIdRef.current + 1);
       setSpinDegrees(0);
-      setTimeout(() => refreshRound(), 500);
+      setIsSpinning(false);
+      setStatus("Waiting");
+      setTimeout(() => {
+        setIsSpinning(false);
+        setStatus("Waiting");
+        refreshRound();
+      }, 500);
     }, SPIN_FINISH_DELAY_MS);
   }, [
     pendingSpin,
@@ -483,7 +501,9 @@ export default function Home() {
       ? String(countdown)
       : isSpinning
         ? "Spinning"
-        : status;
+        : status === "Spinning" || status === "spinning" || status === "finished"
+          ? "Waiting"
+          : status;
 
   if (profileLoading) {
     return (
@@ -536,7 +556,14 @@ export default function Home() {
             haptic("light");
             setDepositOpen(true);
           }}
-          onOpenHistory={() => setScreen("history")}
+          onOpenHistory={() => {
+            setHistoryFilter("all");
+            setScreen("history");
+          }}
+          onOpenHistoryFilter={(f) => {
+            setHistoryFilter(f);
+            setScreen("history");
+          }}
           onOpenVerify={() => {
             haptic("light");
             setVerifyRollId(rollId > 0 ? rollId - 1 : null);
@@ -552,6 +579,7 @@ export default function Home() {
       {screen === "history" && (
         <HistoryScreen
           history={history}
+          initialTab={historyFilter}
           onBack={() => setScreen("pvp")}
           onVerify={(id) => {
             setVerifyRollId(id);
@@ -661,6 +689,8 @@ export default function Home() {
         isWin={winOverlay.isWin}
         title={winOverlay.title}
         subtitle={winOverlay.subtitle}
+        winnerName={winOverlay.winnerName}
+        photoUrl={winOverlay.photoUrl}
         onClose={() => setWinOverlay((s) => ({ ...s, open: false }))}
       />
 

@@ -1,19 +1,31 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { HistoryItem } from "@/lib/types";
 import { formatGram, formatTime, cn } from "@/lib/utils";
+import { RoundDetailModal } from "@/components/modals/RoundDetailModal";
 
 interface HistoryScreenProps {
   history: HistoryItem[];
   onBack: () => void;
   onVerify?: (rollId: number) => void;
+  initialTab?: "all" | "lucky" | "top";
 }
 
 type HistTab = "all" | "lucky" | "top";
 
-export function HistoryScreen({ history, onBack, onVerify }: HistoryScreenProps) {
-  const [tab, setTab] = useState<HistTab>("all");
+export function HistoryScreen({
+  history,
+  onBack,
+  onVerify,
+  initialTab = "all",
+}: HistoryScreenProps) {
+  const [tab, setTab] = useState<HistTab>(initialTab);
+  const [detailRoll, setDetailRoll] = useState<number | null>(null);
+
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
 
   const filtered = useMemo(() => {
     const wins = history.filter((h) => h.isMe);
@@ -95,7 +107,7 @@ export function HistoryScreen({ history, onBack, onVerify }: HistoryScreenProps)
               <div
                 key={`${h.id}-${h.bet}-${i}`}
                 role="button"
-                onClick={() => onVerify?.(h.id)}
+                onClick={() => setDetailRoll(h.id)}
                 className={cn(
                   "rounded-2xl border p-3.5 fade-in cursor-pointer active:scale-[0.99] transition",
                   h.isMe
@@ -166,6 +178,12 @@ export function HistoryScreen({ history, onBack, onVerify }: HistoryScreenProps)
           })
         )}
       </div>
+
+      <RoundDetailModal
+        open={detailRoll != null}
+        rollId={detailRoll}
+        onClose={() => setDetailRoll(null)}
+      />
     </div>
   );
 }
