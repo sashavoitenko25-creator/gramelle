@@ -301,7 +301,14 @@ function ReelReveal({
   const [rightOff, setRightOff] = useState(0);
   const [leftSettled, setLeftSettled] = useState(false);
   const [rightSettled, setRightSettled] = useState(false);
-  const doneRef = useRef(false);
+
+  // Stable refs — parent re-renders must NOT restart the animation
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+  const leftChoiceRef = useRef(room.creatorChoice);
+  const rightChoiceRef = useRef(room.joinerChoice);
+  const spinStartedRef = useRef(false);
+  const finishedRef = useRef(false);
 
   /**
    * Center of the 3-row window shows strip item at index `k` when:
@@ -314,6 +321,7 @@ function ReelReveal({
     return (k - 1) * ITEM_H;
   };
 
+  // Countdown once on mount
   useEffect(() => {
     let n = 3;
     setCount(3);
@@ -331,12 +339,14 @@ function ReelReveal({
     return () => clearInterval(cd);
   }, []);
 
+  // Spin once — never restart
   useEffect(() => {
     if (phase !== "spin") return;
+    if (spinStartedRef.current) return;
+    spinStartedRef.current = true;
 
-    // ~6–8 visual cycles, continuous path from 0 → target (no modulo jumps)
-    const leftTarget = targetOffset(room.creatorChoice, 7);
-    const rightTarget = targetOffset(room.joinerChoice, 8);
+    const leftTarget = targetOffset(leftChoiceRef.current, 7);
+    const rightTarget = targetOffset(rightChoiceRef.current, 8);
     const leftDur = SPIN_MS;
     const rightDur = SPIN_MS + 400;
 
@@ -347,6 +357,7 @@ function ReelReveal({
     let raf = 0;
 
     const loop = (now: number) => {
+      if (finishedRef.current) return;
       const el = now - t0;
 
       if (!leftDone) {
@@ -371,7 +382,6 @@ function ReelReveal({
         }
       }
 
-      // ticks denser at start, rarer as it slows
       if (!leftDone || !rightDone) {
         const p = Math.min(1, el / rightDur);
         const interval = 35 + p * p * 160;
@@ -382,10 +392,10 @@ function ReelReveal({
       }
 
       if (leftDone && rightDone) {
-        if (!doneRef.current) {
-          doneRef.current = true;
+        if (!finishedRef.current) {
+          finishedRef.current = true;
           setPhase("done");
-          setTimeout(onDone, 850);
+          setTimeout(() => onDoneRef.current(), 850);
         }
         return;
       }
@@ -393,8 +403,16 @@ function ReelReveal({
     };
 
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [phase, room.creatorChoice, room.joinerChoice, onDone]);
+    return () => {
+      // Only cancel if we haven't finished — avoid killing a good run on strict-mode double invoke mid-spin
+      if (!finishedRef.current && !spinStartedRef.current) {
+        cancelAnimationFrame(raf);
+      } else if (!finishedRef.current) {
+        // keep running; cleanup on unmount only cancels frame
+        cancelAnimationFrame(raf);
+      }
+    };
+  }, [phase]);
 
   return (
     <div className="flex flex-col items-center px-4 pt-5 select-none">
