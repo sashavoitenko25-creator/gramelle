@@ -35,12 +35,27 @@ interface RpsScreenProps {
   hapticError: () => void;
 }
 
-type View = "lobby" | "create" | "join" | "reveal" | "result";
+type View = "lobby" | "create" | "join" | "reveal" | "result" | "history";
 
 const QUICK_AMOUNTS = [0.5, 1, 2, 5, 10, 25];
 const CYCLE: RpsChoice[] = ["rock", "paper", "scissors"];
 
-/* ─── tiny SFX ─────────────────────────────────────────── */
+type HistItem = {
+  id: string;
+  room_id?: string;
+  opponent: string;
+  my_choice: RpsChoice;
+  opponent_choice: RpsChoice;
+  amount: number;
+  result: "win" | "lose" | "draw";
+  payout: number;
+  server_seed?: string;
+  server_seed_hash?: string;
+  creator_choice_hash?: string;
+  created_at: string;
+};
+
+/* ─── SFX ──────────────────────────────────────────────── */
 let audioCtx: AudioContext | null = null;
 function getAudio() {
   if (typeof window === "undefined") return null;
@@ -54,7 +69,12 @@ function getAudio() {
     return null;
   }
 }
-function beep(freq: number, dur = 0.06, gain = 0.05, type: OscillatorType = "sine") {
+function beep(
+  freq: number,
+  dur = 0.06,
+  gain = 0.05,
+  type: OscillatorType = "sine"
+) {
   const c = getAudio();
   if (!c) return;
   const o = c.createOscillator();
@@ -69,15 +89,17 @@ function beep(freq: number, dur = 0.06, gain = 0.05, type: OscillatorType = "sin
   o.stop(c.currentTime + dur + 0.02);
 }
 function playTick() {
-  beep(420 + Math.random() * 80, 0.04, 0.035, "triangle");
+  beep(380 + Math.random() * 120, 0.035, 0.03, "triangle");
 }
-function playClash() {
-  beep(90, 0.12, 0.1, "sawtooth");
-  beep(180, 0.18, 0.06, "triangle");
-  beep(340, 0.08, 0.05, "sine");
+function playLand() {
+  beep(220, 0.1, 0.07, "sine");
+  beep(440, 0.08, 0.04, "triangle");
+}
+function playCountdown() {
+  beep(520, 0.12, 0.07, "sine");
 }
 
-/* ─── UI atoms ─────────────────────────────────────────── */
+/* ─── helpers ──────────────────────────────────────────── */
 function Avatar({
   name,
   photoUrl,
@@ -103,275 +125,405 @@ function Avatar({
   );
 }
 
-function shortHash(h: string, n = 10) {
+/** start…end — middle hidden */
+function clipHash(h: string, head = 6, tail = 4) {
   if (!h) return "—";
-  return h.slice(0, n) + "…";
+  if (h.length <= head + tail + 1) return h;
+  return `${h.slice(0, head)}…${h.slice(-tail)}`;
 }
 
-/* ─── Clash reveal animation ───────────────────────────── */
-function ClashReveal({
+function roomTag(id?: string | null) {
+  if (!id) return "—";
+  return id.replace(/-/g, "").slice(0, 4).toUpperCase();
+}
+
+function HashRow({
+  label,
+  value,
+  onCopy,
+}: {
+  label: string;
+  value: string | null | undefined;
+  onCopy: (v: string) => void;
+}) {
+  if (!value) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onCopy(value)}
+      className="w-full flex items-center gap-2 py-1.5 group text-left btn-press"
+    >
+      <span className="text-[10px] uppercase tracking-wider text-white/25 w-12 shrink-0">
+        {label}
+      </span>
+      <span className="flex-1 text-[11px] font-mono text-white/45 truncate">
+        {clipHash(value, 8, 6)}
+      </span>
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        className="text-white/25 group-hover:text-white/55 shrink-0"
+      >
+        <rect x="9" y="9" width="11" height="11" rx="2" />
+        <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+      </svg>
+    </button>
+  );
+}
+
+/* ─── Reel column (mini-game) ──────────────────────────── */
+const ITEM_H = 72;
+const VISIBLE = 3;
+const REEL_H = ITEM_H * VISIBLE;
+
+function ReelColumn({
+  final,
+  spinning,
+  offset,
+  accent,
+}: {
+  final: RpsChoice | null;
+  spinning: boolean;
+  offset: number; // px scroll
+  accent: "fuchsia" | "cyan";
+}) {
+  // Build a long strip: cycle repeated + final at end
+  const strip: RpsChoice[] = [];
+  for (let i = 0; i < 24; i++) strip.push(CYCLE[i % 3]);
+  if (final) strip.push(final);
+
+  const border =
+    accent === "fuchsia"
+      ? "border-fuchsia-400/40 shadow-[0_0_32px_rgba(232,121,249,0.22)]"
+      : "border-cyan-400/40 shadow-[0_0_32px_rgba(34,211,238,0.22)]";
+  const glow =
+    accent === "fuchsia"
+      ? "from-fuchsia-500/20 to-violet-600/10"
+      : "from-cyan-500/20 to-teal-600/10";
+
+  return (
+    <div
+      className={cn(
+        "relative w-[88px] rounded-[22px] border overflow-hidden bg-black/40",
+        spinning ? "border-white/12" : border
+      )}
+      style={{ height: REEL_H }}
+    >
+      {!spinning && (
+        <div
+          className={cn(
+            "absolute inset-0 bg-gradient-to-b pointer-events-none z-[1]",
+            glow
+          )}
+        />
+      )}
+      {/* window gradients */}
+      <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/80 to-transparent z-[2] pointer-events-none" />
+      <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/80 to-transparent z-[2] pointer-events-none" />
+      {/* center marker */}
+      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[72px] border-y border-white/10 z-[2] pointer-events-none" />
+
+      <div
+        className="absolute left-0 right-0 will-change-transform"
+        style={{
+          transform: `translateY(${-offset}px)`,
+          transition: spinning ? "none" : "transform 0.15s ease-out",
+        }}
+      >
+        {strip.map((c, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-center"
+            style={{ height: ITEM_H }}
+          >
+            <ChoiceIcon
+              choice={c}
+              className={cn(
+                "w-9 h-9",
+                spinning ? "text-white/50" : "text-white/90"
+              )}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Mini-game reveal:
+ * 1) Countdown 3-2-1
+ * 2) Dual reels spin (like slots) and land on each player's choice
+ * Total ~10–12s aligned with revealAt
+ */
+function ReelReveal({
   room,
   onDone,
 }: {
   room: RpsPublicRoom;
   onDone: () => void;
 }) {
-  const [phase, setPhase] = useState<"charge" | "clash" | "lock" | "done">(
-    "charge"
+  const [phase, setPhase] = useState<"countdown" | "spin" | "done">(
+    "countdown"
   );
-  const [leftIdx, setLeftIdx] = useState(0);
-  const [rightIdx, setRightIdx] = useState(1);
-  const [shake, setShake] = useState(false);
+  const [count, setCount] = useState(3);
+  const [leftOff, setLeftOff] = useState(0);
+  const [rightOff, setRightOff] = useState(0);
+  const [leftSpin, setLeftSpin] = useState(true);
+  const [rightSpin, setRightSpin] = useState(true);
   const doneRef = useRef(false);
   const started = useRef(Date.now());
 
   const totalMs = useMemo(() => {
     if (room.revealAt) {
       const left = new Date(room.revealAt).getTime() - Date.now();
-      return Math.max(4000, Math.min(RPS_REVEAL_SEC * 1000, left));
+      return Math.max(5000, Math.min(RPS_REVEAL_SEC * 1000, left));
     }
     return RPS_REVEAL_SEC * 1000;
   }, [room.revealAt]);
 
+  // Final offsets: land middle window on final choice
+  // strip index: center shows item at offset/ITEM_H + 1 (middle of 3)
+  const finalOffset = (choice: RpsChoice | null) => {
+    // use late index in strip so there's room to spin
+    const base = 18; // near end of 24-cycle
+    const idx = choice ? base + CYCLE.indexOf(choice) : base;
+    // center row = offset/ITEM_H + 1  →  offset = (idx - 1) * ITEM_H
+    return (idx - 1) * ITEM_H;
+  };
+
   useEffect(() => {
     started.current = Date.now();
+    // Countdown 3-2-1 (~1.8s)
+    let n = 3;
+    setCount(3);
+    playCountdown();
+    const cd = setInterval(() => {
+      n -= 1;
+      if (n <= 0) {
+        clearInterval(cd);
+        setPhase("spin");
+      } else {
+        setCount(n);
+        playCountdown();
+      }
+    }, 600);
+
+    return () => clearInterval(cd);
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "spin") return;
+
+    const spinStart = Date.now();
+    // leave ~1.2s after both land for "done"
+    const spinBudget = Math.max(3500, totalMs - 1800 - 1200);
+    const leftStopAt = spinBudget * 0.72;
+    const rightStopAt = spinBudget * 0.92;
+
     let raf = 0;
     let lastTick = 0;
-    let tickCount = 0;
+    let leftStopped = false;
+    let rightStopped = false;
+
+    const leftTarget = finalOffset(room.creatorChoice);
+    const rightTarget = finalOffset(room.joinerChoice);
+
+    // continuous scroll speeds
+    let leftPos = 0;
+    let rightPos = ITEM_H * 0.5;
 
     const loop = (now: number) => {
-      const elapsed = now - started.current;
-      const t = Math.min(1, elapsed / totalMs);
+      const elapsed = now - spinStart;
 
-      // charge 0–0.72 · clash 0.72–0.82 · lock 0.82–1
-      if (t < 0.72) {
-        setPhase("charge");
-        // interval accelerates then slightly slows near end of charge
-        const pace = t < 0.5 ? 1 - t * 0.6 : 0.55 + (t - 0.5) * 0.8;
-        const interval = 45 + pace * 160;
-        if (now - lastTick > interval) {
-          lastTick = now;
-          tickCount += 1;
-          setLeftIdx((i) => (i + 1) % 3);
-          setRightIdx((i) => (i + 2) % 3);
-          if (tickCount % 2 === 0) playTick();
-        }
-      } else if (t < 0.82) {
-        if (phase !== "clash") {
-          setPhase("clash");
-          setShake(true);
-          playClash();
-          setTimeout(() => setShake(false), 400);
-        }
-      } else {
-        setPhase("lock");
-        if (t >= 1 && !doneRef.current) {
-          doneRef.current = true;
-          setPhase("done");
-          setTimeout(onDone, 900);
-          return;
+      if (!leftStopped) {
+        const speed = 18 + (1 - Math.min(1, elapsed / leftStopAt)) * 22;
+        leftPos += speed;
+        // wrap visually within cycle length for smoothness
+        setLeftOff(leftPos % (ITEM_H * 12));
+        if (elapsed >= leftStopAt) {
+          leftStopped = true;
+          setLeftSpin(false);
+          setLeftOff(leftTarget);
+          playLand();
         }
       }
 
-      if (t < 1) raf = requestAnimationFrame(loop);
+      if (!rightStopped) {
+        const speed = 16 + (1 - Math.min(1, elapsed / rightStopAt)) * 24;
+        rightPos += speed;
+        setRightOff(rightPos % (ITEM_H * 12));
+        if (elapsed >= rightStopAt) {
+          rightStopped = true;
+          setRightSpin(false);
+          setRightOff(rightTarget);
+          playLand();
+        }
+      }
+
+      if (now - lastTick > 70) {
+        lastTick = now;
+        if (!leftStopped || !rightStopped) playTick();
+      }
+
+      if (leftStopped && rightStopped) {
+        if (!doneRef.current) {
+          doneRef.current = true;
+          setPhase("done");
+          setTimeout(onDone, 1100);
+        }
+        return;
+      }
+      raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalMs, onDone]);
-
-  const locked = phase === "lock" || phase === "done" || phase === "clash";
-  const leftChoice = locked
-    ? room.creatorChoice || CYCLE[leftIdx]
-    : CYCLE[leftIdx];
-  const rightChoice = locked
-    ? room.joinerChoice || CYCLE[rightIdx]
-    : CYCLE[rightIdx];
-
-  const progress = Math.min(1, (Date.now() - started.current) / totalMs);
+  }, [phase, room.creatorChoice, room.joinerChoice, totalMs, onDone]);
 
   return (
-    <div
-      className={cn(
-        "flex flex-col items-center px-4 pt-4 select-none",
-        shake && "animate-[rps-shake_0.35s_ease-out]"
-      )}
-    >
+    <div className="flex flex-col items-center px-4 pt-5 select-none">
       <style>{`
-        @keyframes rps-shake {
-          0%, 100% { transform: translateX(0); }
-          20% { transform: translateX(-6px) rotate(-0.5deg); }
-          40% { transform: translateX(6px) rotate(0.5deg); }
-          60% { transform: translateX(-4px); }
-          80% { transform: translateX(3px); }
-        }
-        @keyframes rps-pulse-ring {
-          0% { transform: scale(0.6); opacity: 0.7; }
-          100% { transform: scale(2.2); opacity: 0; }
-        }
-        @keyframes rps-float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-6px); }
-        }
-        @keyframes rps-impact {
-          0% { transform: scale(0.4); opacity: 0; }
+        @keyframes rps-count-pop {
+          0% { transform: scale(0.5); opacity: 0; }
           40% { transform: scale(1.15); opacity: 1; }
           100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
 
-      {/* Status */}
-      <div className="text-[11px] uppercase tracking-[0.22em] text-white/35 mb-5">
-        {phase === "charge"
-          ? "Charging"
-          : phase === "clash"
-            ? "Clash"
-            : "Reveal"}
-      </div>
-
-      {/* Arena */}
-      <div className="relative w-full max-w-[340px] h-[220px] flex items-center justify-center">
-        {/* ambient glow */}
-        <div className="absolute inset-0 rounded-[40px] bg-gradient-to-b from-fuchsia-500/10 via-transparent to-cyan-500/10 blur-xl" />
-
-        {/* center impact ring */}
-        {(phase === "clash" || phase === "lock") && (
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-            <div
-              className="w-16 h-16 rounded-full border border-white/40"
-              style={{ animation: "rps-pulse-ring 0.7s ease-out forwards" }}
-            />
-          </div>
-        )}
-
-        {/* VS core */}
-        <div
-          className={cn(
-            "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full flex items-center justify-center text-[11px] font-bold tracking-widest transition-all duration-300",
-            phase === "clash"
-              ? "bg-white text-black scale-125 shadow-[0_0_40px_rgba(255,255,255,0.5)]"
-              : "bg-white/10 text-white/40 border border-white/15"
-          )}
-        >
-          VS
-        </div>
-
-        {/* LEFT — creator */}
-        <div
-          className={cn(
-            "absolute left-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 transition-all duration-500",
-            phase === "charge" && "animate-[rps-float_1.6s_ease-in-out_infinite]",
-            phase === "clash" && "translate-x-6",
-            locked && phase !== "clash" && "translate-x-0"
-          )}
-          style={{
-            transform:
-              phase === "clash"
-                ? "translateY(-50%) translateX(28px)"
-                : undefined,
-          }}
-        >
-          <Avatar
-            name={room.creatorUsername}
-            photoUrl={room.creatorPhotoUrl}
-            size={36}
-          />
+      {phase === "countdown" ? (
+        <div className="flex flex-col items-center justify-center min-h-[280px]">
           <div
-            className={cn(
-              "w-[96px] h-[96px] rounded-[28px] border flex items-center justify-center transition-all duration-300",
-              locked
-                ? "bg-gradient-to-br from-fuchsia-500/25 to-violet-600/20 border-fuchsia-400/45 shadow-[0_0_48px_rgba(232,121,249,0.3)]"
-                : "bg-white/[0.06] border-white/12 backdrop-blur-md"
-            )}
-            style={
-              locked
-                ? { animation: "rps-impact 0.45s cubic-bezier(0.16,1,0.3,1) both" }
-                : undefined
-            }
+            key={count}
+            className="text-[88px] font-bold text-white tracking-tighter leading-none"
+            style={{ animation: "rps-count-pop 0.45s cubic-bezier(0.16,1,0.3,1)" }}
           >
-            <ChoiceIcon
-              choice={leftChoice}
-              className={cn(
-                "w-11 h-11 transition-all duration-150",
-                locked ? "text-fuchsia-100" : "text-white/80"
-              )}
-            />
+            {count}
           </div>
-          <div className="text-[11px] text-white/45 truncate max-w-[90px]">
-            @{room.creatorUsername}
+          <div className="text-[12px] uppercase tracking-[0.25em] text-white/30 mt-4">
+            Get ready
           </div>
-          {locked && (
-            <div className="text-[12px] font-semibold text-fuchsia-200">
-              {CHOICE_LABEL[leftChoice]}
-            </div>
-          )}
         </div>
+      ) : (
+        <>
+          <div className="text-[11px] uppercase tracking-[0.2em] text-white/35 mb-5">
+            {phase === "done" ? "Result" : "Throw"}
+          </div>
 
-        {/* RIGHT — joiner */}
-        <div
-          className={cn(
-            "absolute right-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 transition-all duration-500",
-            phase === "charge" &&
-              "animate-[rps-float_1.6s_ease-in-out_infinite_0.3s]"
-          )}
-          style={{
-            transform:
-              phase === "clash"
-                ? "translateY(-50%) translateX(-28px)"
-                : undefined,
-          }}
-        >
-          <Avatar
-            name={room.joinerUsername || "?"}
-            photoUrl={room.joinerPhotoUrl}
-            size={36}
-          />
-          <div
-            className={cn(
-              "w-[96px] h-[96px] rounded-[28px] border flex items-center justify-center transition-all duration-300",
-              locked
-                ? "bg-gradient-to-br from-cyan-500/25 to-teal-600/20 border-cyan-400/45 shadow-[0_0_48px_rgba(34,211,238,0.3)]"
-                : "bg-white/[0.06] border-white/12 backdrop-blur-md"
-            )}
-            style={
-              locked
-                ? { animation: "rps-impact 0.45s cubic-bezier(0.16,1,0.3,1) 0.05s both" }
-                : undefined
-            }
-          >
-            <ChoiceIcon
-              choice={rightChoice}
-              className={cn(
-                "w-11 h-11 transition-all duration-150",
-                locked ? "text-cyan-100" : "text-white/80"
+          <div className="flex items-end justify-center gap-5 w-full max-w-sm">
+            {/* Left player */}
+            <div className="flex flex-col items-center gap-2.5">
+              <Avatar
+                name={room.creatorUsername}
+                photoUrl={room.creatorPhotoUrl}
+                size={36}
+              />
+              <ReelColumn
+                final={room.creatorChoice}
+                spinning={leftSpin && phase === "spin"}
+                offset={leftOff}
+                accent="fuchsia"
+              />
+              <div className="text-[11px] text-white/40 truncate max-w-[88px]">
+                @{room.creatorUsername}
+              </div>
+              {!leftSpin && room.creatorChoice && (
+                <div className="text-[12px] font-semibold text-fuchsia-200">
+                  {CHOICE_LABEL[room.creatorChoice]}
+                </div>
               )}
-            />
-          </div>
-          <div className="text-[11px] text-white/45 truncate max-w-[90px]">
-            @{room.joinerUsername || "…"}
-          </div>
-          {locked && (
-            <div className="text-[12px] font-semibold text-cyan-200">
-              {CHOICE_LABEL[rightChoice]}
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Progress bar */}
-      {phase === "charge" && (
-        <div className="mt-8 w-48 h-1 rounded-full bg-white/10 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-fuchsia-400 via-violet-400 to-cyan-400 transition-all duration-100"
-            style={{ width: `${progress * 100}%` }}
-          />
-        </div>
+            <div className="pb-16 text-[13px] font-bold tracking-[0.2em] text-white/20">
+              VS
+            </div>
+
+            {/* Right player */}
+            <div className="flex flex-col items-center gap-2.5">
+              <Avatar
+                name={room.joinerUsername || "?"}
+                photoUrl={room.joinerPhotoUrl}
+                size={36}
+              />
+              <ReelColumn
+                final={room.joinerChoice}
+                spinning={rightSpin && phase === "spin"}
+                offset={rightOff}
+                accent="cyan"
+              />
+              <div className="text-[11px] text-white/40 truncate max-w-[88px]">
+                @{room.joinerUsername || "…"}
+              </div>
+              {!rightSpin && room.joinerChoice && (
+                <div className="text-[12px] font-semibold text-cyan-200">
+                  {CHOICE_LABEL[room.joinerChoice]}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-/* ─── Main screen ──────────────────────────────────────── */
+/* ─── History row ──────────────────────────────────────── */
+function HistoryRow({
+  h,
+  tag,
+}: {
+  h: HistItem;
+  tag: string;
+}) {
+  const isWin = h.result === "win";
+  const isDraw = h.result === "draw";
+  return (
+    <div className="rounded-2xl bg-white/[0.025] border border-white/[0.06] px-3.5 py-3 flex items-center gap-3">
+      <div className="text-[11px] font-mono text-white/25 w-10 shrink-0">
+        #{tag}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="w-8 h-8 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center">
+          <ChoiceIcon choice={h.my_choice} className="w-4 h-4 text-white/70" />
+        </div>
+        <span className="text-[10px] text-white/20">vs</span>
+        <div className="w-8 h-8 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center">
+          <ChoiceIcon
+            choice={h.opponent_choice}
+            className="w-4 h-4 text-white/70"
+          />
+        </div>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[13px] text-white/70 truncate">@{h.opponent}</div>
+        <div className="text-[10px] text-white/28 mt-0.5">
+          {formatTime(new Date(h.created_at))}
+        </div>
+      </div>
+      <div
+        className={cn(
+          "text-[14px] font-semibold tabular-nums shrink-0",
+          isWin
+            ? "text-emerald-400"
+            : isDraw
+              ? "text-white/45"
+              : "text-red-400/90"
+        )}
+      >
+        {isWin
+          ? `+${formatGram(h.payout)}`
+          : isDraw
+            ? `±${formatGram(h.amount)}`
+            : `−${formatGram(h.amount)}`}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main ─────────────────────────────────────────────── */
 export function RpsScreen({
   balance,
   telegramId,
@@ -390,18 +542,7 @@ export function RpsScreen({
   const [rooms, setRooms] = useState<RpsPublicRoom[]>([]);
   const [mine, setMine] = useState<RpsPublicRoom | null>(null);
   const [active, setActive] = useState<RpsPublicRoom | null>(null);
-  const [history, setHistory] = useState<
-    Array<{
-      id: string;
-      opponent: string;
-      my_choice: RpsChoice;
-      opponent_choice: RpsChoice;
-      amount: number;
-      result: "win" | "lose" | "draw";
-      payout: number;
-      created_at: string;
-    }>
-  >([]);
+  const [history, setHistory] = useState<HistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -413,10 +554,24 @@ export function RpsScreen({
   const viewRef = useRef(view);
   viewRef.current = view;
 
+  const copyText = useCallback(
+    (v: string) => {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(v).then(() => {
+          hapticSuccess();
+          showToast("Copied");
+        });
+      } else {
+        showToast(v);
+      }
+    },
+    [hapticSuccess, showToast]
+  );
+
   const loadHistory = useCallback(async () => {
     try {
-      const res = await rpsHistory(20);
-      setHistory(res.items || []);
+      const res = await rpsHistory(50);
+      setHistory((res.items || []) as HistItem[]);
     } catch {
       /* ignore */
     }
@@ -427,16 +582,16 @@ export function RpsScreen({
       const data = await rpsList();
       setRooms(data.rooms || []);
       setMine(data.mine || null);
-
       const m = data.mine;
       if (m?.status === "playing") {
         setActive(m);
-        if (viewRef.current !== "result") setView("reveal");
+        if (viewRef.current !== "result" && viewRef.current !== "history") {
+          setView("reveal");
+        }
       } else if (m?.status === "finished" && viewRef.current === "reveal") {
         setActive(m);
         setView("result");
       }
-      // open room: do NOT force waiting — user can browse lobby
     } catch {
       /* demo */
     } finally {
@@ -451,7 +606,6 @@ export function RpsScreen({
     return () => clearInterval(id);
   }, [refresh, loadHistory]);
 
-  // Poll active room during reveal
   useEffect(() => {
     if (!active || view !== "reveal") return;
     const id = setInterval(async () => {
@@ -490,9 +644,9 @@ export function RpsScreen({
       onBalanceUpdate(res.balance);
       setMine(res.room);
       setActive(res.room);
-      setView("lobby"); // stay in lobby — room lives as banner
+      setView("lobby");
       haptic("light");
-      showToast("Room created · waiting for opponent");
+      showToast("Room created");
       refresh();
     } catch (e) {
       hapticError();
@@ -512,7 +666,7 @@ export function RpsScreen({
       setMine(null);
       if (active?.id === id) setActive(null);
       haptic("light");
-      showToast("Room cancelled · refunded");
+      showToast("Cancelled · refunded");
       refresh();
     } catch (e) {
       hapticError();
@@ -534,14 +688,13 @@ export function RpsScreen({
         showToast("Open in Telegram with server for real RPS");
         return;
       }
-      // Auto-cancel own open room so user can freely join others
       if (mine?.status === "open" && mine.id !== joinTarget.id) {
         try {
           const c = await rpsCancel(mine.id);
           onBalanceUpdate(c.balance);
           setMine(null);
         } catch {
-          /* may already be gone */
+          /* ok */
         }
       }
       const res = await rpsJoin(joinTarget.id, joinChoice);
@@ -568,8 +721,7 @@ export function RpsScreen({
       onReloadBalance?.();
       loadHistory();
       const iWon =
-        room.winnerTelegramId != null &&
-        room.winnerTelegramId === telegramId;
+        room.winnerTelegramId != null && room.winnerTelegramId === telegramId;
       const draw = room.winnerTelegramId == null;
       if (draw) haptic("medium");
       else if (iWon) {
@@ -602,47 +754,59 @@ export function RpsScreen({
     refresh();
   };
 
+  const headerTitle =
+    view === "create"
+      ? "Create room"
+      : view === "join"
+        ? "Join game"
+        : view === "reveal"
+          ? "Duel"
+          : view === "result"
+            ? "Result"
+            : view === "history"
+              ? "History"
+              : "Rock Paper Scissors";
+
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      {/* ── Header ─────────────────────────────────────── */}
+      {/* Header */}
       <div className="px-4 pt-3 pb-3 flex items-center gap-3">
         <button
           type="button"
           onClick={() => {
-            if (view === "create" || view === "join") goLobby();
+            if (view === "create" || view === "join" || view === "history")
+              goLobby();
             else if (view === "result") {
               setActive(null);
               goLobby();
             } else if (view === "reveal") {
-              /* stay — match in progress */
+              /* locked in match */
             } else {
               onBack();
             }
           }}
           className="w-10 h-10 rounded-full glass border border-white/[0.09] flex items-center justify-center text-white/55 hover:text-white/90 transition btn-press shrink-0"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
 
         <div className="flex-1 min-w-0">
-          <div className="text-[15px] font-semibold tracking-tight leading-tight">
-            {view === "create"
-              ? "Create room"
-              : view === "join"
-                ? "Join game"
-                : view === "reveal"
-                  ? "Duel"
-                  : view === "result"
-                    ? "Result"
-                    : "Rock Paper Scissors"}
+          <div className="text-[15px] font-semibold tracking-tight leading-tight truncate">
+            {headerTitle}
           </div>
         </div>
 
-        {/* Balance pill — always visible */}
+        {/* Balance — no dot */}
         <div className="flex items-center gap-1.5 h-9 px-3 rounded-full glass border border-white/[0.1] shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
-          <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.8)]" />
           <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
             {formatGram(balance)}
           </span>
@@ -664,8 +828,33 @@ export function RpsScreen({
           >
             <div className="absolute inset-0 bg-gradient-to-br from-[#6b21a8] via-[#86198f] to-[#9d174d]" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(244,114,182,0.35),transparent_55%)]" />
-            <div className="relative px-5 py-4 flex items-center justify-between">
-              <div>
+            <div className="relative px-5 py-4 flex items-center gap-4">
+              {/* Icon cluster */}
+              <div className="relative w-14 h-14 shrink-0">
+                <div className="absolute inset-0 rounded-2xl bg-white/15 border border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.3)]">
+                  <svg
+                    width="26"
+                    height="26"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="text-white"
+                  >
+                    <path
+                      d="M12 5v14M5 12h14"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+                <div className="absolute -right-1 -bottom-1 w-6 h-6 rounded-lg bg-fuchsia-400/30 border border-white/20 flex items-center justify-center">
+                  <ChoiceIcon
+                    choice="scissors"
+                    className="w-3.5 h-3.5 text-fuchsia-100"
+                  />
+                </div>
+              </div>
+              <div className="flex-1 text-left">
                 <div className="text-[16px] font-bold text-white tracking-tight">
                   Create room
                 </div>
@@ -673,15 +862,10 @@ export function RpsScreen({
                   Set stake · wait for opponent
                 </div>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="text-white">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-              </div>
             </div>
           </button>
 
-          {/* My open room banner */}
+          {/* My open room */}
           {mine?.status === "open" && (
             <div className="mb-4 rounded-[20px] border border-fuchsia-400/25 bg-fuchsia-500/[0.08] p-3.5">
               <div className="flex items-center gap-3">
@@ -695,7 +879,7 @@ export function RpsScreen({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[10px] uppercase tracking-wider text-fuchsia-300/70 mb-0.5">
-                    Your room · open
+                    Your room · #{roomTag(mine.id)}
                   </div>
                   <div className="text-[15px] font-semibold tabular-nums">
                     {formatGram(mine.amount)}{" "}
@@ -718,7 +902,7 @@ export function RpsScreen({
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
                 </span>
-                Waiting for opponent · you can join other rooms
+                Waiting · you can still join other rooms
               </div>
             </div>
           )}
@@ -769,7 +953,7 @@ export function RpsScreen({
                       @{r.creatorUsername}
                     </div>
                     <div className="text-[11px] text-white/30 font-mono mt-0.5">
-                      {shortHash(r.creatorChoiceHash)}
+                      #{roomTag(r.id)} · {clipHash(r.creatorChoiceHash, 6, 4)}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -783,65 +967,68 @@ export function RpsScreen({
             </div>
           )}
 
-          {/* History — Spin style +/- */}
-          {history.length > 0 && (
-            <>
-              <div className="text-[11px] uppercase tracking-wider text-white/35 mb-2.5 mt-7">
-                History
-              </div>
-              <div className="space-y-1.5 pb-6">
-                {history.map((h) => {
-                  const isWin = h.result === "win";
-                  const isDraw = h.result === "draw";
-                  return (
-                    <div
-                      key={h.id}
-                      className="rounded-2xl bg-white/[0.025] border border-white/[0.06] px-3.5 py-3 flex items-center gap-3"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-8 h-8 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center">
-                          <ChoiceIcon
-                            choice={h.my_choice}
-                            className="w-4 h-4 text-white/70"
-                          />
-                        </div>
-                        <span className="text-[10px] text-white/25">vs</span>
-                        <div className="w-8 h-8 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center">
-                          <ChoiceIcon
-                            choice={h.opponent_choice}
-                            className="w-4 h-4 text-white/70"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[13px] text-white/70 truncate">
-                          @{h.opponent}
-                        </div>
-                        <div className="text-[10px] text-white/28 mt-0.5">
-                          {formatTime(new Date(h.created_at))}
-                        </div>
-                      </div>
-                      <div
-                        className={cn(
-                          "text-[14px] font-semibold tabular-nums",
-                          isWin
-                            ? "text-emerald-400"
-                            : isDraw
-                              ? "text-white/45"
-                              : "text-red-400/90"
-                        )}
-                      >
-                        {isWin
-                          ? `+${formatGram(h.payout)}`
-                          : isDraw
-                            ? `±${formatGram(h.amount)}`
-                            : `−${formatGram(h.amount)}`}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
+          {/* History preview — last 5 */}
+          <div className="flex items-center justify-between mb-2.5 mt-7">
+            <div className="text-[11px] uppercase tracking-wider text-white/35">
+              History
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                haptic("light");
+                loadHistory();
+                setView("history");
+              }}
+              className="w-8 h-8 rounded-xl glass border border-white/[0.08] flex items-center justify-center text-white/45 hover:text-white/80 transition btn-press"
+              aria-label="Full history"
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+            </button>
+          </div>
+
+          {history.length === 0 ? (
+            <div className="text-[12px] text-white/25 text-center py-4 mb-4">
+              No games yet
+            </div>
+          ) : (
+            <div className="space-y-1.5 pb-6">
+              {history.slice(0, 5).map((h) => (
+                <HistoryRow key={h.id} h={h} tag={roomTag(h.room_id)} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── FULL HISTORY ───────────────────────────────── */}
+      {view === "history" && (
+        <div className="px-4 flex-1 overflow-y-auto">
+          <div className="flex gap-1.5 p-1 rounded-2xl bg-black/35 border border-white/[0.06] mb-4">
+            <div className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-center bg-white/10 text-white border border-white/12">
+              All
+            </div>
+          </div>
+
+          {history.length === 0 ? (
+            <div className="text-center py-16 text-[13px] text-white/35">
+              No games yet
+            </div>
+          ) : (
+            <div className="space-y-1.5 pb-6">
+              {history.map((h) => (
+                <HistoryRow key={h.id} h={h} tag={roomTag(h.room_id)} />
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -850,7 +1037,7 @@ export function RpsScreen({
       {view === "create" && (
         <div className="px-4 flex-1">
           <div className="text-[13px] text-white/40 mb-5 mt-1 text-center">
-            Your move is hidden until someone joins
+            Your move stays hidden until someone joins
           </div>
 
           <div className="flex justify-center gap-3.5 mb-8">
@@ -930,7 +1117,8 @@ export function RpsScreen({
                 @{joinTarget.creatorUsername}
               </div>
               <div className="text-[11px] text-white/30 font-mono mt-0.5">
-                {shortHash(joinTarget.creatorChoiceHash, 12)}
+                #{roomTag(joinTarget.id)} ·{" "}
+                {clipHash(joinTarget.creatorChoiceHash, 6, 4)}
               </div>
             </div>
             <div className="text-right">
@@ -943,7 +1131,7 @@ export function RpsScreen({
 
           {mine?.status === "open" && (
             <div className="mb-4 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-200/80 text-center">
-              Joining will cancel your open room and refund the stake
+              Joining cancels your open room and refunds the stake
             </div>
           )}
 
@@ -980,12 +1168,12 @@ export function RpsScreen({
 
       {/* ── REVEAL ─────────────────────────────────────── */}
       {view === "reveal" && active && (
-        <ClashReveal room={active} onDone={onRevealDone} />
+        <ReelReveal room={active} onDone={onRevealDone} />
       )}
 
       {/* ── RESULT ─────────────────────────────────────── */}
       {view === "result" && active && (
-        <div className="px-4 flex-1 flex flex-col items-center pt-6">
+        <div className="px-4 flex-1 flex flex-col items-center pt-6 overflow-y-auto">
           {(() => {
             const isDraw = active.winnerTelegramId == null;
             const iWon =
@@ -999,6 +1187,9 @@ export function RpsScreen({
 
             return (
               <>
+                <div className="text-[11px] font-mono text-white/30 mb-2">
+                  #{roomTag(active.id)}
+                </div>
                 <div
                   className={cn(
                     "text-[32px] font-bold tracking-tight mb-1.5",
@@ -1013,7 +1204,7 @@ export function RpsScreen({
                 </div>
                 <div
                   className={cn(
-                    "text-[18px] font-semibold tabular-nums mb-8",
+                    "text-[18px] font-semibold tabular-nums mb-7",
                     isDraw
                       ? "text-white/45"
                       : iWon
@@ -1028,7 +1219,7 @@ export function RpsScreen({
                       : `−${formatGram(active.amount)} GRAM`}
                 </div>
 
-                <div className="flex items-center gap-5 mb-8">
+                <div className="flex items-center gap-5 mb-7">
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-[72px] h-[72px] rounded-[22px] bg-gradient-to-br from-fuchsia-500/20 to-violet-600/15 border border-fuchsia-400/35 flex items-center justify-center shadow-[0_0_32px_rgba(232,121,249,0.2)]">
                       {active.creatorChoice && (
@@ -1060,19 +1251,26 @@ export function RpsScreen({
                   </div>
                 </div>
 
-                {/* Fairness strip */}
-                <div className="w-full max-w-sm rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3 mb-6 space-y-1">
+                {/* Fairness — clipped + copy */}
+                <div className="w-full max-w-sm rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 mb-6">
                   <div className="text-[9px] uppercase tracking-wider text-white/25 mb-1">
-                    Provably fair
+                    Provably fair · tap to copy
                   </div>
-                  <div className="text-[10px] font-mono text-white/35 break-all leading-relaxed">
-                    {active.creatorChoiceHash}
-                  </div>
-                  {active.serverSeed && (
-                    <div className="text-[10px] font-mono text-white/25 break-all leading-relaxed">
-                      seed {shortHash(active.serverSeed, 20)}
-                    </div>
-                  )}
+                  <HashRow
+                    label="commit"
+                    value={active.creatorChoiceHash}
+                    onCopy={copyText}
+                  />
+                  <HashRow
+                    label="seed"
+                    value={active.serverSeed}
+                    onCopy={copyText}
+                  />
+                  <HashRow
+                    label="nonce"
+                    value={active.creatorChoiceNonce}
+                    onCopy={copyText}
+                  />
                 </div>
 
                 <button
@@ -1083,7 +1281,7 @@ export function RpsScreen({
                     goLobby();
                     loadHistory();
                   }}
-                  className="w-full max-w-sm h-12 rounded-2xl btn-primary text-sm font-semibold btn-press"
+                  className="w-full max-w-sm h-12 rounded-2xl btn-primary text-sm font-semibold btn-press mb-6"
                 >
                   Back to lobby
                 </button>
