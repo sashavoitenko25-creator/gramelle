@@ -8,7 +8,8 @@ import {
 export type PaymentProvider = "stars" | "ton";
 
 export function gramFromStars(stars: number): number {
-  return stars * GRAM_PER_STAR;
+  // 500 Stars = 4.25 GRAM
+  return Math.round(stars * GRAM_PER_STAR * 10000) / 10000;
 }
 
 /** 1 TON = 1 GRAM base rate (package bonuses applied via package.gram) */

@@ -692,6 +692,7 @@ export default function Home() {
         onClose={() => setWithdrawOpen(false)}
         balance={balance}
         serverMode={serverMode}
+        prefilledWallet={(profile as { ton_wallet?: string | null })?.ton_wallet}
         onDone={(b) => {
           if (typeof b === "number") setBalanceFromServer(b);
           else reloadProfile();

@@ -28,15 +28,24 @@ export const ROUND_COUNTDOWN_SEC = 20;
  * - House edge 5% of bank → winner gets 95%
  * - Min deposit 0.5 GRAM, min withdraw 5 GRAM, withdraw fee 0.2 GRAM
  */
-export const GRAM_PER_STAR =
-  Number(process.env.NEXT_PUBLIC_GRAM_PER_STAR) || 0.0085;
-export const GRAM_PER_TON =
-  Number(process.env.NEXT_PUBLIC_GRAM_PER_TON) || 1;
+/** Official rate: 500 Stars = 4.25 GRAM */
+export const STARS_PER_GRAM_RATE = 500 / 4.25; // Stars needed for 1 GRAM
+export const GRAM_PER_STAR = (() => {
+  const env = Number(process.env.NEXT_PUBLIC_GRAM_PER_STAR);
+  // Guard against misconfigured env (e.g. 1) that breaks economy
+  if (Number.isFinite(env) && env > 0 && env < 0.1) return env;
+  return 4.25 / 500; // 0.0085
+})();
+export const GRAM_PER_TON = (() => {
+  const env = Number(process.env.NEXT_PUBLIC_GRAM_PER_TON);
+  if (Number.isFinite(env) && env > 0) return env;
+  return 1;
+})();
 
 export const HOUSE_EDGE = 0.05; // 5%
 
 export const MIN_DEPOSIT_GRAM = 0.5;
-export const MIN_DEPOSIT_STARS = Math.ceil(0.5 / 0.0085); // ~59
+export const MIN_DEPOSIT_STARS = Math.ceil(0.5 / (4.25 / 500)); // ~59
 export const MAX_DEPOSIT_STARS = 10_000_000; // effectively unlimited
 export const MIN_DEPOSIT_TON = 0.5;
 export const MAX_DEPOSIT_TON = 1_000_000; // effectively unlimited

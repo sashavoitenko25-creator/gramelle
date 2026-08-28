@@ -24,6 +24,9 @@ import { createTonPending, checkTonDeposits } from "@/lib/api";
 import { tonAmountToNano, tonCommentPayload } from "@/lib/tonPayload";
 import { cn } from "@/lib/utils";
 import type { DepositMethod } from "@/lib/types";
+import { TonIcon } from "@/components/ui/TonIcon";
+import { StarsIcon } from "@/components/ui/StarsIcon";
+import { GRAM_PER_STAR } from "@/lib/constants";
 
 interface DepositModalProps {
   open: boolean;
@@ -310,9 +313,9 @@ export function DepositModal({
         <div className="flex gap-2 p-1 rounded-2xl bg-black/40 border border-white/[0.06] mb-4">
           {(
             [
-              ["stars", "Stars"],
-              ["ton", "TON"],
-            ] as const
+              ["stars", "Stars", "stars"] as const,
+              ["ton", "TON", "ton"] as const,
+            ]
           ).map(([id, label]) => (
             <button
               key={id}
@@ -321,12 +324,13 @@ export function DepositModal({
                 setTonStep("pick");
               }}
               className={cn(
-                "flex-1 py-2.5 rounded-xl text-sm font-semibold transition btn-press",
+                "flex-1 py-2.5 rounded-xl text-sm font-semibold transition btn-press flex items-center justify-center gap-1.5",
                 method === id
                   ? "bg-white/10 text-white border border-white/10"
                   : "text-white/40 border border-transparent"
               )}
             >
+              {id === "stars" ? <StarsIcon size={16} /> : <TonIcon size={16} />}
               {label}
             </button>
           ))}
@@ -335,8 +339,12 @@ export function DepositModal({
         {method === "stars" && (
           <div className="space-y-3">
             <p className="text-[11px] text-white/35 leading-relaxed">
-              Pay with Telegram Stars. Rate: 500 Stars ≈ 4.25 GRAM. Min{" "}
-              {MIN_DEPOSIT_STARS} Stars.
+              Pay with Telegram Stars. Rate:{" "}
+              <span className="text-white/55">500</span>{" "}
+              <StarsIcon size={11} className="inline-block align-[-2px]" /> ={" "}
+              <span className="text-white/55">4.25 GRAM</span>
+              {" "}· Min {MIN_DEPOSIT_STARS}{" "}
+              <StarsIcon size={11} className="inline-block align-[-2px]" />
             </p>
 
             {/* Custom amount */}
@@ -355,12 +363,14 @@ export function DepositModal({
                   className="flex-1 h-11 rounded-xl bg-black/35 border border-white/10 px-3 text-sm font-semibold tabular-nums outline-none focus:border-cyan-400/40"
                   placeholder={String(MIN_DEPOSIT_STARS)}
                 />
-                <span className="text-xs text-white/40 shrink-0">Stars</span>
+                <span className="text-xs text-white/40 shrink-0 flex items-center gap-1">
+                  <StarsIcon size={14} /> Stars
+                </span>
               </div>
               <div className="mt-2 flex items-center justify-between text-[11px]">
                 <span className={starsOk ? "text-white/40" : "text-amber-300/90"}>
                   {starsOk
-                    ? `→ ${starsGram.toFixed(4)} GRAM`
+                    ? `→ ${starsGram.toFixed(4)} GRAM  ·  1★ = ${GRAM_PER_STAR.toFixed(4)} GRAM`
                     : `Min ${MIN_DEPOSIT_STARS} Stars`}
                 </span>
               </div>
@@ -368,9 +378,16 @@ export function DepositModal({
                 type="button"
                 disabled={loading || !starsOk}
                 onClick={() => payStars(starsAmount)}
-                className="mt-3 w-full h-11 rounded-xl btn-primary text-sm font-semibold btn-press disabled:opacity-40"
+                className="mt-3 w-full h-11 rounded-xl btn-primary text-sm font-semibold btn-press disabled:opacity-40 flex items-center justify-center gap-1.5"
               >
-                {loading ? "…" : `Pay ${starsAmount || 0} Stars`}
+                {loading ? (
+                  "…"
+                ) : (
+                  <>
+                    <StarsIcon size={16} />
+                    Pay {starsAmount || 0}
+                  </>
+                )}
               </button>
             </div>
 
@@ -388,10 +405,13 @@ export function DepositModal({
                 }}
                 className="w-full flex items-center justify-between rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3.5 hover:bg-white/[0.05] transition btn-press disabled:opacity-50"
               >
-                <div className="text-left">
-                  <div className="text-sm font-semibold">{p.stars} Stars</div>
-                  <div className="text-[11px] text-white/35">
-                    → {p.gram} GRAM
+                <div className="text-left flex items-center gap-2.5">
+                  <StarsIcon size={22} />
+                  <div>
+                    <div className="text-sm font-semibold">{p.stars} Stars</div>
+                    <div className="text-[11px] text-white/35">
+                      → {p.gram} GRAM
+                    </div>
                   </div>
                 </div>
                 <span className="text-xs text-cyan-300 font-medium">Buy</span>
@@ -403,9 +423,10 @@ export function DepositModal({
         {method === "ton" && tonStep === "pick" && (
           <div className="space-y-3">
             <p className="text-[11px] text-white/35 leading-relaxed">
-              1 TON ≈ 1 GRAM. Min {MIN_DEPOSIT_TON} TON. Prefer{" "}
-              <span className="text-sky-300/90">TON Connect</span> for one-tap
-              payment.
+              1 <TonIcon size={11} className="inline-block align-[-2px]" /> ≈ 1 GRAM.
+              Min {MIN_DEPOSIT_TON}{" "}
+              <TonIcon size={11} className="inline-block align-[-2px]" />.
+              Prefer <span className="text-sky-300/90">TON Connect</span>.
             </p>
 
             <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5">
@@ -424,7 +445,9 @@ export function DepositModal({
                   className="flex-1 h-11 rounded-xl bg-black/35 border border-white/10 px-3 text-sm font-semibold tabular-nums outline-none focus:border-cyan-400/40"
                   placeholder={String(MIN_DEPOSIT_TON)}
                 />
-                <span className="text-xs text-white/40 shrink-0">TON</span>
+                <span className="text-xs text-white/40 shrink-0 flex items-center gap-1">
+                  <TonIcon size={14} /> TON
+                </span>
               </div>
               <div className="mt-2 text-[11px]">
                 <span className={tonOk ? "text-white/40" : "text-amber-300/90"}>
@@ -454,9 +477,12 @@ export function DepositModal({
                 onClick={() => void startTonDeposit(p.ton)}
                 className="w-full flex items-center justify-between rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3.5 hover:bg-white/[0.05] transition btn-press disabled:opacity-50"
               >
-                <div className="text-left">
-                  <div className="text-sm font-semibold">{p.ton} TON</div>
-                  <div className="text-[11px] text-white/35">→ {p.gram} GRAM</div>
+                <div className="text-left flex items-center gap-2.5">
+                  <TonIcon size={22} />
+                  <div>
+                    <div className="text-sm font-semibold">{p.ton} TON</div>
+                    <div className="text-[11px] text-white/35">→ {p.gram} GRAM</div>
+                  </div>
                 </div>
                 <span className="text-xs text-cyan-300 font-medium">Select</span>
               </button>
