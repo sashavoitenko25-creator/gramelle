@@ -136,7 +136,6 @@ export default function Home() {
     setCountdown(null);
   }, []);
 
-  // Server countdown display
   useEffect(() => {
     if (!countdownEndsAt || isSpinning) return;
     const totalSec = ROOMS[mode]?.countdownSec ?? 20;
@@ -158,7 +157,6 @@ export default function Home() {
     return () => clearInterval(id);
   }, [countdownEndsAt, isSpinning, mode]);
 
-  // Handle server-authoritative spin result
   useEffect(() => {
     if (!pendingSpin || spinningRef.current) return;
     const {
@@ -221,7 +219,11 @@ export default function Home() {
         haptic("medium");
         playLoseSound();
         showToast(
-          "@" + winnerUsername + " won " + (potAfterFee ?? total).toFixed(2) + " GRAM"
+          "@" +
+            winnerUsername +
+            " won " +
+            (potAfterFee ?? total).toFixed(2) +
+            " GRAM"
         );
         setWinOverlay({
           open: true,
@@ -276,7 +278,6 @@ export default function Home() {
     profile?.photo_url,
   ]);
 
-  // Demo-mode local spin
   const finishRoundLocal = useCallback(
     async (winner: Player, total: number, currentRollId: number) => {
       setIsSpinning(false);
@@ -369,7 +370,6 @@ export default function Home() {
     setTimeout(() => finishRoundLocal(winner, total, rid), SPIN_FINISH_DELAY_MS);
   }, [finishRoundLocal, haptic, clearCountdown]);
 
-  // Demo countdown
   useEffect(() => {
     if (serverMode) return;
     if (players.length >= 2 && !isSpinning) {
@@ -391,7 +391,6 @@ export default function Home() {
     }
   }, [players.length, isSpinning, serverMode, clearCountdown, startSpinLocal]);
 
-  // Server: try spin when countdown hits 0
   useEffect(() => {
     if (!serverMode || !countdownEndsAt || isSpinning) return;
     const left = new Date(countdownEndsAt).getTime() - Date.now();
@@ -623,7 +622,24 @@ export default function Home() {
       )}
 
       {screen === "rps" && (
-        <RpsScreen onBack={() => setScreen("games")} />
+        <RpsScreen
+          balance={balance}
+          telegramId={telegramId}
+          username={username}
+          photoUrl={profile?.photo_url}
+          serverMode={serverMode}
+          onBack={() => setScreen("games")}
+          onBalanceUpdate={(b) => {
+            setBalanceFromServer(b);
+          }}
+          onReloadBalance={() => {
+            reloadProfile();
+          }}
+          showToast={showToast}
+          haptic={haptic}
+          hapticSuccess={hapticSuccess}
+          hapticError={hapticError}
+        />
       )}
 
       {screen === "history" && (
@@ -770,14 +786,6 @@ export default function Home() {
               </p>
               <p className="text-[11px] text-white/35 pt-1">
                 18+ · Entertainment only · Play responsibly
-              </p>
-              <p className="text-[11px] text-white/25">
-                <a
-                  href="/fair"
-                  className="text-cyan-300/70 underline-offset-2 hover:underline"
-                >
-                  How fairness works →
-                </a>
               </p>
             </div>
             <button

@@ -1,83 +1,67 @@
-# Gramelle — Games Menu Overlay
+# Gramelle — Rock Paper Scissors (full)
 
-Распакуй этот архив **поверх** корня проекта (рядом с `src/`, `package.json` и т.д.).
+## 1. SQL (обязательно)
 
-Файлы перезапишут / добавят:
+В Supabase SQL Editor выполни:
 
 ```
-src/lib/types.ts
-src/components/screens/GamesScreen.tsx   ← новый
-src/components/screens/RpsScreen.tsx     ← новый
-src/components/game/BottomNav.tsx
+supabase/rps.sql
 ```
 
----
+Создаст таблицы `rps_rooms` и `rps_history`.
 
-## Что нужно руками в `src/app/page.tsx`
+## 2. Распакуй ZIP поверх корня проекта
 
-### 1. Импорты (добавь рядом с остальными screens)
+Файлы:
 
-```tsx
-import { GamesScreen } from "@/components/screens/GamesScreen";
-import { RpsScreen } from "@/components/screens/RpsScreen";
+```
+src/app/page.tsx
+src/app/api/rps/list/route.ts
+src/app/api/rps/create/route.ts
+src/app/api/rps/cancel/route.ts
+src/app/api/rps/join/route.ts
+src/app/api/rps/state/route.ts
+src/app/api/rps/history/route.ts
+src/lib/server/rps.ts
+src/lib/rpsApi.ts
+src/lib/rpsConstants.ts
+src/components/screens/RpsScreen.tsx
+src/components/rps/RpsIcons.tsx
 ```
 
-### 2. Начальный экран
+(Меню игр / BottomNav / types из прошлого патча уже должны быть.)
 
-Найди:
+## 3. Как работает
 
-```tsx
-const [screen, setScreen] = useState<Screen>("pvp");
-```
+**Создать комнату**
+- Выбираешь Rock / Paper / Scissors
+- Вводишь ставку
+- Создаётся комната, ставка списывается
+- Выбор **захеширован** (`sha256(choice:nonce)`) — публичный commit
+- Можно отменить → полный refund
 
-Замени на:
+**Присоединиться**
+- Видишь список open rooms + hash создателя
+- Выбираешь свой ход
+- Ставка списывается
+- Сразу статус `playing`, анимация ~11 сек
+- После `reveal_at` сервер финализирует: win / draw, ledger, history
 
-```tsx
-const [screen, setScreen] = useState<Screen>("games");
-```
+**Честность**
+- `creator_choice_hash` виден до join
+- После игры: `choice`, `nonce`, `server_seed` — можно проверить hash
+- House edge 5% с банка (2×ставка); при ничьей — полный возврат обеим
 
-### 3. Рендер экранов
+**API**
+| Route | Method |
+|-------|--------|
+| `/api/rps/list` | GET |
+| `/api/rps/create` | POST `{ choice, amount }` |
+| `/api/rps/cancel` | POST `{ roomId }` |
+| `/api/rps/join` | POST `{ roomId, choice }` |
+| `/api/rps/state?id=` | GET |
+| `/api/rps/history` | GET |
 
-Найди блок вида:
+## 4. Deploy
 
-```tsx
-{screen === "pvp" && (
-  <PvpScreen ... />
-)}
-```
-
-Замени / дополни на:
-
-```tsx
-{screen === "games" && (
-  <GamesScreen
-    onSelectSpin={() => {
-      haptic("light");
-      setScreen("pvp");
-    }}
-    onSelectRps={() => {
-      haptic("light");
-      setScreen("rps");
-    }}
-  />
-)}
-
-{screen === "pvp" && (
-  <PvpScreen
-    // все твои текущие props остаются как были
-    ...
-  />
-)}
-
-{screen === "rps" && (
-  <RpsScreen onBack={() => setScreen("games")} />
-)}
-```
-
-### 4. BottomNav уже обновлён
-
-При клике на Play теперь открывается меню игр. Пока ты внутри SPIN или RPS — вкладка Play остаётся активной.
-
----
-
-Готово. После распаковки + 4 правки в `page.tsx` — запускай.
+После SQL + файлов — задеплой на Vercel. RPS работает только в server mode (внутри Telegram с Supabase).
