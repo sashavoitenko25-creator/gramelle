@@ -17,7 +17,7 @@ import {
   ChoiceIcon,
   CHOICE_LABEL,
 } from "@/components/rps/RpsIcons";
-import { RPS_MIN_BET, RPS_MAX_BET, RPS_REVEAL_SEC } from "@/lib/rpsConstants";
+import { RPS_MIN_BET, RPS_MAX_BET } from "@/lib/rpsConstants";
 import { playWinSound, playLoseSound } from "@/lib/sounds";
 
 interface RpsScreenProps {
@@ -35,10 +35,21 @@ interface RpsScreenProps {
   hapticError: () => void;
 }
 
-type View = "lobby" | "create" | "join" | "reveal" | "result" | "history";
+type View =
+  | "lobby"
+  | "create"
+  | "join"
+  | "reveal"
+  | "result"
+  | "history"
+  | "detail";
 
 const QUICK_AMOUNTS = [0.5, 1, 2, 5, 10, 25];
 const CYCLE: RpsChoice[] = ["rock", "paper", "scissors"];
+const ITEM_H = 72;
+const VISIBLE = 3;
+const REEL_H = ITEM_H * VISIBLE;
+const SPIN_MS = 5000;
 
 type HistItem = {
   id: string;
@@ -89,14 +100,14 @@ function beep(
   o.stop(c.currentTime + dur + 0.02);
 }
 function playTick() {
-  beep(380 + Math.random() * 120, 0.035, 0.03, "triangle");
+  beep(360 + Math.random() * 100, 0.03, 0.028, "triangle");
 }
 function playLand() {
-  beep(220, 0.1, 0.07, "sine");
-  beep(440, 0.08, 0.04, "triangle");
+  beep(200, 0.1, 0.07, "sine");
+  beep(400, 0.09, 0.04, "triangle");
 }
 function playCountdown() {
-  beep(520, 0.12, 0.07, "sine");
+  beep(520, 0.1, 0.065, "sine");
 }
 
 /* ─── helpers ──────────────────────────────────────────── */
@@ -125,16 +136,35 @@ function Avatar({
   );
 }
 
-/** start…end — middle hidden */
 function clipHash(h: string, head = 6, tail = 4) {
   if (!h) return "—";
   if (h.length <= head + tail + 1) return h;
   return `${h.slice(0, head)}…${h.slice(-tail)}`;
 }
 
-function roomTag(id?: string | null) {
-  if (!id) return "—";
-  return id.replace(/-/g, "").slice(0, 4).toUpperCase();
+/** Stable RPS #N from chronological order (oldest = #0) */
+function numberHistory(items: HistItem[]): (HistItem & { no: number })[] {
+  const asc = [...items].sort(
+    (a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+  const map = new Map(asc.map((h, i) => [h.id, i]));
+  return items.map((h) => ({ ...h, no: map.get(h.id) ?? 0 }));
+}
+
+async function sha256Hex(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text)
+  );
+  return [...new Uint8Array(buf)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function easeOutCubic(t: number) {
+  const x = Math.min(1, Math.max(0, t));
+  return 1 - Math.pow(1 - x, 3);
 }
 
 function HashRow({
@@ -175,41 +205,40 @@ function HashRow({
   );
 }
 
-/* ─── Reel column (mini-game) ──────────────────────────── */
-const ITEM_H = 72;
-const VISIBLE = 3;
-const REEL_H = ITEM_H * VISIBLE;
-
+/* ─── Reel ─────────────────────────────────────────────── */
 function ReelColumn({
-  final,
-  spinning,
   offset,
+  spinning,
   accent,
 }: {
-  final: RpsChoice | null;
+  offset: number;
   spinning: boolean;
-  offset: number; // px scroll
   accent: "fuchsia" | "cyan";
 }) {
-  // Build a long strip: cycle repeated + final at end
+  // Long repeating strip for continuous scroll illusion
   const strip: RpsChoice[] = [];
-  for (let i = 0; i < 24; i++) strip.push(CYCLE[i % 3]);
-  if (final) strip.push(final);
+  for (let i = 0; i < 40; i++) strip.push(CYCLE[i % 3]);
 
-  const border =
-    accent === "fuchsia"
+  const border = spinning
+    ? "border-white/12"
+    : accent === "fuchsia"
       ? "border-fuchsia-400/40 shadow-[0_0_32px_rgba(232,121,249,0.22)]"
       : "border-cyan-400/40 shadow-[0_0_32px_rgba(34,211,238,0.22)]";
+
   const glow =
     accent === "fuchsia"
       ? "from-fuchsia-500/20 to-violet-600/10"
       : "from-cyan-500/20 to-teal-600/10";
 
+  // Visual offset wraps for infinite feel while spinning
+  const cycleLen = ITEM_H * 3;
+  const visual = spinning ? offset % cycleLen : offset;
+
   return (
     <div
       className={cn(
         "relative w-[88px] rounded-[22px] border overflow-hidden bg-black/40",
-        spinning ? "border-white/12" : border
+        border
       )}
       style={{ height: REEL_H }}
     >
@@ -221,18 +250,13 @@ function ReelColumn({
           )}
         />
       )}
-      {/* window gradients */}
       <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/80 to-transparent z-[2] pointer-events-none" />
       <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/80 to-transparent z-[2] pointer-events-none" />
-      {/* center marker */}
       <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[72px] border-y border-white/10 z-[2] pointer-events-none" />
 
       <div
         className="absolute left-0 right-0 will-change-transform"
-        style={{
-          transform: `translateY(${-offset}px)`,
-          transition: spinning ? "none" : "transform 0.15s ease-out",
-        }}
+        style={{ transform: `translateY(${-visual}px)` }}
       >
         {strip.map((c, i) => (
           <div
@@ -244,7 +268,7 @@ function ReelColumn({
               choice={c}
               className={cn(
                 "w-9 h-9",
-                spinning ? "text-white/50" : "text-white/90"
+                spinning ? "text-white/55" : "text-white/90"
               )}
             />
           </div>
@@ -255,10 +279,7 @@ function ReelColumn({
 }
 
 /**
- * Mini-game reveal:
- * 1) Countdown 3-2-1
- * 2) Dual reels spin (like slots) and land on each player's choice
- * Total ~10–12s aligned with revealAt
+ * Countdown → dual reels ease-out over ~5s and land on real choices
  */
 function ReelReveal({
   room,
@@ -276,29 +297,17 @@ function ReelReveal({
   const [leftSpin, setLeftSpin] = useState(true);
   const [rightSpin, setRightSpin] = useState(true);
   const doneRef = useRef(false);
-  const started = useRef(Date.now());
 
-  const totalMs = useMemo(() => {
-    if (room.revealAt) {
-      const left = new Date(room.revealAt).getTime() - Date.now();
-      return Math.max(5000, Math.min(RPS_REVEAL_SEC * 1000, left));
-    }
-    return RPS_REVEAL_SEC * 1000;
-  }, [room.revealAt]);
-
-  // Final offsets: land middle window on final choice
-  // strip index: center shows item at offset/ITEM_H + 1 (middle of 3)
-  const finalOffset = (choice: RpsChoice | null) => {
-    // use late index in strip so there's room to spin
-    const base = 18; // near end of 24-cycle
-    const idx = choice ? base + CYCLE.indexOf(choice) : base;
-    // center row = offset/ITEM_H + 1  →  offset = (idx - 1) * ITEM_H
-    return (idx - 1) * ITEM_H;
+  /** Offset so center window shows `choice` after `loops` full cycles */
+  const targetOffset = (choice: RpsChoice | null, loops: number) => {
+    const idx = choice ? CYCLE.indexOf(choice) : 0;
+    // center row = item at floor(offset/ITEM_H)+1 → want that item = choice
+    // item k in strip is CYCLE[k%3]; pick k = loops*3 + idx, center = k → offset = (k-1)*ITEM_H
+    const k = loops * 3 + idx;
+    return Math.max(0, (k - 1) * ITEM_H);
   };
 
   useEffect(() => {
-    started.current = Date.now();
-    // Countdown 3-2-1 (~1.8s)
     let n = 3;
     setCount(3);
     playCountdown();
@@ -311,85 +320,86 @@ function ReelReveal({
         setCount(n);
         playCountdown();
       }
-    }, 600);
-
+    }, 550);
     return () => clearInterval(cd);
   }, []);
 
   useEffect(() => {
     if (phase !== "spin") return;
 
-    const spinStart = Date.now();
-    // leave ~1.2s after both land for "done"
-    const spinBudget = Math.max(3500, totalMs - 1800 - 1200);
-    const leftStopAt = spinBudget * 0.72;
-    const rightStopAt = spinBudget * 0.92;
+    const leftTarget = targetOffset(room.creatorChoice, 6);
+    const rightTarget = targetOffset(room.joinerChoice, 7);
+    // slight stagger: left finishes at 5s, right at 5.35s
+    const leftDur = SPIN_MS;
+    const rightDur = SPIN_MS + 350;
 
+    const t0 = performance.now();
+    let lastTickAt = 0;
+    let leftLanded = false;
+    let rightLanded = false;
     let raf = 0;
-    let lastTick = 0;
-    let leftStopped = false;
-    let rightStopped = false;
-
-    const leftTarget = finalOffset(room.creatorChoice);
-    const rightTarget = finalOffset(room.joinerChoice);
-
-    // continuous scroll speeds
-    let leftPos = 0;
-    let rightPos = ITEM_H * 0.5;
 
     const loop = (now: number) => {
-      const elapsed = now - spinStart;
+      const el = now - t0;
 
-      if (!leftStopped) {
-        const speed = 18 + (1 - Math.min(1, elapsed / leftStopAt)) * 22;
-        leftPos += speed;
-        // wrap visually within cycle length for smoothness
-        setLeftOff(leftPos % (ITEM_H * 12));
-        if (elapsed >= leftStopAt) {
-          leftStopped = true;
+      // Left reel
+      if (!leftLanded) {
+        const t = Math.min(1, el / leftDur);
+        const eased = easeOutCubic(t);
+        setLeftOff(leftTarget * eased);
+        if (t >= 1) {
+          leftLanded = true;
           setLeftSpin(false);
           setLeftOff(leftTarget);
           playLand();
         }
       }
 
-      if (!rightStopped) {
-        const speed = 16 + (1 - Math.min(1, elapsed / rightStopAt)) * 24;
-        rightPos += speed;
-        setRightOff(rightPos % (ITEM_H * 12));
-        if (elapsed >= rightStopAt) {
-          rightStopped = true;
+      // Right reel
+      if (!rightLanded) {
+        const t = Math.min(1, el / rightDur);
+        const eased = easeOutCubic(t);
+        setRightOff(rightTarget * eased);
+        if (t >= 1) {
+          rightLanded = true;
           setRightSpin(false);
           setRightOff(rightTarget);
           playLand();
         }
       }
 
-      if (now - lastTick > 70) {
-        lastTick = now;
-        if (!leftStopped || !rightStopped) playTick();
+      // Tick while still moving (slower as we slow down)
+      const moving = !leftLanded || !rightLanded;
+      if (moving) {
+        const progress = Math.min(1, el / rightDur);
+        const interval = 40 + progress * 140;
+        if (now - lastTickAt > interval) {
+          lastTickAt = now;
+          playTick();
+        }
       }
 
-      if (leftStopped && rightStopped) {
+      if (leftLanded && rightLanded) {
         if (!doneRef.current) {
           doneRef.current = true;
           setPhase("done");
-          setTimeout(onDone, 1100);
+          setTimeout(onDone, 900);
         }
         return;
       }
       raf = requestAnimationFrame(loop);
     };
+
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [phase, room.creatorChoice, room.joinerChoice, totalMs, onDone]);
+  }, [phase, room.creatorChoice, room.joinerChoice, onDone]);
 
   return (
     <div className="flex flex-col items-center px-4 pt-5 select-none">
       <style>{`
         @keyframes rps-count-pop {
           0% { transform: scale(0.5); opacity: 0; }
-          40% { transform: scale(1.15); opacity: 1; }
+          40% { transform: scale(1.12); opacity: 1; }
           100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
@@ -399,7 +409,9 @@ function ReelReveal({
           <div
             key={count}
             className="text-[88px] font-bold text-white tracking-tighter leading-none"
-            style={{ animation: "rps-count-pop 0.45s cubic-bezier(0.16,1,0.3,1)" }}
+            style={{
+              animation: "rps-count-pop 0.4s cubic-bezier(0.16,1,0.3,1)",
+            }}
           >
             {count}
           </div>
@@ -414,7 +426,6 @@ function ReelReveal({
           </div>
 
           <div className="flex items-end justify-center gap-5 w-full max-w-sm">
-            {/* Left player */}
             <div className="flex flex-col items-center gap-2.5">
               <Avatar
                 name={room.creatorUsername}
@@ -422,9 +433,8 @@ function ReelReveal({
                 size={36}
               />
               <ReelColumn
-                final={room.creatorChoice}
-                spinning={leftSpin && phase === "spin"}
                 offset={leftOff}
+                spinning={leftSpin && phase === "spin"}
                 accent="fuchsia"
               />
               <div className="text-[11px] text-white/40 truncate max-w-[88px]">
@@ -441,7 +451,6 @@ function ReelReveal({
               VS
             </div>
 
-            {/* Right player */}
             <div className="flex flex-col items-center gap-2.5">
               <Avatar
                 name={room.joinerUsername || "?"}
@@ -449,9 +458,8 @@ function ReelReveal({
                 size={36}
               />
               <ReelColumn
-                final={room.joinerChoice}
-                spinning={rightSpin && phase === "spin"}
                 offset={rightOff}
+                spinning={rightSpin && phase === "spin"}
                 accent="cyan"
               />
               <div className="text-[11px] text-white/40 truncate max-w-[88px]">
@@ -473,17 +481,21 @@ function ReelReveal({
 /* ─── History row ──────────────────────────────────────── */
 function HistoryRow({
   h,
-  tag,
+  onOpen,
 }: {
-  h: HistItem;
-  tag: string;
+  h: HistItem & { no: number };
+  onOpen: () => void;
 }) {
   const isWin = h.result === "win";
   const isDraw = h.result === "draw";
   return (
-    <div className="rounded-2xl bg-white/[0.025] border border-white/[0.06] px-3.5 py-3 flex items-center gap-3">
-      <div className="text-[11px] font-mono text-white/25 w-10 shrink-0">
-        #{tag}
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-full rounded-2xl bg-white/[0.025] border border-white/[0.06] hover:border-white/12 px-3.5 py-3 flex items-center gap-3 text-left transition btn-press"
+    >
+      <div className="text-[11px] font-medium text-white/30 w-[58px] shrink-0">
+        RPS #{h.no}
       </div>
       <div className="flex items-center gap-1.5">
         <div className="w-8 h-8 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center">
@@ -519,7 +531,7 @@ function HistoryRow({
             ? `±${formatGram(h.amount)}`
             : `−${formatGram(h.amount)}`}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -543,6 +555,12 @@ export function RpsScreen({
   const [mine, setMine] = useState<RpsPublicRoom | null>(null);
   const [active, setActive] = useState<RpsPublicRoom | null>(null);
   const [history, setHistory] = useState<HistItem[]>([]);
+  const [detail, setDetail] = useState<(HistItem & { no: number }) | null>(
+    null
+  );
+  const [verifyState, setVerifyState] = useState<
+    "idle" | "ok" | "fail" | "loading"
+  >("idle");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -554,6 +572,8 @@ export function RpsScreen({
   const viewRef = useRef(view);
   viewRef.current = view;
 
+  const numberedHistory = useMemo(() => numberHistory(history), [history]);
+
   const copyText = useCallback(
     (v: string) => {
       if (navigator.clipboard) {
@@ -561,9 +581,7 @@ export function RpsScreen({
           hapticSuccess();
           showToast("Copied");
         });
-      } else {
-        showToast(v);
-      }
+      } else showToast(v);
     },
     [hapticSuccess, showToast]
   );
@@ -585,7 +603,11 @@ export function RpsScreen({
       const m = data.mine;
       if (m?.status === "playing") {
         setActive(m);
-        if (viewRef.current !== "result" && viewRef.current !== "history") {
+        if (
+          viewRef.current !== "result" &&
+          viewRef.current !== "history" &&
+          viewRef.current !== "detail"
+        ) {
           setView("reveal");
         }
       } else if (m?.status === "finished" && viewRef.current === "reveal") {
@@ -744,12 +766,82 @@ export function RpsScreen({
     loadHistory,
   ]);
 
+  const openDetail = (h: HistItem & { no: number }) => {
+    setDetail(h);
+    setVerifyState("idle");
+    setView("detail");
+    haptic("light");
+  };
+
+  const runVerify = async () => {
+    if (!detail?.creator_choice_hash) {
+      showToast("No commit hash");
+      return;
+    }
+    // We only stored hash in history — full verify needs choice+nonce from room.
+    // History has creator_choice_hash; opponent choices are known.
+    // Client verify: recompute is only possible if we had nonce.
+    // Fallback: show fair data + check choices consistency (RPS logic).
+    setVerifyState("loading");
+    try {
+      // If we have both choices, at least validate outcome matches rules
+      const a = detail.my_choice;
+      const b = detail.opponent_choice;
+      let expected: "win" | "lose" | "draw" = "draw";
+      if (a !== b) {
+        const iWin =
+          (a === "rock" && b === "scissors") ||
+          (a === "paper" && b === "rock") ||
+          (a === "scissors" && b === "paper");
+        expected = iWin ? "win" : "lose";
+      }
+      if (expected === detail.result) {
+        setVerifyState("ok");
+        hapticSuccess();
+        showToast("Outcome verified");
+      } else {
+        setVerifyState("fail");
+        hapticError();
+        showToast("Outcome mismatch");
+      }
+    } catch {
+      setVerifyState("fail");
+    }
+  };
+
+  // Better verify when we have result screen with nonce
+  const runVerifyRoom = async (room: RpsPublicRoom) => {
+    if (!room.creatorChoice || !room.creatorChoiceNonce || !room.creatorChoiceHash) {
+      showToast("Reveal data missing");
+      return;
+    }
+    setVerifyState("loading");
+    try {
+      const hash = await sha256Hex(
+        `${room.creatorChoice}:${room.creatorChoiceNonce}`
+      );
+      if (hash === room.creatorChoiceHash) {
+        setVerifyState("ok");
+        hapticSuccess();
+        showToast("Commit verified");
+      } else {
+        setVerifyState("fail");
+        hapticError();
+        showToast("Commit mismatch");
+      }
+    } catch {
+      setVerifyState("fail");
+    }
+  };
+
   const openRooms = rooms.filter(
     (r) => r.status === "open" && r.creatorTelegramId !== telegramId
   );
 
   const goLobby = () => {
     setJoinTarget(null);
+    setDetail(null);
+    setVerifyState("idle");
     setView("lobby");
     refresh();
   };
@@ -765,7 +857,11 @@ export function RpsScreen({
             ? "Result"
             : view === "history"
               ? "History"
-              : "Rock Paper Scissors";
+              : view === "detail"
+                ? detail
+                  ? `RPS #${detail.no}`
+                  : "Game"
+                : "Rock Paper Scissors";
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
@@ -774,13 +870,22 @@ export function RpsScreen({
         <button
           type="button"
           onClick={() => {
-            if (view === "create" || view === "join" || view === "history")
+            if (view === "detail") {
+              setDetail(null);
+              setVerifyState("idle");
+              setView("history");
+            } else if (
+              view === "create" ||
+              view === "join" ||
+              view === "history"
+            ) {
               goLobby();
-            else if (view === "result") {
+            } else if (view === "result") {
               setActive(null);
+              setVerifyState("idle");
               goLobby();
             } else if (view === "reveal") {
-              /* locked in match */
+              /* lock */
             } else {
               onBack();
             }
@@ -805,7 +910,6 @@ export function RpsScreen({
           </div>
         </div>
 
-        {/* Balance — no dot */}
         <div className="flex items-center gap-1.5 h-9 px-3 rounded-full glass border border-white/[0.1] shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
           <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
             {formatGram(balance)}
@@ -817,7 +921,6 @@ export function RpsScreen({
       {/* ── LOBBY ──────────────────────────────────────── */}
       {view === "lobby" && (
         <div className="px-4 flex-1 overflow-y-auto">
-          {/* Create CTA */}
           <button
             type="button"
             onClick={() => {
@@ -829,30 +932,21 @@ export function RpsScreen({
             <div className="absolute inset-0 bg-gradient-to-br from-[#6b21a8] via-[#86198f] to-[#9d174d]" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(244,114,182,0.35),transparent_55%)]" />
             <div className="relative px-5 py-4 flex items-center gap-4">
-              {/* Icon cluster */}
-              <div className="relative w-14 h-14 shrink-0">
-                <div className="absolute inset-0 rounded-2xl bg-white/15 border border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.3)]">
-                  <svg
-                    width="26"
-                    height="26"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    className="text-white"
-                  >
-                    <path
-                      d="M12 5v14M5 12h14"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </div>
-                <div className="absolute -right-1 -bottom-1 w-6 h-6 rounded-lg bg-fuchsia-400/30 border border-white/20 flex items-center justify-center">
-                  <ChoiceIcon
-                    choice="scissors"
-                    className="w-3.5 h-3.5 text-fuchsia-100"
+              <div className="w-14 h-14 shrink-0 rounded-2xl bg-white/15 border border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.3)]">
+                <svg
+                  width="26"
+                  height="26"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="text-white"
+                >
+                  <path
+                    d="M12 5v14M5 12h14"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
                   />
-                </div>
+                </svg>
               </div>
               <div className="flex-1 text-left">
                 <div className="text-[16px] font-bold text-white tracking-tight">
@@ -865,7 +959,6 @@ export function RpsScreen({
             </div>
           </button>
 
-          {/* My open room */}
           {mine?.status === "open" && (
             <div className="mb-4 rounded-[20px] border border-fuchsia-400/25 bg-fuchsia-500/[0.08] p-3.5">
               <div className="flex items-center gap-3">
@@ -879,7 +972,7 @@ export function RpsScreen({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[10px] uppercase tracking-wider text-fuchsia-300/70 mb-0.5">
-                    Your room · #{roomTag(mine.id)}
+                    Your room · open
                   </div>
                   <div className="text-[15px] font-semibold tabular-nums">
                     {formatGram(mine.amount)}{" "}
@@ -907,7 +1000,6 @@ export function RpsScreen({
             </div>
           )}
 
-          {/* Open rooms */}
           <div className="flex items-center justify-between mb-2.5">
             <div className="text-[11px] uppercase tracking-wider text-white/35">
               Open rooms
@@ -953,7 +1045,7 @@ export function RpsScreen({
                       @{r.creatorUsername}
                     </div>
                     <div className="text-[11px] text-white/30 font-mono mt-0.5">
-                      #{roomTag(r.id)} · {clipHash(r.creatorChoiceHash, 6, 4)}
+                      {clipHash(r.creatorChoiceHash, 6, 4)}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -967,7 +1059,6 @@ export function RpsScreen({
             </div>
           )}
 
-          {/* History preview — last 5 */}
           <div className="flex items-center justify-between mb-2.5 mt-7">
             <div className="text-[11px] uppercase tracking-wider text-white/35">
               History
@@ -996,14 +1087,14 @@ export function RpsScreen({
             </button>
           </div>
 
-          {history.length === 0 ? (
+          {numberedHistory.length === 0 ? (
             <div className="text-[12px] text-white/25 text-center py-4 mb-4">
               No games yet
             </div>
           ) : (
             <div className="space-y-1.5 pb-6">
-              {history.slice(0, 5).map((h) => (
-                <HistoryRow key={h.id} h={h} tag={roomTag(h.room_id)} />
+              {numberedHistory.slice(0, 5).map((h) => (
+                <HistoryRow key={h.id} h={h} onOpen={() => openDetail(h)} />
               ))}
             </div>
           )}
@@ -1018,18 +1109,110 @@ export function RpsScreen({
               All
             </div>
           </div>
-
-          {history.length === 0 ? (
+          {numberedHistory.length === 0 ? (
             <div className="text-center py-16 text-[13px] text-white/35">
               No games yet
             </div>
           ) : (
             <div className="space-y-1.5 pb-6">
-              {history.map((h) => (
-                <HistoryRow key={h.id} h={h} tag={roomTag(h.room_id)} />
+              {numberedHistory.map((h) => (
+                <HistoryRow key={h.id} h={h} onOpen={() => openDetail(h)} />
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── DETAIL / VERIFY ─────────────────────────────── */}
+      {view === "detail" && detail && (
+        <div className="px-4 flex-1 overflow-y-auto">
+          <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.03] p-4 mb-4">
+            <div className="text-[11px] text-white/35 mb-3">
+              RPS #{detail.no} · {formatTime(new Date(detail.created_at))}
+            </div>
+            <div className="flex items-center justify-center gap-5 mb-4">
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="w-14 h-14 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center">
+                  <ChoiceIcon
+                    choice={detail.my_choice}
+                    className="w-7 h-7 text-white/85"
+                  />
+                </div>
+                <div className="text-[11px] text-white/40">You</div>
+              </div>
+              <div className="text-white/20 text-xs font-bold">VS</div>
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="w-14 h-14 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center">
+                  <ChoiceIcon
+                    choice={detail.opponent_choice}
+                    className="w-7 h-7 text-white/85"
+                  />
+                </div>
+                <div className="text-[11px] text-white/40 truncate max-w-[80px]">
+                  @{detail.opponent}
+                </div>
+              </div>
+            </div>
+            <div
+              className={cn(
+                "text-center text-[20px] font-bold tabular-nums",
+                detail.result === "win"
+                  ? "text-emerald-400"
+                  : detail.result === "draw"
+                    ? "text-white/50"
+                    : "text-red-400/90"
+              )}
+            >
+              {detail.result === "win"
+                ? `+${formatGram(detail.payout)} GRAM`
+                : detail.result === "draw"
+                  ? `±${formatGram(detail.amount)} GRAM`
+                  : `−${formatGram(detail.amount)} GRAM`}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 mb-4">
+            <div className="text-[9px] uppercase tracking-wider text-white/25 mb-1">
+              Provably fair · tap to copy
+            </div>
+            <HashRow
+              label="commit"
+              value={detail.creator_choice_hash}
+              onCopy={copyText}
+            />
+            <HashRow
+              label="seed"
+              value={detail.server_seed}
+              onCopy={copyText}
+            />
+            <HashRow
+              label="hash"
+              value={detail.server_seed_hash}
+              onCopy={copyText}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={runVerify}
+            disabled={verifyState === "loading"}
+            className={cn(
+              "w-full h-12 rounded-2xl text-sm font-semibold btn-press mb-3 border transition",
+              verifyState === "ok"
+                ? "bg-emerald-500/15 border-emerald-400/30 text-emerald-300"
+                : verifyState === "fail"
+                  ? "bg-red-500/15 border-red-400/30 text-red-300"
+                  : "btn-secondary"
+            )}
+          >
+            {verifyState === "loading"
+              ? "Checking…"
+              : verifyState === "ok"
+                ? "Verified ✓"
+                : verifyState === "fail"
+                  ? "Failed ✗"
+                  : "Verify outcome"}
+          </button>
         </div>
       )}
 
@@ -1039,7 +1222,6 @@ export function RpsScreen({
           <div className="text-[13px] text-white/40 mb-5 mt-1 text-center">
             Your move stays hidden until someone joins
           </div>
-
           <div className="flex justify-center gap-3.5 mb-8">
             {CYCLE.map((c) => (
               <ChoiceButton
@@ -1054,7 +1236,6 @@ export function RpsScreen({
               />
             ))}
           </div>
-
           <div className="text-[11px] uppercase tracking-wider text-white/35 mb-2">
             Stake
           </div>
@@ -1091,7 +1272,6 @@ export function RpsScreen({
           <div className="text-[11px] text-white/28 mt-2 mb-6">
             Opponent matches this stake · winner takes the pot
           </div>
-
           <button
             type="button"
             disabled={busy}
@@ -1117,7 +1297,6 @@ export function RpsScreen({
                 @{joinTarget.creatorUsername}
               </div>
               <div className="text-[11px] text-white/30 font-mono mt-0.5">
-                #{roomTag(joinTarget.id)} ·{" "}
                 {clipHash(joinTarget.creatorChoiceHash, 6, 4)}
               </div>
             </div>
@@ -1128,13 +1307,11 @@ export function RpsScreen({
               <div className="text-[10px] text-white/30 mt-1">GRAM</div>
             </div>
           </div>
-
           {mine?.status === "open" && (
             <div className="mb-4 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-200/80 text-center">
               Joining cancels your open room and refunds the stake
             </div>
           )}
-
           <div className="text-[13px] text-white/40 mb-4 text-center">
             Choose your move
           </div>
@@ -1152,7 +1329,6 @@ export function RpsScreen({
               />
             ))}
           </div>
-
           <button
             type="button"
             disabled={busy}
@@ -1187,9 +1363,6 @@ export function RpsScreen({
 
             return (
               <>
-                <div className="text-[11px] font-mono text-white/30 mb-2">
-                  #{roomTag(active.id)}
-                </div>
                 <div
                   className={cn(
                     "text-[32px] font-bold tracking-tight mb-1.5",
@@ -1251,8 +1424,7 @@ export function RpsScreen({
                   </div>
                 </div>
 
-                {/* Fairness — clipped + copy */}
-                <div className="w-full max-w-sm rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 mb-6">
+                <div className="w-full max-w-sm rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 mb-3">
                   <div className="text-[9px] uppercase tracking-wider text-white/25 mb-1">
                     Provably fair · tap to copy
                   </div>
@@ -1275,9 +1447,32 @@ export function RpsScreen({
 
                 <button
                   type="button"
+                  onClick={() => runVerifyRoom(active)}
+                  disabled={verifyState === "loading"}
+                  className={cn(
+                    "w-full max-w-sm h-11 rounded-2xl text-[13px] font-semibold btn-press mb-3 border transition",
+                    verifyState === "ok"
+                      ? "bg-emerald-500/15 border-emerald-400/30 text-emerald-300"
+                      : verifyState === "fail"
+                        ? "bg-red-500/15 border-red-400/30 text-red-300"
+                        : "btn-secondary"
+                  )}
+                >
+                  {verifyState === "loading"
+                    ? "Checking…"
+                    : verifyState === "ok"
+                      ? "Commit verified ✓"
+                      : verifyState === "fail"
+                        ? "Verify failed ✗"
+                        : "Verify fairness"}
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
                     setActive(null);
                     setMine(null);
+                    setVerifyState("idle");
                     goLobby();
                     loadHistory();
                   }}
