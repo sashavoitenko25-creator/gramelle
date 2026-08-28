@@ -1,12 +1,19 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Wheel } from "@/components/game/Wheel";
 import { PlayerList } from "@/components/game/PlayerList";
-import { RecentRounds } from "@/components/game/RecentRounds";
 import { TonIcon } from "@/components/ui/TonIcon";
 import type { Player } from "@/lib/types";
 import { formatGram, cn } from "@/lib/utils";
 import { ROOMS, type RoomMode } from "@/lib/constants";
+
+interface HighlightGame {
+  rollId: number;
+  winner: string;
+  pot: number;
+  chance: number;
+}
 
 interface PvpScreenProps {
   players: Player[];
@@ -19,11 +26,14 @@ interface PvpScreenProps {
   mode: RoomMode;
   onModeChange: (m: RoomMode) => void;
   serverSeedHash?: string | null;
+  countdown?: number | null;
+  countdownTotalSec?: number;
   onOpenBet: () => void;
   onOpenDeposit: () => void;
   onOpenHistory: () => void;
   onOpenVerify?: () => void;
   onVerifyRoll?: (rollId: number) => void;
+  myPhotoUrl?: string | null;
 }
 
 export function PvpScreen({
@@ -37,13 +47,67 @@ export function PvpScreen({
   mode,
   onModeChange,
   serverSeedHash,
+  countdown = null,
+  countdownTotalSec = 20,
   onOpenBet,
   onOpenDeposit,
+  onOpenHistory,
   onOpenVerify,
   onVerifyRoll,
+  myPhotoUrl,
 }: PvpScreenProps) {
   const total = players.reduce((s, p) => s + p.amount, 0);
   const room = ROOMS[mode];
+
+  const [lastGame, setLastGame] = useState<HighlightGame | null>(null);
+  const [topGame, setTopGame] = useState<HighlightGame | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/rounds/recent?mode=${mode}&limit=20`);
+        const data = await res.json();
+        const items = (data.items || []) as Array<{
+          rollId: number;
+          winner: string;
+          pot: number;
+          chance: number;
+        }>;
+        if (!alive || !items.length) return;
+        setLastGame({
+          rollId: items[0].rollId,
+          winner: items[0].winner,
+          pot: items[0].pot,
+          chance: items[0].chance,
+        });
+        const top = [...items].sort((a, b) => b.pot - a.pot)[0];
+        setTopGame({
+          rollId: top.rollId,
+          winner: top.winner,
+          pot: top.pot,
+          chance: top.chance,
+        });
+      } catch {
+        /* ignore */
+      }
+    };
+    load();
+    const id = setInterval(load, 10000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [mode, rollId]);
+
+  const playersWithPhoto = players.map((p) =>
+    p.isMe && myPhotoUrl && !p.photoUrl ? { ...p, photoUrl: myPhotoUrl } : p
+  );
+
+  const countdownProgress =
+    countdown != null && countdown > 0 && countdownTotalSec > 0
+      ? 1 - countdown / countdownTotalSec
+      : null;
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
@@ -81,6 +145,56 @@ export function PvpScreen({
         </div>
       </div>
 
+      {/* Last / Top game */}
+      <div className="mx-4 mb-2.5 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => lastGame && onVerifyRoll?.(lastGame.rollId)}
+          className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-3 py-2.5 text-left hover:border-white/12 transition btn-press"
+        >
+          <div className="text-[9px] uppercase tracking-wider text-white/30 mb-1">
+            Last game
+          </div>
+          {lastGame ? (
+            <>
+              <div className="text-[12px] font-medium text-white/80 truncate">
+                @{lastGame.winner}
+              </div>
+              <div className="text-[11px] text-emerald-300/90 tabular-nums mt-0.5">
+                +{formatGram(lastGame.pot)} GRAM
+                <span className="text-white/25 ml-1">
+                  {lastGame.chance}%
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="text-[11px] text-white/25">—</div>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => topGame && onVerifyRoll?.(topGame.rollId)}
+          className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-3 py-2.5 text-left hover:border-amber-500/25 transition btn-press"
+        >
+          <div className="text-[9px] uppercase tracking-wider text-white/30 mb-1">
+            Top game
+          </div>
+          {topGame ? (
+            <>
+              <div className="text-[12px] font-medium text-white/80 truncate">
+                @{topGame.winner}
+              </div>
+              <div className="text-[11px] text-amber-300/90 tabular-nums mt-0.5">
+                +{formatGram(topGame.pot)} GRAM
+                <span className="text-white/25 ml-1">{topGame.chance}%</span>
+              </div>
+            </>
+          ) : (
+            <div className="text-[11px] text-white/25">—</div>
+          )}
+        </button>
+      </div>
+
       {/* Rooms */}
       <div className="mx-4 mb-3 flex gap-1.5 p-1 rounded-2xl bg-black/35 border border-white/[0.06]">
         {(Object.keys(ROOMS) as RoomMode[]).map((id) => {
@@ -109,8 +223,26 @@ export function PvpScreen({
         })}
       </div>
 
-      {/* Bank */}
-      <div className="mx-4 mt-1 mb-3 flex items-center justify-center">
+      {/* History + Bank */}
+      <div className="mx-4 mt-1 mb-3 flex items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={onOpenHistory}
+          aria-label="History"
+          className="w-10 h-10 rounded-full glass border border-white/[0.09] flex items-center justify-center text-white/50 hover:text-white/80 transition btn-press shrink-0"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+        </button>
         <div className="px-5 py-2.5 rounded-full glass border border-white/[0.09] flex items-center gap-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.25)]">
           <span className="text-[10px] text-white/40 uppercase tracking-[0.14em] font-medium">
             Bank
@@ -123,10 +255,12 @@ export function PvpScreen({
       </div>
 
       <Wheel
-        players={players}
+        players={playersWithPhoto}
         isSpinning={isSpinning}
         spinDegrees={spinDegrees}
         status={status}
+        countdownProgress={countdownProgress}
+        countdownSec={countdown != null && countdown > 0 ? countdown : null}
       />
 
       {serverSeedHash && (
@@ -154,7 +288,9 @@ export function PvpScreen({
               </div>
               <div className="text-[15px] font-semibold tabular-nums flex items-baseline gap-1.5 mt-0.5">
                 {formatGram(balance)}
-                <span className="text-[10px] text-white/35 font-medium">GRAM</span>
+                <span className="text-[10px] text-white/35 font-medium">
+                  GRAM
+                </span>
               </div>
             </div>
           </div>
@@ -163,7 +299,14 @@ export function PvpScreen({
             className="w-9 h-9 rounded-xl bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-white/65 hover:bg-white/10 transition btn-press"
             aria-label="Deposit"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
               <path d="M12 5v14M5 12h14" />
             </svg>
           </button>
@@ -180,11 +323,10 @@ export function PvpScreen({
           Place Bet · {room.minBet}–{room.maxBet}
         </button>
         <p className="text-center text-[10px] text-white/25 mt-2.5">
-          House {(room.houseEdge * 100).toFixed(0)}% · up to {room.maxPlayers} players
+          House {(room.houseEdge * 100).toFixed(0)}% · up to {room.maxPlayers}{" "}
+          players · {room.countdownSec}s
         </p>
       </div>
-
-      <RecentRounds mode={mode} onVerify={onVerifyRoll} />
 
       <div className="mx-4 mb-2 flex items-center justify-between">
         <span className="text-[11px] text-white/35 uppercase tracking-[0.12em] font-medium">
@@ -192,7 +334,7 @@ export function PvpScreen({
         </span>
       </div>
 
-      <PlayerList players={players} total={total} />
+      <PlayerList players={playersWithPhoto} total={total} />
     </div>
   );
 }

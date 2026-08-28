@@ -132,6 +132,12 @@ export default function AdminPage() {
     if (tab === "stats") loadStats();
   }, [authed, tab, loadWithdrawals, loadPlayers, loadStats]);
 
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {}
+  };
+
   const actWithdraw = async (id: string, action: "complete" | "reject") => {
     setLoading(true);
     try {
@@ -312,6 +318,22 @@ export default function AdminPage() {
                   }
                   className="w-full h-9 rounded-xl bg-black/30 border border-white/10 px-3 text-xs font-mono outline-none"
                 />
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => copy(w.wallet_address)}
+                    className="flex-1 h-8 rounded-xl bg-white/[0.05] border border-white/10 text-white/60 text-[11px] font-medium"
+                  >
+                    Copy wallet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => copy(String(w.amount_ton))}
+                    className="h-8 px-3 rounded-xl bg-white/[0.05] border border-white/10 text-white/60 text-[11px] font-medium"
+                  >
+                    Copy amt
+                  </button>
+                </div>
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={() => actWithdraw(w.id, "complete")}

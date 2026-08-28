@@ -7,6 +7,8 @@ import {
   MAX_WITHDRAW_TON,
   GRAM_PER_TON,
   WITHDRAW_FEE_GRAM,
+  DAILY_WITHDRAW_LIMIT_TON,
+  MAX_PENDING_WITHDRAWALS,
 } from "@/lib/constants";
 // antifraud imported below if needed
 import { creditHouse } from "@/lib/server/house";
@@ -32,9 +34,8 @@ export async function POST(req: NextRequest) {
     
     await assertNotBanned(auth.user.id);
 
-    // Anti-abuse: limit open withdrawal requests
+    // Anti-abuse: pending count + daily volume
     {
-      const { MAX_PENDING_WITHDRAWALS } = await import("@/lib/constants");
       const dbCheck = getAdminClient();
       const { count } = await dbCheck
         .from("withdrawals")
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const body = await req.json();
+        const body = await req.json();
     const amountTon = Number(body.amountTon ?? body.amount);
     const wallet = String(body.wallet || body.address || "").trim();
 
@@ -67,6 +68,32 @@ export async function POST(req: NextRequest) {
     }
     if (!wallet || wallet.length < 20) {
       return NextResponse.json({ error: "Invalid TON wallet address" }, { status: 400 });
+    }
+
+    // Daily volume limit (UTC day)
+    {
+      const dbDay = getAdminClient();
+      const dayStart = new Date();
+      dayStart.setUTCHours(0, 0, 0, 0);
+      const { data: todayRows } = await dbDay
+        .from("withdrawals")
+        .select("amount_ton")
+        .eq("telegram_id", auth.user.id)
+        .gte("created_at", dayStart.toISOString())
+        .in("status", ["pending", "processing", "completed"]);
+      const used = (todayRows || []).reduce(
+        (s, r) => s + Number(r.amount_ton || 0),
+        0
+      );
+      if (used + amountTon > DAILY_WITHDRAW_LIMIT_TON) {
+        const left = Math.max(0, DAILY_WITHDRAW_LIMIT_TON - used);
+        return NextResponse.json(
+          {
+            error: `Daily limit ${DAILY_WITHDRAW_LIMIT_TON} TON (left ${left.toFixed(2)})`,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const amountGram = +(amountTon * GRAM_PER_TON).toFixed(4);
@@ -132,6 +159,28 @@ export async function POST(req: NextRequest) {
       });
       throw error;
     }
+
+    try {
+      const adminTg = process.env.ADMIN_TELEGRAM_ID;
+      const token = process.env.TELEGRAM_BOT_TOKEN;
+      if (adminTg && token) {
+        const text =
+          'Withdraw request
+' +
+          'User: ' + auth.user.id + '
+' +
+          'Amount: ' + amountTon + ' TON
+' +
+          'Wallet: ' + wallet + '
+' +
+          'Open: ' + (process.env.NEXT_PUBLIC_APP_URL || '') + '/admin';
+        await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: adminTg, text }),
+        });
+      }
+    } catch {}
 
     return NextResponse.json({
       ok: true,

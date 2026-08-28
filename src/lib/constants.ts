@@ -19,7 +19,7 @@ export const SPIN_DURATION_MS = 4200;
 export const SPIN_FINISH_DELAY_MS = 4500;
 export const MAX_PLAYERS = 10;
 export const BOT_USERNAME = "Gramelle_bot";
-export const ROUND_COUNTDOWN_SEC = 8;
+export const ROUND_COUNTDOWN_SEC = 20;
 
 /**
  * Economy
@@ -187,7 +187,7 @@ export const ROOMS: Record<RoomMode, RoomConfig> = {
     maxBet: 500,
     houseEdge: HOUSE_EDGE,
     maxPlayers: 10,
-    countdownSec: 8,
+    countdownSec: 20,
   },
   high: {
     id: "high",
@@ -197,7 +197,7 @@ export const ROOMS: Record<RoomMode, RoomConfig> = {
     maxBet: 5000,
     houseEdge: HOUSE_EDGE,
     maxPlayers: 8,
-    countdownSec: 10,
+    countdownSec: 20,
   },
 };
 
@@ -205,6 +205,8 @@ export const ROOMS: Record<RoomMode, RoomConfig> = {
 /** Anti-abuse */
 export const MAX_PENDING_WITHDRAWALS = 3;
 export const MAX_BETS_PER_MINUTE = 20;
+/** Max TON withdrawn per telegram user per UTC day */
+export const DAILY_WITHDRAW_LIMIT_TON = 50;
 export const MIN_BANK_TO_SPIN = 0.5; // classic soft floor for UX messaging
 
 export const DEFAULT_ROOM: RoomMode = "classic";

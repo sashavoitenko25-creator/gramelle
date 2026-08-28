@@ -6,6 +6,7 @@ import {
   MIN_WITHDRAW_TON,
   MAX_WITHDRAW_TON,
   WITHDRAW_FEE_GRAM,
+  DAILY_WITHDRAW_LIMIT_TON,
 } from "@/lib/constants";
 import { formatGram } from "@/lib/utils";
 import { TonIcon } from "@/components/ui/TonIcon";
@@ -94,8 +95,7 @@ export function WithdrawModal({
           </button>
         </div>
         <p className="text-xs text-white/40 mb-4">
-          Balance {formatGram(balance)} GRAM · min {MIN_WITHDRAW_TON} TON · fee{" "}
-          {fee} GRAM
+          Balance {formatGram(balance)} GRAM · min {MIN_WITHDRAW_TON} · max {MAX_WITHDRAW_TON}/tx · daily {DAILY_WITHDRAW_LIMIT_TON} TON · fee {fee}
         </p>
 
         <label className="text-[11px] text-white/40 uppercase tracking-wider">

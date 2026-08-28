@@ -8,6 +8,7 @@ export interface Player {
   chance?: number;
   isMe: boolean;
   telegramId?: number | null;
+  photoUrl?: string | null;
 }
 
 export interface HistoryItem {

@@ -518,6 +518,9 @@ export default function Home() {
           spinDegrees={spinDegrees}
           status={displayStatus}
           mode={mode}
+          countdown={countdown}
+          countdownTotalSec={ROOMS[mode].countdownSec}
+          myPhotoUrl={profile?.photo_url ?? null}
           onModeChange={(m) => {
             if (!isSpinning) {
               haptic("light");
@@ -671,6 +674,8 @@ export default function Home() {
               <p><span className="text-cyan-300 font-medium">1. Bet</span> — put GRAM into the round bank</p>
               <p><span className="text-cyan-300 font-medium">2. Chance</span> — your share of the bank is your win chance</p>
               <p><span className="text-cyan-300 font-medium">3. Spin</span> — winner takes the pot (minus 5% house)</p>
+              <p className="text-[11px] text-white/35 pt-1">18+ · Entertainment only · Play responsibly</p>
+              <p className="text-[11px] text-white/25"><a href="/fair" className="text-cyan-300/70 underline-offset-2 hover:underline">How fairness works →</a></p>
             </div>
             <button
               className="w-full h-12 rounded-2xl btn-primary text-sm btn-press"
