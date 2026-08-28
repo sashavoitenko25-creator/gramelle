@@ -11,9 +11,7 @@ export function useRound(
   mode: RoomMode = DEFAULT_ROOM
 ) {
   const [players, setPlayers] = useState<Player[]>([]);
-  const [rollId, setRollId] = useState(
-    () => 0
-  );
+  const [rollId, setRollId] = useState(0);
   const [roundStatus, setRoundStatus] = useState<string>("open");
   const [countdownEndsAt, setCountdownEndsAt] = useState<string | null>(null);
   const [serverSeedHash, setServerSeedHash] = useState<string | null>(null);
@@ -32,12 +30,12 @@ export function useRound(
   const myIdRef = useRef(myTelegramId);
   const myNameRef = useRef(myName);
   const modeRef = useRef(mode);
-  const handledSpinRoll = useRef<number | null>(null);
+  /** mode:rollId keys that already played spin animation */
+  const handledSpinKeys = useRef<Set<string>>(new Set());
   const animatingRef = useRef(false);
 
   myIdRef.current = myTelegramId;
   myNameRef.current = myName;
-  modeRef.current = mode;
 
   const mapBets = useCallback(
     (
@@ -64,15 +62,19 @@ export function useRound(
   );
 
   const refresh = useCallback(async () => {
+    const currentMode = modeRef.current;
     try {
-      const data = await fetchRoundState(modeRef.current);
+      const data = await fetchRoundState(currentMode);
+      // Ignore stale responses after room switch
+      if (modeRef.current !== currentMode) return;
       if (data.demo) return;
 
       if (data.spinResult) {
         const rid = data.spinResult.rollId;
-        if (handledSpinRoll.current !== rid && !animatingRef.current) {
+        const key = `${currentMode}:${rid}`;
+        if (!handledSpinKeys.current.has(key) && !animatingRef.current) {
           const betsMapped = mapBets(
-            // @ts-expect-error bets optional on spinResult
+            // @ts-expect-error optional bets on spinResult
             (data.spinResult.bets as typeof data.bets) || data.bets
           );
           setPendingSpin({
@@ -93,17 +95,13 @@ export function useRound(
         }
       }
 
-      // While client is animating a spin, ignore open-round overwrites
-      if (animatingRef.current) {
-        return;
-      }
+      if (animatingRef.current) return;
 
       if (data.round) {
         setRollId(data.round.rollId);
         setRoundStatus(data.round.status);
         setCountdownEndsAt(data.round.countdownEndsAt || null);
         setServerSeedHash(data.round.serverSeedHash || null);
-        // Don't wipe players with empty open while we still show result
         if (data.round.status !== "finished") {
           setPlayers(mapBets(data.bets));
         }
@@ -111,42 +109,31 @@ export function useRound(
         setPlayers([]);
         setRoundStatus("open");
         setCountdownEndsAt(null);
+        setServerSeedHash(null);
       }
     } catch {
       // offline / demo
     }
   }, [mapBets]);
 
+  // Full room isolation when mode changes
   useEffect(() => {
+    modeRef.current = mode;
+    animatingRef.current = false;
     setPlayers([]);
     setPendingSpin(null);
     setCountdownEndsAt(null);
     setRoundStatus("open");
-    handledSpinRoll.current = null;
-    animatingRef.current = false;
-    refresh();
+    setServerSeedHash(null);
+    setRollId(0);
+    void refresh();
   }, [mode, refresh]);
 
-  // Adaptive poll: faster while countdown/spin so lobby feels realtime
   useEffect(() => {
-    let alive = true;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const tick = async () => {
-      if (!alive) return;
-      await refresh();
-      if (!alive) return;
-      const status = roundStatus;
-      const ms =
-        status === "countdown" || status === "spinning" ? 600 : 1500;
-      timer = setTimeout(tick, ms);
-    };
-    tick();
-    return () => {
-      alive = false;
-      if (timer) clearTimeout(timer);
-    };
-  }, [refresh, roundStatus]);
+    void refresh();
+    const id = setInterval(() => void refresh(), 2000);
+    return () => clearInterval(id);
+  }, [refresh, mode]);
 
   const applyServerBets = useCallback(
     (
@@ -186,7 +173,7 @@ export function useRound(
 
   const clearPendingSpin = useCallback(() => {
     if (pendingSpin) {
-      handledSpinRoll.current = rollId;
+      handledSpinKeys.current.add(`${modeRef.current}:${rollId}`);
     }
     setPendingSpin(null);
   }, [pendingSpin, rollId]);
@@ -196,7 +183,9 @@ export function useRound(
   }, []);
 
   const triggerSpin = useCallback(async () => {
-    const result = await requestSpin(modeRef.current);
+    const currentMode = modeRef.current;
+    const result = await requestSpin(currentMode);
+    if (modeRef.current !== currentMode) return result;
     const mapped = result.bets ? mapBets(result.bets) : undefined;
     setPendingSpin({
       spinDegrees: result.spinDegrees,

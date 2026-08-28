@@ -291,7 +291,6 @@ export function PvpScreen({
           return (
             <button
               key={id}
-              disabled={isSpinning}
               onClick={() => onModeChange(id)}
               className={cn(
                 "flex-1 py-2.5 rounded-xl text-xs font-semibold transition btn-press",

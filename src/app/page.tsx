@@ -116,6 +116,7 @@ export default function Home() {
   const spinningRef = useRef(isSpinning);
   const balanceRef = useRef(balance);
   const rollIdRef = useRef(rollId);
+  const modeRef = useRef(mode);
   const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const spinStartedFor = useRef<number | null>(null);
 
@@ -123,6 +124,7 @@ export default function Home() {
   spinningRef.current = isSpinning;
   balanceRef.current = balance;
   rollIdRef.current = rollId;
+  modeRef.current = mode;
 
   const showToast = useCallback((msg: string) => setToast(msg), []);
   const online = players.length;
@@ -176,7 +178,17 @@ export default function Home() {
       list.find((p) => p.telegramId === winnerTelegramId) ||
       list.find((p) => p.isMe && winnerTelegramId === telegramId);
 
+    const modeAtSpin = modeRef.current;
     setTimeout(async () => {
+      // User left this room mid-spin — drop local result UI
+      if (modeRef.current !== modeAtSpin) {
+        setIsSpinning(false);
+        setSpinDegrees(0);
+        setStatus("Waiting");
+        setAnimating(false);
+        clearPendingSpin();
+        return;
+      }
       setIsSpinning(false);
       setStatus("Waiting");
       const isMe = winnerTelegramId === telegramId;
@@ -546,10 +558,16 @@ export default function Home() {
           countdownEndsAt={countdownEndsAt}
           myPhotoUrl={profile?.photo_url ?? null}
           onModeChange={(m) => {
-            if (!isSpinning) {
-              haptic("light");
-              setMode(m);
-            }
+            if (m === mode) return;
+            haptic("light");
+            // Isolate rooms: drop local spin/countdown UI for the room we leave
+            setIsSpinning(false);
+            setSpinDegrees(0);
+            setCountdown(null);
+            setStatus("Waiting");
+            setWinOverlay((s) => ({ ...s, open: false }));
+            setConfetti(false);
+            setMode(m);
           }}
           serverSeedHash={serverSeedHash}
           onOpenBet={() => {
