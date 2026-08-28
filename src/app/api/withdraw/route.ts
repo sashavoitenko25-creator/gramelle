@@ -164,21 +164,21 @@ export async function POST(req: NextRequest) {
       const adminTg = process.env.ADMIN_TELEGRAM_ID;
       const token = process.env.TELEGRAM_BOT_TOKEN;
       if (adminTg && token) {
-        const text =
-          'Withdraw request
-' +
-          'User: ' + auth.user.id + '
-' +
-          'Amount: ' + amountTon + ' TON
-' +
-          'Wallet: ' + wallet + '
-' +
-          'Open: ' + (process.env.NEXT_PUBLIC_APP_URL || '') + '/admin';
-        await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: adminTg, text }),
-        });
+        const text = [
+          "Withdraw request",
+          "User: " + auth.user.id,
+          "Amount: " + amountTon + " TON",
+          "Wallet: " + wallet,
+          "Open: " + (process.env.NEXT_PUBLIC_APP_URL || "") + "/admin",
+        ].join("\n");
+        await fetch(
+          "https://api.telegram.org/bot" + token + "/sendMessage",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: adminTg, text }),
+          }
+        );
       }
     } catch {}
 
