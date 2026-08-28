@@ -222,7 +222,9 @@ export function PvpScreen({
             </div>
             <div className="text-[10px] text-white/40 flex items-center gap-1.5 mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
-              online
+              {players.length > 0
+                ? `${players.length} online`
+                : "online"}
             </div>
           </div>
         </div>
@@ -247,7 +249,7 @@ export function PvpScreen({
                   @{lastGame.winner}
                 </div>
                 <div className="text-[10px] text-emerald-300/90 tabular-nums mt-0.5 truncate">
-                  +{formatGram(lastGame.pot)}
+                  +{formatGram(lastGame.pot)} GRAM
                   <span className="text-white/25 ml-1">{lastGame.chance}%</span>
                 </div>
               </div>
@@ -272,7 +274,7 @@ export function PvpScreen({
                   @{topGame.winner}
                 </div>
                 <div className="text-[10px] text-amber-300/90 tabular-nums mt-0.5 truncate">
-                  +{formatGram(topGame.pot)}
+                  +{formatGram(topGame.pot)} GRAM
                   <span className="text-white/25 ml-1">{topGame.chance}%</span>
                 </div>
               </div>

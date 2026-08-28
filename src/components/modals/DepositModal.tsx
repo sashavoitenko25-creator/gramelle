@@ -183,6 +183,27 @@ export function DepositModal({
     }
   };
 
+  const pollCredit = async () => {
+    if (!serverMode) return false;
+    for (let i = 0; i < 8; i++) {
+      await new Promise((r) => setTimeout(r, 2500));
+      try {
+        const res = await checkTonDeposits();
+        if (res.credited?.length) {
+          const total = res.credited.reduce((s, c) => s + c.gram, 0);
+          if (onBalanceRefresh) await onBalanceRefresh();
+          hapticSuccess();
+          showToast("+" + total + " GRAM");
+          resetAndClose();
+          return true;
+        }
+      } catch {
+        /* continue */
+      }
+    }
+    return false;
+  };
+
   const payWithTonConnect = async () => {
     if (loading || !tonMemo) return;
     if (!wallet) {
@@ -192,44 +213,59 @@ export function DepositModal({
     setLoading(true);
     haptic("light");
     try {
-      await tonConnectUI.sendTransaction({
-        validUntil: Math.floor(Date.now() / 1000) + 600,
-        messages: [
-          {
-            address: TON_DEPOSIT_ADDRESS,
-            amount: tonAmountToNano(tonAmount),
-            payload: tonCommentPayload(tonMemo),
-          },
-        ],
-      });
-      showToast("Sent — checking network…");
-      // Poll a few times
-      for (let i = 0; i < 6; i++) {
-        await new Promise((r) => setTimeout(r, 2500));
-        if (!serverMode) break;
+      let sent = false;
+      try {
+        await tonConnectUI.sendTransaction({
+          validUntil: Math.floor(Date.now() / 1000) + 600,
+          messages: [
+            {
+              address: TON_DEPOSIT_ADDRESS,
+              amount: tonAmountToNano(tonAmount),
+              payload: tonCommentPayload(tonMemo),
+            },
+          ],
+        });
+        sent = true;
+      } catch (e1) {
+        // Invalid payload on some wallets — retry without payload, then open Tonkeeper
+        const msg1 = e1 instanceof Error ? e1.message : String(e1);
+        if (/reject|cancel|abort|user/i.test(msg1)) {
+          showToast("Cancelled");
+          return;
+        }
         try {
-          const res = await checkTonDeposits();
-          if (res.credited?.length) {
-            const total = res.credited.reduce((s, c) => s + c.gram, 0);
-            if (onBalanceRefresh) await onBalanceRefresh();
-            hapticSuccess();
-            showToast("+" + total + " GRAM");
-            resetAndClose();
+          await tonConnectUI.sendTransaction({
+            validUntil: Math.floor(Date.now() / 1000) + 600,
+            messages: [
+              {
+                address: TON_DEPOSIT_ADDRESS,
+                amount: tonAmountToNano(tonAmount),
+              },
+            ],
+          });
+          sent = true;
+          showToast("Sent — add memo in next try if not credited");
+        } catch (e2) {
+          const msg2 = e2 instanceof Error ? e2.message : String(e2);
+          if (/reject|cancel|abort|user/i.test(msg2)) {
+            showToast("Cancelled");
             return;
           }
-        } catch {
-          /* keep polling */
+          // Last resort: Tonkeeper deep link with memo
+          openLink(buildTonTransferLink(tonAmount, tonMemo));
+          showToast("Open wallet and confirm — memo is included");
+          return;
         }
       }
-      showToast("Sent. Tap “I paid” if balance not updated yet");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Cancelled";
-      if (!/reject|cancel|abort/i.test(msg)) {
-        hapticError();
-        showToast(msg);
-      } else {
-        showToast("Cancelled");
+      if (sent) {
+        showToast("Sent — checking network…");
+        const ok = await pollCredit();
+        if (!ok) showToast("Sent. Tap “I paid” if balance not updated yet");
       }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed";
+      hapticError();
+      showToast(msg);
     } finally {
       setLoading(false);
     }
@@ -340,9 +376,9 @@ export function DepositModal({
           <div className="space-y-3">
             <p className="text-[11px] text-white/35 leading-relaxed">
               Pay with Telegram Stars. Rate:{" "}
-              <span className="text-white/55">500</span>{" "}
+              <span className="text-white/55">1</span>{" "}
               <StarsIcon size={11} className="inline-block align-[-2px]" /> ={" "}
-              <span className="text-white/55">4.25 GRAM</span>
+              <span className="text-white/55">0.0085 GRAM</span>
               {" "}· Min {MIN_DEPOSIT_STARS}{" "}
               <StarsIcon size={11} className="inline-block align-[-2px]" />
             </p>
@@ -370,7 +406,7 @@ export function DepositModal({
               <div className="mt-2 flex items-center justify-between text-[11px]">
                 <span className={starsOk ? "text-white/40" : "text-amber-300/90"}>
                   {starsOk
-                    ? `→ ${starsGram.toFixed(4)} GRAM  ·  1★ = ${GRAM_PER_STAR.toFixed(4)} GRAM`
+                    ? `→ ${starsGram.toFixed(4)} GRAM`
                     : `Min ${MIN_DEPOSIT_STARS} Stars`}
                 </span>
               </div>
@@ -423,10 +459,8 @@ export function DepositModal({
         {method === "ton" && tonStep === "pick" && (
           <div className="space-y-3">
             <p className="text-[11px] text-white/35 leading-relaxed">
-              1 <TonIcon size={11} className="inline-block align-[-2px]" /> ≈ 1 GRAM.
-              Min {MIN_DEPOSIT_TON}{" "}
-              <TonIcon size={11} className="inline-block align-[-2px]" />.
-              Prefer <span className="text-sky-300/90">TON Connect</span>.
+              1 TON ≈ 1 GRAM. Min {MIN_DEPOSIT_TON} TON. Prefer{" "}
+              <span className="text-sky-300/90">TON Connect</span>.
             </p>
 
             <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5">

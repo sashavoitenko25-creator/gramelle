@@ -69,6 +69,19 @@ export function useRound(
       if (modeRef.current !== currentMode) return;
       if (data.demo) return;
 
+      // Always prefer the live open/countdown round for SPIN # display
+      if (data.round && data.round.status !== "finished") {
+        setRollId(data.round.rollId);
+        setRoundStatus(data.round.status);
+        setCountdownEndsAt(data.round.countdownEndsAt || null);
+        setServerSeedHash(data.round.serverSeedHash || null);
+        if (!animatingRef.current) {
+          setPlayers(mapBets(data.bets));
+        }
+      } else if (data.round && data.round.status === "finished" && !animatingRef.current) {
+        setServerSeedHash(data.round.serverSeedHash || null);
+      }
+
       if (data.spinResult) {
         const rid = data.spinResult.rollId;
         const key = `${currentMode}:${rid}`;
@@ -89,23 +102,18 @@ export function useRound(
             bets: betsMapped,
           });
           if (betsMapped.length) setPlayers(betsMapped);
-          setRollId(rid);
           setRoundStatus("finished");
+          // Keep showing finished roll only while animating; open rollId already set above if present
+          if (!data.round || data.round.status === "finished") {
+            setRollId(rid);
+          }
           return;
         }
       }
 
       if (animatingRef.current) return;
 
-      if (data.round) {
-        setRollId(data.round.rollId);
-        setRoundStatus(data.round.status);
-        setCountdownEndsAt(data.round.countdownEndsAt || null);
-        setServerSeedHash(data.round.serverSeedHash || null);
-        if (data.round.status !== "finished") {
-          setPlayers(mapBets(data.bets));
-        }
-      } else {
+      if (!data.round) {
         setPlayers([]);
         setRoundStatus("open");
         setCountdownEndsAt(null);

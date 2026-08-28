@@ -320,6 +320,10 @@ export function Wheel({
                   sec
                 </span>
               </>
+            ) : isSpinning ? (
+              <span className="text-[11px] font-semibold tracking-wider uppercase text-cyan-300 pulse-soft px-1 text-center">
+                {status || "Spinning"}
+              </span>
             ) : (
               <>
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-white/12 to-white/[0.03] border border-white/10 mb-1 flex items-center justify-center">
@@ -336,12 +340,7 @@ export function Wheel({
                     <path d="M5 19c0-3.5 3-6 7-6s7 2.5 7 6" />
                   </svg>
                 </div>
-                <span
-                  className={cn(
-                    "text-[10px] font-semibold tracking-wider uppercase tabular-nums",
-                    isSpinning ? "text-cyan-300 pulse-soft" : "text-white/45"
-                  )}
-                >
+                <span className="text-[10px] font-semibold tracking-wider uppercase tabular-nums text-white/45">
                   {status}
                 </span>
               </>
