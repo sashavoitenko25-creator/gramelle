@@ -21,6 +21,7 @@ interface PvpScreenProps {
   onOpenBet: () => void;
   onOpenDeposit: () => void;
   onOpenHistory: () => void;
+  onOpenVerify?: () => void;
 }
 
 export function PvpScreen({
@@ -36,6 +37,7 @@ export function PvpScreen({
   serverSeedHash,
   onOpenBet,
   onOpenDeposit,
+  onOpenVerify,
 }: PvpScreenProps) {
   const total = players.reduce((s, p) => s + p.amount, 0);
   const room = ROOMS[mode];
@@ -126,9 +128,13 @@ export function PvpScreen({
 
       {serverSeedHash && (
         <div className="mx-4 mb-2 text-center">
-          <p className="text-[9px] text-white/20 font-mono truncate tracking-tight">
-            hash {serverSeedHash.slice(0, 18)}…
-          </p>
+          <button
+            type="button"
+            onClick={onOpenVerify}
+            className="text-[9px] text-white/25 font-mono truncate tracking-tight hover:text-cyan-300/70 transition"
+          >
+            hash {serverSeedHash.slice(0, 18)}… · verify
+          </button>
         </div>
       )}
 

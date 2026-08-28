@@ -112,7 +112,7 @@ export function ProfileScreen({
             </div>
             <div className="text-left">
               <div className="text-sm font-medium">Referrals</div>
-              <div className="text-[11px] text-white/35">5% of friends&apos; deposits</div>
+              <div className="text-[11px] text-white/35">Share of house fee from friends&apos; bets</div>
             </div>
           </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/25">

@@ -7,11 +7,12 @@ import { formatGram, formatTime, cn } from "@/lib/utils";
 interface HistoryScreenProps {
   history: HistoryItem[];
   onBack: () => void;
+  onVerify?: (rollId: number) => void;
 }
 
 type HistTab = "all" | "lucky" | "top";
 
-export function HistoryScreen({ history, onBack }: HistoryScreenProps) {
+export function HistoryScreen({ history, onBack, onVerify }: HistoryScreenProps) {
   const [tab, setTab] = useState<HistTab>("all");
 
   const filtered = useMemo(() => {

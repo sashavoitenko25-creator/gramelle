@@ -30,8 +30,15 @@ export interface ProfileRow {
   ton_wallet?: string | null;
   ref_turnover?: number | null;
   ref_active?: number | null;
+  balance_version?: number | null;
 }
 
+const MAX_RETRIES = 8;
+
+/**
+ * Atomic balance change via optimistic locking (balance_version).
+ * Never update profiles.balance from the client.
+ */
 export async function creditBalance(
   telegramId: number,
   amount: number,
@@ -46,35 +53,88 @@ export async function creditBalance(
     meta.username as string | undefined
   );
 
-  const newBalance = +(Number(profile.balance) + amount).toFixed(4);
-  if (newBalance < -0.0001) {
-    throw new Error("Insufficient balance");
-  }
+  let lastErr: Error | null = null;
 
-  const { error: upErr } = await db
-    .from("profiles")
-    .update({ balance: newBalance })
-    .eq("id", profile.id);
-  if (upErr) throw upErr;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const { data: fresh, error: readErr } = await db
+      .from("profiles")
+      .select("id, balance, balance_version")
+      .eq("id", profile.id)
+      .single();
 
-  await db.from("ledger").insert({
-    profile_id: profile.id,
-    telegram_id: telegramId,
-    amount,
-    balance_after: newBalance,
-    reason,
-    meta,
-  });
-
-  try {
-    if ((reason === "deposit_stars" || reason === "deposit_ton") && amount > 0) {
-      await creditHouse(amount, "reserve", reason, meta);
+    if (readErr || !fresh) {
+      throw readErr || new Error("Profile not found");
     }
-  } catch {
-    // non-fatal
+
+    const currentBal = Number(fresh.balance) || 0;
+    const version = Number(fresh.balance_version) || 0;
+    const newBalance = +(currentBal + amount).toFixed(4);
+
+    if (newBalance < -0.0001) {
+      throw new Error("Insufficient balance");
+    }
+
+    // Optimistic lock: only update if version matches
+    const { data: updated, error: upErr } = await db
+      .from("profiles")
+      .update({
+        balance: newBalance,
+        balance_version: version + 1,
+      })
+      .eq("id", profile.id)
+      .eq("balance_version", version)
+      .select("id, balance")
+      .maybeSingle();
+
+    if (upErr) {
+      lastErr = upErr;
+      continue;
+    }
+
+    if (!updated) {
+      // concurrent update — retry
+      await new Promise((r) => setTimeout(r, 15 + attempt * 20));
+      continue;
+    }
+
+    const { error: ledErr } = await db.from("ledger").insert({
+      profile_id: profile.id,
+      telegram_id: telegramId,
+      amount,
+      balance_after: newBalance,
+      reason,
+      meta,
+    });
+
+    if (ledErr) {
+      // Best-effort rollback of balance if ledger insert fails
+      try {
+        await db
+          .from("profiles")
+          .update({ balance: currentBal, balance_version: version })
+          .eq("id", profile.id)
+          .eq("balance_version", version + 1);
+      } catch {
+        /* ignore */
+      }
+      throw ledErr;
+    }
+
+    try {
+      if (
+        (reason === "deposit_stars" || reason === "deposit_ton") &&
+        amount > 0
+      ) {
+        await creditHouse(amount, "reserve", reason, meta);
+      }
+    } catch {
+      // non-fatal
+    }
+
+    return { balance: newBalance, profileId: profile.id };
   }
 
-  return { balance: newBalance, profileId: profile.id };
+  throw lastErr || new Error("Balance update conflict — try again");
 }
 
 export async function getOrCreateProfile(
@@ -112,6 +172,7 @@ export async function getOrCreateProfile(
       games: 0,
       ref_turnover: 0,
       ref_active: 0,
+      balance_version: 0,
     })
     .select("*")
     .single();

@@ -2,105 +2,103 @@
 
 Telegram Mini App with **server-authoritative** balance, bets, and spin.
 
-## Phase 1–2 (done)
+## Rules (canonical)
 
-- initData HMAC on every API call
-- Ledger + service role only balance writes
-- Stars webhook + TON memo/TonAPI
-- Server seed RNG, rooms Classic / High, house edge 2%
-- Client-driven tick (Hobby-safe: **no minute cron**)
+| Setting | Value |
+|---------|-------|
+| Min bet (Classic) | **0.25 GRAM** |
+| Min bet (High) | **10 GRAM** |
+| House edge | **5%** of bank (winner receives 95%) |
+| Max players | Classic 10 / High 8 |
+| Countdown | 8s / 10s after 2+ players |
 
-## Phase 3 — Economy
+## Security model
 
-| Feature | Implementation |
-|---------|----------------|
-| Rates | `GRAM_PER_TON = 1` (1:1), Stars via env |
-| House edge | 2% in room config |
-| Withdraw | `POST /api/withdraw` → pending row + debit ledger |
-| Min/max | deposits packages + withdraw 1–200 TON |
-| Ledger API | `GET /api/ledger` |
-| Referral | join bonus + **5% of deposits** |
-
-Run SQL: `supabase/schema.sql` → `phase2.sql` → **`phase3.sql`**
-
-## Phase 4 — UX
-
-- Spin / win / lose sounds (WebAudio)
-- Confetti on win
-- TON icon on balance (not $)
-- Onboarding sheet
-- Skeleton loading
-- Profile winrate / biggest win
-- Telegram light/dark class hook
-- Wheel colors **frozen** during spin (no flash)
+| Layer | How |
+|-------|-----|
+| Auth | `initData` HMAC verified on every mutating API call |
+| Balance | Ledger + optimistic lock (`balance_version`) — never from client |
+| Stars | Bot webhook `successful_payment` → credit |
+| TON deposit | Memo intent + TonAPI match → credit |
+| TON withdraw | Debit + queue; admin completes on-chain |
+| Spin | Server seed (hash committed) + HMAC RNG; same `spinDegrees` for all |
+| Provably Fair | `GET /api/verify?rollId=` recomputes winner from published seed |
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env.local   # or fill env in Vercel
-# run all SQL in Supabase
+cp .env.example .env.local   # if present — fill keys
+```
+
+Run SQL in Supabase (in order):
+
+1. `supabase/schema.sql`
+2. `supabase/phase2.sql`
+3. `supabase/phase3.sql`
+4. `supabase/phase5.sql`
+5. `supabase/phase6_economy.sql`
+6. `supabase/phase7_fair_atomic.sql`  ← balance_version + verify index
+
+```bash
 npm run dev
 ```
 
 ### Env
 
-| Variable | Required |
-|----------|----------|
-| NEXT_PUBLIC_SUPABASE_URL | yes |
-| NEXT_PUBLIC_SUPABASE_ANON_KEY | yes |
-| SUPABASE_SERVICE_ROLE_KEY | yes |
-| TELEGRAM_BOT_TOKEN | yes |
-| TELEGRAM_WEBHOOK_SECRET | recommended |
-| NEXT_PUBLIC_TON_WALLET | TON deposits |
-| TONAPI_KEY | recommended |
-| NEXT_PUBLIC_GRAM_PER_STAR | optional (default 1) |
-| NEXT_PUBLIC_GRAM_PER_TON | optional (default 1) |
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | yes | DB |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | public read |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | server writes |
+| `TELEGRAM_BOT_TOKEN` | yes | initData + Stars invoices |
+| `TELEGRAM_WEBHOOK_SECRET` | recommended | webhook auth |
+| `NEXT_PUBLIC_TON_WALLET` | for TON | deposit address |
+| `TONAPI_KEY` | recommended | on-chain verify |
+| `CRON_SECRET` | recommended | protect `/api/round/tick` |
+| `CRON_STRICT` | optional | `1` = only cron may tick |
 
-### Webhook
+### Webhook (Stars)
 
 ```
 https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://YOUR_DOMAIN/api/webhooks/telegram&secret_token=YOUR_SECRET
 ```
 
-### Vercel Hobby
+### Vercel Cron
 
-Keep `vercel.json` as `{}`. Minute crons are rejected on Hobby.  
-Spin authority is driven by clients via `/api/round/state` + `/api/round/spin`.
+`vercel.json` schedules `/api/round/tick` every minute so rounds spin even if all clients leave.
 
-### Withdrawals
+## API (main)
 
-Users request TON withdraw → status `pending`.  
-Process in Supabase: set `status=completed`, fill `tx_hash` after you send TON from your hot wallet.
+| Route | Auth | Role |
+|-------|------|------|
+| `POST /api/auth/session` | initData | upsert profile, return balance |
+| `POST /api/bet` | initData | debit + join round |
+| `GET /api/round/state` | — | current round + auto-spin if due |
+| `POST /api/round/spin` | initData | force spin after countdown |
+| `GET /api/round/tick` | optional cron | authority tick all rooms |
+| `GET /api/verify?rollId=` | — | **public** provably-fair check |
+| `POST /api/stars-invoice` | initData | create XTR invoice |
+| `POST /api/webhooks/telegram` | secret | Stars credit |
+| `POST /api/ton/pending` | initData | register memo |
+| `POST /api/ton/check` | initData | match chain + credit |
+| `POST /api/withdraw` | initData | queue TON withdrawal |
+
+## Demo mode
+
+Without Telegram `initData` / Supabase, the app falls back to localStorage (client-only).  
+**Production** requires full env + opening inside Telegram. Demo must not be treated as real money.
 
 ## Deploy
 
-Vercel + env + SQL migrations + setWebhook.
+1. Vercel + set all env vars  
+2. Run all SQL migrations  
+3. Set Telegram webhook  
+4. Confirm Vercel Cron is enabled (Pro plan for `* * * * *` on some tiers; otherwise use external cron hitting `/api/round/tick` with `CRON_SECRET`)
 
-## Phase 5 — Infra
+## Fairness (how to verify a round)
 
-| Feature | How |
-|---------|-----|
-| Rate limit | In-memory on bet / withdraw / stars / ton (per telegram id) |
-| Admin panel | `/admin` + header `x-admin-secret: ADMIN_SECRET` |
-| Bans | `profiles.banned` checked on bet/withdraw/ton |
-| Sentry | Optional `SENTRY_DSN` — errors posted to Sentry store API |
-| Analytics | `analytics_events` table (deposits/withdraws tracked from admin) |
-| CI | `.github/workflows/ci.yml` — lint + build on push |
-
-### Admin
-
-1. Set `ADMIN_SECRET` in Vercel env (long random string)
-2. Open `https://YOUR_DOMAIN/admin`
-3. Paste secret → manage withdrawals (Complete / Reject+refund), bans, stats
-
-### Staging
-
-Create a second Vercel project pointing to the same repo with different env:
-- different `TELEGRAM_BOT_TOKEN` (staging bot)
-- different Supabase project (or schema)
-- different `ADMIN_SECRET`
-
-### SQL
-
-Run `supabase/phase5.sql` after phase3.
+1. Before spin, UI shows `hash` = SHA256(server_seed).  
+2. After spin, seed is revealed.  
+3. Open **Verify** (tap the hash) or call `GET /api/verify?rollId=N`.  
+4. Check: `SHA256(serverSeed) === serverSeedHash` and recomputed winner matches claimed winner.

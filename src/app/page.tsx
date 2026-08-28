@@ -16,6 +16,7 @@ import { HowRefModal } from "@/components/modals/HowRefModal";
 import { Toast } from "@/components/ui/Toast";
 import { Confetti } from "@/components/ui/Confetti";
 import { WithdrawModal } from "@/components/modals/WithdrawModal";
+import { VerifyModal } from "@/components/modals/VerifyModal";
 import { playSpinSound, playWinSound, playLoseSound } from "@/lib/sounds";
 import { placeBetApi } from "@/lib/api";
 import {
@@ -91,6 +92,7 @@ export default function Home() {
   const [depositOpen, setDepositOpen] = useState(false);
   const [howRefOpen, setHowRefOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [verifyOpen, setVerifyOpen] = useState(false);
   const [confetti, setConfetti] = useState(false);
   const [onboarded, setOnboarded] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -479,6 +481,12 @@ export default function Home() {
 
   return (
     <div className="relative min-h-[100dvh] w-full">
+      {!serverMode && (
+        <div className="mx-4 mt-2 mb-1 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-200/90 text-center">
+          Demo mode — balances are local only. Open inside Telegram with server configured for real play.
+        </div>
+      )}
+
       {screen === "pvp" && (
         <PvpScreen
           players={players}
@@ -505,11 +513,21 @@ export default function Home() {
             setDepositOpen(true);
           }}
           onOpenHistory={() => setScreen("history")}
+          onOpenVerify={() => {
+            haptic("light");
+            setVerifyOpen(true);
+          }}
         />
       )}
 
       {screen === "history" && (
-        <HistoryScreen history={history} onBack={() => setScreen("pvp")} />
+        <HistoryScreen
+          history={history}
+          onBack={() => setScreen("pvp")}
+          onVerify={(id) => {
+            setVerifyOpen(true);
+          }}
+        />
       )}
 
       {screen === "profile" && (
@@ -599,6 +617,12 @@ export default function Home() {
         hapticError={hapticError}
       />
 
+      <VerifyModal
+        open={verifyOpen}
+        onClose={() => setVerifyOpen(false)}
+        initialRollId={rollId > 0 ? rollId - 1 : null}
+      />
+
       <Confetti active={confetti} />
 
       {!onboarded && (
@@ -608,7 +632,7 @@ export default function Home() {
             <div className="space-y-3 mb-5 text-sm text-white/70">
               <p><span className="text-cyan-300 font-medium">1. Bet</span> — put GRAM into the round bank</p>
               <p><span className="text-cyan-300 font-medium">2. Chance</span> — your share of the bank is your win chance</p>
-              <p><span className="text-cyan-300 font-medium">3. Spin</span> — winner takes the pot (minus 2% house)</p>
+              <p><span className="text-cyan-300 font-medium">3. Spin</span> — winner takes the pot (minus 5% house)</p>
             </div>
             <button
               className="w-full h-12 rounded-2xl btn-primary text-sm btn-press"

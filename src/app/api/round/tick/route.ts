@@ -4,8 +4,9 @@ import { isSupabaseConfigured } from "@/lib/server/supabase";
 import { DEFAULT_ROOM, ROOMS, type RoomMode } from "@/lib/constants";
 
 /**
- * Authority tick — safe to call from Vercel Cron or any client.
- * Optional: Authorization Bearer CRON_SECRET
+ * Authority tick — Vercel Cron every minute + client fallback.
+ * When CRON_SECRET is set, cron must send Authorization: Bearer <secret>.
+ * Clients may still call without secret (early phase / backup).
  */
 export async function GET(req: NextRequest) {
   return handleTick(req);
@@ -18,12 +19,20 @@ export async function POST(req: NextRequest) {
 async function handleTick(req: NextRequest) {
   try {
     const cronSecret = process.env.CRON_SECRET;
-    if (cronSecret) {
-      const auth = req.headers.get("authorization");
-      if (auth !== `Bearer ${cronSecret}`) {
-        // allow unauthenticated for client-driven tick in early phase
-        // but cron must send secret when set — clients still work without it
-      }
+    const auth = req.headers.get("authorization");
+    const isCron =
+      !!cronSecret &&
+      (auth === `Bearer ${cronSecret}` ||
+        req.headers.get("x-vercel-cron") === "1");
+
+    // Optional: reject non-cron in strict mode
+    if (
+      process.env.CRON_STRICT === "1" &&
+      cronSecret &&
+      !isCron &&
+      auth !== `Bearer ${cronSecret}`
+    ) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (!isSupabaseConfigured()) {
@@ -31,7 +40,9 @@ async function handleTick(req: NextRequest) {
     }
 
     const modeParam = req.nextUrl.searchParams.get("mode") as RoomMode | null;
-    const modes: RoomMode[] = modeParam ? [modeParam] : (Object.keys(ROOMS) as RoomMode[]);
+    const modes: RoomMode[] = modeParam
+      ? [modeParam]
+      : (Object.keys(ROOMS) as RoomMode[]);
 
     const results = [];
     for (const mode of modes) {
@@ -45,7 +56,7 @@ async function handleTick(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ ok: true, results });
+    return NextResponse.json({ ok: true, results, isCron });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Tick failed" },
