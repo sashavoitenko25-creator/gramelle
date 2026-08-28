@@ -25,12 +25,9 @@ export async function POST(req: NextRequest) {
     await assertNotBanned(auth.user.id);
     const body = await req.json();
     const ton = Number(body.ton);
-    if (!Number.isFinite(ton) || ton < MIN_DEPOSIT_TON || ton > MAX_DEPOSIT_TON) {
+    if (!Number.isFinite(ton) || ton < MIN_DEPOSIT_TON) {
       return NextResponse.json(
-        {
-          error:
-            "Min " + MIN_DEPOSIT_TON + " TON, max " + MAX_DEPOSIT_TON + " TON",
-        },
+        { error: "Min " + MIN_DEPOSIT_TON + " TON" },
         { status: 400 }
       );
     }

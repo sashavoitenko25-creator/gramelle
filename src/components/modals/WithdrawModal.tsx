@@ -4,7 +4,6 @@ import { useState } from "react";
 import { apiFetch } from "@/lib/api";
 import {
   MIN_WITHDRAW_TON,
-  MAX_WITHDRAW_TON,
   WITHDRAW_FEE_GRAM,
   DAILY_WITHDRAW_LIMIT_TON,
 } from "@/lib/constants";
@@ -48,7 +47,6 @@ export function WithdrawModal({
   const can =
     serverMode &&
     val >= MIN_WITHDRAW_TON &&
-    val <= MAX_WITHDRAW_TON &&
     totalNeed <= balance &&
     wallet.trim().length >= 20;
 
@@ -95,7 +93,7 @@ export function WithdrawModal({
           </button>
         </div>
         <p className="text-xs text-white/40 mb-4">
-          Balance {formatGram(balance)} GRAM · min {MIN_WITHDRAW_TON} · max {MAX_WITHDRAW_TON}/tx · daily {DAILY_WITHDRAW_LIMIT_TON} TON · fee {fee}
+          Balance {formatGram(balance)} GRAM · min {MIN_WITHDRAW_TON} TON · fee {fee}
         </p>
 
         <label className="text-[11px] text-white/40 uppercase tracking-wider">

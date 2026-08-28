@@ -395,9 +395,6 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
                 ))}
               </div>
 
-              <p className="text-center text-[10px] text-white/25 pt-1 pb-2">
-                Bank {formatGram(data.bank)} GRAM
-              </p>
             </>
           )}
         </div>

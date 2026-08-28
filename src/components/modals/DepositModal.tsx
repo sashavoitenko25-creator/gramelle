@@ -75,13 +75,10 @@ export function DepositModal({
   }, [starsInput]);
 
   const starsGram = useMemo(() => gramFromStars(Math.max(0, starsAmount)), [starsAmount]);
-  const starsOk =
-    starsAmount >= MIN_DEPOSIT_STARS && starsAmount <= MAX_DEPOSIT_STARS;
+  const starsOk = starsAmount >= MIN_DEPOSIT_STARS;
 
   const tonOk =
-    Number.isFinite(tonAmount) &&
-    tonAmount >= MIN_DEPOSIT_TON &&
-    tonAmount <= MAX_DEPOSIT_TON;
+    Number.isFinite(tonAmount) && tonAmount >= MIN_DEPOSIT_TON;
 
   if (!open) return null;
 
@@ -95,11 +92,6 @@ export function DepositModal({
     if (loading) return;
     if (stars < MIN_DEPOSIT_STARS) {
       showToast("Min " + MIN_DEPOSIT_STARS + " Stars");
-      hapticError();
-      return;
-    }
-    if (stars > MAX_DEPOSIT_STARS) {
-      showToast("Max " + MAX_DEPOSIT_STARS + " Stars");
       hapticError();
       return;
     }
@@ -157,12 +149,8 @@ export function DepositModal({
   const startTonDeposit = async (amount?: number) => {
     if (loading) return;
     const amt = amount != null ? amount : tonAmount;
-    if (
-      !Number.isFinite(amt) ||
-      amt < MIN_DEPOSIT_TON ||
-      amt > MAX_DEPOSIT_TON
-    ) {
-      showToast("Min " + MIN_DEPOSIT_TON + " TON, max " + MAX_DEPOSIT_TON);
+    if (!Number.isFinite(amt) || amt < MIN_DEPOSIT_TON) {
+      showToast("Min " + MIN_DEPOSIT_TON + " TON");
       hapticError();
       return;
     }
@@ -361,7 +349,7 @@ export function DepositModal({
                   type="number"
                   inputMode="numeric"
                   min={MIN_DEPOSIT_STARS}
-                  max={MAX_DEPOSIT_STARS}
+                  
                   value={starsInput}
                   onChange={(e) => setStarsInput(e.target.value)}
                   className="flex-1 h-11 rounded-xl bg-black/35 border border-white/10 px-3 text-sm font-semibold tabular-nums outline-none focus:border-cyan-400/40"
@@ -429,7 +417,7 @@ export function DepositModal({
                   type="number"
                   inputMode="decimal"
                   min={MIN_DEPOSIT_TON}
-                  max={MAX_DEPOSIT_TON}
+                  
                   step="0.1"
                   value={tonInput}
                   onChange={(e) => applyTonInput(e.target.value)}

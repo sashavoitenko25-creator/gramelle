@@ -222,7 +222,7 @@ export function PvpScreen({
             </div>
             <div className="text-[10px] text-white/40 flex items-center gap-1.5 mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
-              {online > 0 ? `${online} in round` : "lobby"}
+              online
             </div>
           </div>
         </div>
@@ -230,24 +230,24 @@ export function PvpScreen({
       </div>
 
       {/* Last / Top game */}
-      <div className="mx-4 mb-2.5 grid grid-cols-2 gap-2">
+      <div className="mx-4 mb-2 grid grid-cols-2 gap-1.5">
         <button
           type="button"
           onClick={() => onOpenHistoryFilter?.("all")}
-          className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-3 py-2.5 text-left hover:border-white/12 transition btn-press"
+          className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-2 py-1.5 text-left hover:border-white/12 transition btn-press overflow-hidden"
         >
-          <div className="text-[9px] uppercase tracking-wider text-white/30 mb-1">
+          <div className="text-[8px] uppercase tracking-wider text-white/30 mb-0.5">
             Last game
           </div>
           {lastGame ? (
-            <div className="flex items-center gap-2 min-w-0">
-              <Avatar name={lastGame.winner} photoUrl={lastGame.photoUrl} />
-              <div className="min-w-0 flex-1">
-                <div className="text-[12px] font-medium text-white/80 truncate">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Avatar name={lastGame.winner} photoUrl={lastGame.photoUrl} size={20} />
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <div className="text-[11px] font-medium text-white/80 truncate leading-tight">
                   @{lastGame.winner}
                 </div>
-                <div className="text-[11px] text-emerald-300/90 tabular-nums mt-0.5">
-                  +{formatGram(lastGame.pot)} GRAM
+                <div className="text-[10px] text-emerald-300/90 tabular-nums mt-0.5 truncate">
+                  +{formatGram(lastGame.pot)}
                   <span className="text-white/25 ml-1">{lastGame.chance}%</span>
                 </div>
               </div>
@@ -261,18 +261,18 @@ export function PvpScreen({
           onClick={() => onOpenHistoryFilter?.("top")}
           className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-3 py-2.5 text-left hover:border-amber-500/25 transition btn-press"
         >
-          <div className="text-[9px] uppercase tracking-wider text-white/30 mb-1">
+          <div className="text-[8px] uppercase tracking-wider text-white/30 mb-0.5">
             Top game
           </div>
           {topGame ? (
-            <div className="flex items-center gap-2 min-w-0">
-              <Avatar name={topGame.winner} photoUrl={topGame.photoUrl} />
-              <div className="min-w-0 flex-1">
-                <div className="text-[12px] font-medium text-white/80 truncate">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Avatar name={topGame.winner} photoUrl={topGame.photoUrl} size={20} />
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <div className="text-[11px] font-medium text-white/80 truncate leading-tight">
                   @{topGame.winner}
                 </div>
-                <div className="text-[11px] text-amber-300/90 tabular-nums mt-0.5">
-                  +{formatGram(topGame.pot)} GRAM
+                <div className="text-[10px] text-amber-300/90 tabular-nums mt-0.5 truncate">
+                  +{formatGram(topGame.pot)}
                   <span className="text-white/25 ml-1">{topGame.chance}%</span>
                 </div>
               </div>

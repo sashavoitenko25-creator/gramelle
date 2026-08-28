@@ -61,12 +61,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (amountTon > MAX_WITHDRAW_TON) {
-      return NextResponse.json(
-        { error: `Maximum withdraw is ${MAX_WITHDRAW_TON} TON` },
-        { status: 400 }
-      );
-    }
     if (!wallet || wallet.length < 20) {
       return NextResponse.json({ error: "Invalid TON wallet address" }, { status: 400 });
     }

@@ -33,12 +33,9 @@ export async function POST(req: NextRequest) {
     }
 
     const stars = Math.floor(Number(body.stars) || 0);
-    if (stars < MIN_DEPOSIT_STARS || stars > MAX_DEPOSIT_STARS) {
+    if (stars < MIN_DEPOSIT_STARS) {
       return NextResponse.json(
-        {
-          error:
-            "Min " + MIN_DEPOSIT_STARS + " Stars, max " + MAX_DEPOSIT_STARS,
-        },
+        { error: "Min " + MIN_DEPOSIT_STARS + " Stars" },
         { status: 400 }
       );
     }

@@ -37,12 +37,12 @@ export const HOUSE_EDGE = 0.05; // 5%
 
 export const MIN_DEPOSIT_GRAM = 0.5;
 export const MIN_DEPOSIT_STARS = Math.ceil(0.5 / 0.0085); // ~59
-export const MAX_DEPOSIT_STARS = 100_000;
+export const MAX_DEPOSIT_STARS = 10_000_000; // effectively unlimited
 export const MIN_DEPOSIT_TON = 0.5;
-export const MAX_DEPOSIT_TON = 500;
+export const MAX_DEPOSIT_TON = 1_000_000; // effectively unlimited
 
 export const MIN_WITHDRAW_TON = 5;
-export const MAX_WITHDRAW_TON = 200;
+export const MAX_WITHDRAW_TON = 1_000_000; // effectively unlimited
 export const WITHDRAW_FEE_GRAM = 0.2;
 
 /** Join bonus for inviting a brand-new user */

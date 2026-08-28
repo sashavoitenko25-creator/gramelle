@@ -218,7 +218,7 @@ export function Wheel({
                     stroke={s.player.color}
                     strokeWidth={R_OUTER - R_INNER}
                     className="wheel-seg-in"
-                    style={{ animationDelay: `${i * 40}ms` }}
+                    style={{ animationDelay: `${i * 70}ms` }}
                   />
                 ) : (
                   <path
@@ -227,7 +227,7 @@ export function Wheel({
                     fill={s.player.color}
                     className="wheel-seg-in"
                     style={{
-                      animationDelay: `${i * 45}ms`,
+                      animationDelay: `${i * 75}ms`,
                       filter: "url(#segGlow)",
                     }}
                   />
