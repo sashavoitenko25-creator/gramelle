@@ -5,6 +5,7 @@ import { buildTonMemo } from "@/lib/payments";
 import { gramFromTon } from "@/lib/payments";
 import { rateLimit } from "@/lib/server/rateLimit";
 import { assertNotBanned } from "@/lib/server/ban";
+import { MIN_DEPOSIT_TON, MAX_DEPOSIT_TON } from "@/lib/constants";
 
 /**
  * Register a pending TON deposit intent (memo + expected amount).
@@ -24,8 +25,14 @@ export async function POST(req: NextRequest) {
     await assertNotBanned(auth.user.id);
     const body = await req.json();
     const ton = Number(body.ton);
-    if (!Number.isFinite(ton) || ton <= 0) {
-      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+    if (!Number.isFinite(ton) || ton < MIN_DEPOSIT_TON || ton > MAX_DEPOSIT_TON) {
+      return NextResponse.json(
+        {
+          error:
+            "Min " + MIN_DEPOSIT_TON + " TON, max " + MAX_DEPOSIT_TON + " TON",
+        },
+        { status: 400 }
+      );
     }
 
     const username =

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTelegramUser, getBotToken } from "@/lib/server/telegram";
-import { GRAM_PER_STAR } from "@/lib/constants";
+import { GRAM_PER_STAR, MIN_DEPOSIT_STARS, MAX_DEPOSIT_STARS } from "@/lib/constants";
 import { rateLimit } from "@/lib/server/rateLimit";
 
 export async function POST(req: NextRequest) {
@@ -33,8 +33,14 @@ export async function POST(req: NextRequest) {
     }
 
     const stars = Math.floor(Number(body.stars) || 0);
-    if (stars < 1 || stars > 100_000) {
-      return NextResponse.json({ error: "Invalid stars amount" }, { status: 400 });
+    if (stars < MIN_DEPOSIT_STARS || stars > MAX_DEPOSIT_STARS) {
+      return NextResponse.json(
+        {
+          error:
+            "Min " + MIN_DEPOSIT_STARS + " Stars, max " + MAX_DEPOSIT_STARS,
+        },
+        { status: 400 }
+      );
     }
 
     let token: string;

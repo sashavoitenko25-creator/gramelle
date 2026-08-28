@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  useTonConnectUI,
+  useTonWallet,
+} from "@tonconnect/ui-react";
 import {
   STAR_PACKAGES,
   TON_PACKAGES,
   TON_DEPOSIT_ADDRESS,
+  MIN_DEPOSIT_STARS,
+  MAX_DEPOSIT_STARS,
+  MIN_DEPOSIT_TON,
+  MAX_DEPOSIT_TON,
 } from "@/lib/constants";
 import {
   requestStarsInvoice,
@@ -13,6 +21,7 @@ import {
   gramFromTon,
 } from "@/lib/payments";
 import { createTonPending, checkTonDeposits } from "@/lib/api";
+import { tonAmountToNano, tonCommentPayload } from "@/lib/tonPayload";
 import { cn } from "@/lib/utils";
 import type { DepositMethod } from "@/lib/types";
 
@@ -49,11 +58,30 @@ export function DepositModal({
   serverMode = false,
   onBalanceRefresh,
 }: DepositModalProps) {
+  const [tonConnectUI] = useTonConnectUI();
+  const wallet = useTonWallet();
+
   const [method, setMethod] = useState<DepositMethod>("stars");
   const [loading, setLoading] = useState(false);
   const [tonStep, setTonStep] = useState<"pick" | "pay">("pick");
   const [tonAmount, setTonAmount] = useState(1);
+  const [tonInput, setTonInput] = useState("1");
   const [tonMemo, setTonMemo] = useState("");
+  const [starsInput, setStarsInput] = useState(String(STAR_PACKAGES[0]?.stars || 100));
+
+  const starsAmount = useMemo(() => {
+    const n = Math.floor(Number(starsInput) || 0);
+    return n;
+  }, [starsInput]);
+
+  const starsGram = useMemo(() => gramFromStars(Math.max(0, starsAmount)), [starsAmount]);
+  const starsOk =
+    starsAmount >= MIN_DEPOSIT_STARS && starsAmount <= MAX_DEPOSIT_STARS;
+
+  const tonOk =
+    Number.isFinite(tonAmount) &&
+    tonAmount >= MIN_DEPOSIT_TON &&
+    tonAmount <= MAX_DEPOSIT_TON;
 
   if (!open) return null;
 
@@ -65,6 +93,16 @@ export function DepositModal({
 
   const payStars = async (stars: number) => {
     if (loading) return;
+    if (stars < MIN_DEPOSIT_STARS) {
+      showToast("Min " + MIN_DEPOSIT_STARS + " Stars");
+      hapticError();
+      return;
+    }
+    if (stars > MAX_DEPOSIT_STARS) {
+      showToast("Max " + MAX_DEPOSIT_STARS + " Stars");
+      hapticError();
+      return;
+    }
     setLoading(true);
     haptic("light");
 
@@ -94,54 +132,115 @@ export function DepositModal({
     setLoading(false);
 
     if (status === "paid") {
-      // Production: webhook credits balance. We only refresh.
       if (serverMode && onBalanceRefresh) {
-        // short poll for webhook lag
-        for (let i = 0; i < 5; i++) {
-          await new Promise((r) => setTimeout(r, 800));
-          await onBalanceRefresh();
-        }
-        hapticSuccess();
-        showToast("Payment received");
-      } else {
-        const gram = gramFromStars(stars);
-        onCredit(gram);
-        hapticSuccess();
-        showToast("+" + gram + " GRAM");
+        await onBalanceRefresh();
+      } else if (!serverMode) {
+        onCredit(gramFromStars(stars));
       }
+      hapticSuccess();
+      showToast("Payment received");
       resetAndClose();
     } else if (status === "cancelled") {
-      showToast("Payment cancelled");
+      showToast("Cancelled");
     } else {
-      hapticError();
-      showToast("Payment failed");
+      showToast("Pending — balance updates after confirmation");
+      if (onBalanceRefresh) setTimeout(() => void onBalanceRefresh(), 2500);
     }
   };
 
-  const startTonPay = async (ton: number) => {
-    haptic("light");
-    setTonAmount(ton);
+  const applyTonInput = (raw: string) => {
+    setTonInput(raw);
+    const n = Number(raw.replace(",", "."));
+    if (Number.isFinite(n)) setTonAmount(+n.toFixed(4));
+  };
 
-    if (serverMode) {
-      try {
-        setLoading(true);
-        const res = await createTonPending(ton);
-        setTonMemo(res.memo);
+  const startTonDeposit = async (amount?: number) => {
+    if (loading) return;
+    const amt = amount != null ? amount : tonAmount;
+    if (
+      !Number.isFinite(amt) ||
+      amt < MIN_DEPOSIT_TON ||
+      amt > MAX_DEPOSIT_TON
+    ) {
+      showToast("Min " + MIN_DEPOSIT_TON + " TON, max " + MAX_DEPOSIT_TON);
+      hapticError();
+      return;
+    }
+    setTonAmount(amt);
+    setTonInput(String(amt));
+    setLoading(true);
+    haptic("light");
+    try {
+      if (serverMode) {
+        const pending = await createTonPending(amt);
+        setTonMemo(pending.memo || "");
         setTonStep("pay");
-      } catch (e) {
-        hapticError();
-        showToast(e instanceof Error ? e.message : "Failed");
-      } finally {
-        setLoading(false);
+      } else {
+        const memo =
+          "gramelle_" +
+          (telegramId || username.toLowerCase().replace(/\s+/g, "")) +
+          "_" +
+          Date.now().toString(36);
+        setTonMemo(memo);
+        setTonStep("pay");
       }
-    } else {
-      const memo =
-        "gramelle_" +
-        (telegramId || username.toLowerCase().replace(/\s+/g, "")) +
-        "_" +
-        Date.now().toString(36);
-      setTonMemo(memo);
-      setTonStep("pay");
+    } catch (e) {
+      hapticError();
+      showToast(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const payWithTonConnect = async () => {
+    if (loading || !tonMemo) return;
+    if (!wallet) {
+      tonConnectUI.openModal();
+      return;
+    }
+    setLoading(true);
+    haptic("light");
+    try {
+      await tonConnectUI.sendTransaction({
+        validUntil: Math.floor(Date.now() / 1000) + 600,
+        messages: [
+          {
+            address: TON_DEPOSIT_ADDRESS,
+            amount: tonAmountToNano(tonAmount),
+            payload: tonCommentPayload(tonMemo),
+          },
+        ],
+      });
+      showToast("Sent — checking network…");
+      // Poll a few times
+      for (let i = 0; i < 6; i++) {
+        await new Promise((r) => setTimeout(r, 2500));
+        if (!serverMode) break;
+        try {
+          const res = await checkTonDeposits();
+          if (res.credited?.length) {
+            const total = res.credited.reduce((s, c) => s + c.gram, 0);
+            if (onBalanceRefresh) await onBalanceRefresh();
+            hapticSuccess();
+            showToast("+" + total + " GRAM");
+            resetAndClose();
+            return;
+          }
+        } catch {
+          /* keep polling */
+        }
+      }
+      showToast("Sent. Tap “I paid” if balance not updated yet");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Cancelled";
+      if (!/reject|cancel|abort/i.test(msg)) {
+        hapticError();
+        showToast(msg);
+      } else {
+        showToast("Cancelled");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -220,116 +319,158 @@ export function DepositModal({
           </button>
         </div>
 
-        <div className="flex gap-2 p-1 rounded-2xl bg-black/30 border border-white/[0.06] mb-5">
-          <button
-            onClick={() => {
-              setMethod("stars");
-              setTonStep("pick");
-            }}
-            className={cn(
-              "flex-1 py-2.5 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 btn-press",
-              method === "stars" ? "bg-white/10 text-white" : "text-white/40 hover:text-white/60"
-            )}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-amber-300">
-              <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7L12 16.8 5.7 21l2.3-7-6-4.6h7.6z" />
-            </svg>
-            Stars
-          </button>
-          <button
-            onClick={() => {
-              setMethod("ton");
-              setTonStep("pick");
-            }}
-            className={cn(
-              "flex-1 py-2.5 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 btn-press",
-              method === "ton" ? "bg-white/10 text-white" : "text-white/40 hover:text-white/60"
-            )}
-          >
-            <span className="text-sky-400 text-xs font-bold">TON</span>
-            TON
-          </button>
+        <div className="flex gap-2 p-1 rounded-2xl bg-black/40 border border-white/[0.06] mb-4">
+          {(
+            [
+              ["stars", "Stars"],
+              ["ton", "TON"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => {
+                setMethod(id);
+                setTonStep("pick");
+              }}
+              className={cn(
+                "flex-1 py-2.5 rounded-xl text-sm font-semibold transition btn-press",
+                method === id
+                  ? "bg-white/10 text-white border border-white/10"
+                  : "text-white/40 border border-transparent"
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {method === "stars" && (
-          <div className="space-y-2.5">
-            <p className="text-xs text-white/35 mb-3 leading-relaxed">
-              Pay with Telegram Stars. Rate: 500 Stars = 4.25 GRAM · TON is 1:1. Min deposit 0.5 GRAM. Credited after confirmation.
+          <div className="space-y-3">
+            <p className="text-[11px] text-white/35 leading-relaxed">
+              Pay with Telegram Stars. Rate: 500 Stars ≈ 4.25 GRAM. Min{" "}
+              {MIN_DEPOSIT_STARS} Stars.
             </p>
+
+            {/* Custom amount */}
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5">
+              <label className="text-[10px] uppercase tracking-wider text-white/35">
+                Custom amount
+              </label>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_DEPOSIT_STARS}
+                  max={MAX_DEPOSIT_STARS}
+                  value={starsInput}
+                  onChange={(e) => setStarsInput(e.target.value)}
+                  className="flex-1 h-11 rounded-xl bg-black/35 border border-white/10 px-3 text-sm font-semibold tabular-nums outline-none focus:border-cyan-400/40"
+                  placeholder={String(MIN_DEPOSIT_STARS)}
+                />
+                <span className="text-xs text-white/40 shrink-0">Stars</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-[11px]">
+                <span className={starsOk ? "text-white/40" : "text-amber-300/90"}>
+                  {starsOk
+                    ? `→ ${starsGram.toFixed(4)} GRAM`
+                    : `Min ${MIN_DEPOSIT_STARS} Stars`}
+                </span>
+              </div>
+              <button
+                type="button"
+                disabled={loading || !starsOk}
+                onClick={() => payStars(starsAmount)}
+                className="mt-3 w-full h-11 rounded-xl btn-primary text-sm font-semibold btn-press disabled:opacity-40"
+              >
+                {loading ? "…" : `Pay ${starsAmount || 0} Stars`}
+              </button>
+            </div>
+
+            <div className="text-[10px] text-white/25 text-center uppercase tracking-wider">
+              or quick packages
+            </div>
+
             {STAR_PACKAGES.map((p) => (
               <button
                 key={p.stars}
                 disabled={loading}
-                onClick={() => payStars(p.stars)}
-                className={cn(
-                  "w-full flex items-center justify-between rounded-2xl px-4 py-3.5 border transition btn-press",
-                  p.popular
-                    ? "bg-amber-500/[0.08] border-amber-500/25"
-                    : "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]"
-                )}
+                onClick={() => {
+                  setStarsInput(String(p.stars));
+                  void payStars(p.stars);
+                }}
+                className="w-full flex items-center justify-between rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3.5 hover:bg-white/[0.05] transition btn-press disabled:opacity-50"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#fbbf24">
-                      <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7L12 16.8 5.7 21l2.3-7-6-4.6h7.6z" />
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-semibold">{p.label} Stars</div>
-                    <div className="text-[11px] text-white/35">
-                      {p.gram} GRAM
-                      {p.bonus ? (
-                        <span className="text-emerald-400 ml-1">{p.bonus}</span>
-                      ) : null}
-                    </div>
+                <div className="text-left">
+                  <div className="text-sm font-semibold">{p.stars} Stars</div>
+                  <div className="text-[11px] text-white/35">
+                    → {p.gram} GRAM
                   </div>
                 </div>
-                {p.popular ? (
-                  <span className="text-[9px] uppercase tracking-wider font-semibold text-amber-300/90 bg-amber-500/15 px-2 py-1 rounded-lg">
-                    Popular
-                  </span>
-                ) : null}
+                <span className="text-xs text-cyan-300 font-medium">Buy</span>
               </button>
             ))}
-            {loading && (
-              <p className="text-center text-xs text-white/30 pt-2 pulse-soft">
-                Opening invoice…
-              </p>
-            )}
           </div>
         )}
 
         {method === "ton" && tonStep === "pick" && (
-          <div className="space-y-2.5">
-            <p className="text-xs text-white/35 mb-3 leading-relaxed">
-              Send TON with the exact memo. 1 TON = 1 GRAM. Server verifies on-chain and credits balance.
+          <div className="space-y-3">
+            <p className="text-[11px] text-white/35 leading-relaxed">
+              1 TON ≈ 1 GRAM. Min {MIN_DEPOSIT_TON} TON. Prefer{" "}
+              <span className="text-sky-300/90">TON Connect</span> for one-tap
+              payment.
             </p>
+
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5">
+              <label className="text-[10px] uppercase tracking-wider text-white/35">
+                Custom amount
+              </label>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={MIN_DEPOSIT_TON}
+                  max={MAX_DEPOSIT_TON}
+                  step="0.1"
+                  value={tonInput}
+                  onChange={(e) => applyTonInput(e.target.value)}
+                  className="flex-1 h-11 rounded-xl bg-black/35 border border-white/10 px-3 text-sm font-semibold tabular-nums outline-none focus:border-cyan-400/40"
+                  placeholder={String(MIN_DEPOSIT_TON)}
+                />
+                <span className="text-xs text-white/40 shrink-0">TON</span>
+              </div>
+              <div className="mt-2 text-[11px]">
+                <span className={tonOk ? "text-white/40" : "text-amber-300/90"}>
+                  {tonOk
+                    ? `→ ${gramFromTon(tonAmount)} GRAM`
+                    : `Min ${MIN_DEPOSIT_TON} TON`}
+                </span>
+              </div>
+              <button
+                type="button"
+                disabled={loading || !tonOk}
+                onClick={() => void startTonDeposit()}
+                className="mt-3 w-full h-11 rounded-xl btn-primary text-sm font-semibold btn-press disabled:opacity-40"
+              >
+                {loading ? "…" : "Continue"}
+              </button>
+            </div>
+
+            <div className="text-[10px] text-white/25 text-center uppercase tracking-wider">
+              or quick packages
+            </div>
+
             {TON_PACKAGES.map((p) => (
               <button
                 key={p.ton}
                 disabled={loading}
-                onClick={() => startTonPay(p.ton)}
-                className={cn(
-                  "w-full flex items-center justify-between rounded-2xl px-4 py-3.5 border transition btn-press",
-                  p.popular
-                    ? "bg-sky-500/[0.08] border-sky-500/25"
-                    : "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]"
-                )}
+                onClick={() => void startTonDeposit(p.ton)}
+                className="w-full flex items-center justify-between rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3.5 hover:bg-white/[0.05] transition btn-press disabled:opacity-50"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-sky-500/15 flex items-center justify-center text-sky-300 text-xs font-bold">
-                    TON
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-semibold">{p.label} TON</div>
-                    <div className="text-[11px] text-white/35">
-                      {p.gram} GRAM
-                      {p.bonus ? (
-                        <span className="text-emerald-400 ml-1">{p.bonus}</span>
-                      ) : null}
-                    </div>
-                  </div>
+                <div className="text-left">
+                  <div className="text-sm font-semibold">{p.ton} TON</div>
+                  <div className="text-[11px] text-white/35">→ {p.gram} GRAM</div>
                 </div>
+                <span className="text-xs text-cyan-300 font-medium">Select</span>
               </button>
             ))}
           </div>
@@ -338,57 +479,80 @@ export function DepositModal({
         {method === "ton" && tonStep === "pay" && (
           <div className="space-y-3">
             <button
+              type="button"
               onClick={() => setTonStep("pick")}
-              className="text-xs text-white/40 hover:text-white/60 flex items-center gap-1 mb-1"
+              className="text-[12px] text-white/40 hover:text-white/70"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-              Back
+              ← Back
             </button>
 
-            <div className="rounded-2xl bg-black/30 border border-white/[0.06] p-4 space-y-3">
-              <div>
-                <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Amount</div>
-                <div className="text-xl font-semibold text-sky-300">
-                  {tonAmount} TON
-                  <span className="text-sm text-white/30 font-normal ml-2">
-                    → {gramFromTon(tonAmount)} GRAM
-                  </span>
-                </div>
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-white/40">Amount</span>
+                <span className="font-semibold tabular-nums">
+                  {tonAmount} TON → {gramFromTon(tonAmount)} GRAM
+                </span>
               </div>
-              <div>
-                <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Address</div>
+              <div className="flex items-start justify-between gap-2 text-sm">
+                <span className="text-white/40 shrink-0">Address</span>
                 <button
+                  type="button"
                   onClick={copyAddress}
-                  className="w-full text-left text-[11px] font-mono text-white/60 break-all bg-white/[0.03] rounded-xl px-3 py-2 border border-white/[0.05]"
+                  className="text-[11px] font-mono text-right text-cyan-300/90 break-all"
                 >
-                  {TON_DEPOSIT_ADDRESS}
+                  {TON_DEPOSIT_ADDRESS.slice(0, 8)}…{TON_DEPOSIT_ADDRESS.slice(-6)} · copy
                 </button>
               </div>
-              <div>
-                <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Memo (required)</div>
+              <div className="flex items-start justify-between gap-2 text-sm">
+                <span className="text-white/40 shrink-0">Memo</span>
                 <button
+                  type="button"
                   onClick={copyMemo}
-                  className="w-full text-left text-[11px] font-mono text-amber-200/80 break-all bg-white/[0.03] rounded-xl px-3 py-2 border border-white/[0.05]"
+                  className="text-[11px] font-mono text-right text-amber-200/90 break-all"
                 >
-                  {tonMemo}
+                  {tonMemo} · copy
                 </button>
               </div>
+              <p className="text-[10px] text-amber-200/70 pt-1">
+                Memo is required. Without it the deposit cannot be credited.
+              </p>
             </div>
 
+            {/* Primary: TON Connect */}
             <button
-              onClick={openTonWallet}
-              className="w-full h-12 rounded-2xl bg-sky-500/20 border border-sky-500/30 text-sky-200 text-sm font-semibold btn-press"
-            >
-              Open wallet
-            </button>
-            <button
-              onClick={confirmTon}
+              type="button"
               disabled={loading}
-              className="w-full h-11 rounded-2xl btn-secondary text-sm btn-press disabled:opacity-50"
+              onClick={() => void payWithTonConnect()}
+              className="w-full h-12 rounded-2xl bg-gradient-to-r from-[#0098EA] to-cyan-500 text-sm font-semibold text-white btn-press shadow-[0_0_28px_rgba(0,152,234,0.25)] disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {loading ? "Checking…" : "I have sent · verify"}
+              <svg width="18" height="18" viewBox="0 0 56 56" fill="none">
+                <path
+                  d="M28 12.2L43.6 22V34L28 43.8L12.4 34V22L28 12.2Z"
+                  fill="white"
+                />
+              </svg>
+              {wallet
+                ? loading
+                  ? "Confirm in wallet…"
+                  : "Pay with TON Connect"
+                : "Connect & pay"}
+            </button>
+
+            <button
+              type="button"
+              onClick={openTonWallet}
+              className="w-full h-11 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-white/70 btn-press"
+            >
+              Open Tonkeeper (manual)
+            </button>
+
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void confirmTon()}
+              className="w-full h-11 rounded-2xl btn-primary text-sm font-semibold btn-press disabled:opacity-40"
+            >
+              {loading ? "Checking…" : "I paid — check status"}
             </button>
           </div>
         )}
