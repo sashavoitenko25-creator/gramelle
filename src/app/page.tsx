@@ -137,10 +137,12 @@ export default function Home() {
   // Server countdown display
   useEffect(() => {
     if (!countdownEndsAt || isSpinning) return;
+    const totalSec = ROOMS[mode]?.countdownSec ?? 20;
     const tick = () => {
-      const left = Math.ceil(
+      const raw = Math.ceil(
         (new Date(countdownEndsAt).getTime() - Date.now()) / 1000
       );
+      const left = Math.min(totalSec, Math.max(0, raw));
       if (left <= 0) {
         setCountdown(0);
         setStatus("Spinning");
@@ -152,7 +154,7 @@ export default function Home() {
     tick();
     const id = setInterval(tick, 250);
     return () => clearInterval(id);
-  }, [countdownEndsAt, isSpinning]);
+  }, [countdownEndsAt, isSpinning, mode]);
 
   // Handle server-authoritative spin result
   useEffect(() => {
@@ -540,6 +542,7 @@ export default function Home() {
           mode={mode}
           countdown={countdown}
           countdownTotalSec={ROOMS[mode].countdownSec}
+          countdownEndsAt={countdownEndsAt}
           myPhotoUrl={profile?.photo_url ?? null}
           onModeChange={(m) => {
             if (!isSpinning) {
@@ -703,7 +706,7 @@ export default function Home() {
             <div className="space-y-3 mb-5 text-sm text-white/70">
               <p><span className="text-cyan-300 font-medium">1. Bet</span> — put GRAM into the round bank</p>
               <p><span className="text-cyan-300 font-medium">2. Chance</span> — your share of the bank is your win chance</p>
-              <p><span className="text-cyan-300 font-medium">3. Spin</span> — winner takes the pot (minus 5% house)</p>
+              <p><span className="text-cyan-300 font-medium">3. Spin</span> — winner takes the pot</p>
               <p className="text-[11px] text-white/35 pt-1">18+ · Entertainment only · Play responsibly</p>
               <p className="text-[11px] text-white/25"><a href="/fair" className="text-cyan-300/70 underline-offset-2 hover:underline">How fairness works →</a></p>
             </div>

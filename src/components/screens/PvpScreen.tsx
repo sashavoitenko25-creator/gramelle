@@ -29,6 +29,7 @@ interface PvpScreenProps {
   serverSeedHash?: string | null;
   countdown?: number | null;
   countdownTotalSec?: number;
+  countdownEndsAt?: string | null;
   onOpenBet: () => void;
   onOpenDeposit: () => void;
   onOpenHistory: () => void;
@@ -102,6 +103,7 @@ export function PvpScreen({
   serverSeedHash,
   countdown = null,
   countdownTotalSec = 20,
+  countdownEndsAt = null,
   onOpenBet,
   onOpenDeposit,
   onOpenHistory,
@@ -226,7 +228,7 @@ export function PvpScreen({
         </div>
         <div className="flex items-center gap-1.5 bg-white/[0.04] rounded-full px-3 py-1.5 border border-white/[0.07]">
           <span className="text-[10px] text-white/35 font-medium tracking-wide">
-            #{rollId}
+            SPIN {rollId}
           </span>
         </div>
       </div>
@@ -369,16 +371,29 @@ export function PvpScreen({
         status={status}
         countdownProgress={countdownProgress}
         countdownSec={countdown != null && countdown > 0 ? countdown : null}
+        countdownEndsAt={countdownEndsAt}
+        countdownTotalSec={countdownTotalSec}
       />
 
       {serverSeedHash && (
-        <div className="mx-4 mb-2 text-center">
+        <div className="mx-4 mb-2 flex items-center justify-center gap-1.5">
+          <span className="text-[9px] text-white/30 font-mono tracking-tight">
+            {serverSeedHash.slice(0, 8)}…{serverSeedHash.slice(-6)}
+          </span>
           <button
             type="button"
-            onClick={onOpenVerify}
-            className="text-[9px] text-white/25 font-mono truncate tracking-tight hover:text-cyan-300/70 transition"
+            aria-label="Copy hash"
+            onClick={() => {
+              try {
+                void navigator.clipboard.writeText(serverSeedHash);
+              } catch {}
+            }}
+            className="h-6 w-6 rounded-md border border-white/10 bg-white/[0.04] flex items-center justify-center text-white/40 hover:text-white/70"
           >
-            hash {serverSeedHash.slice(0, 18)}… · verify
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="9" y="9" width="11" height="11" rx="2" />
+              <path d="M5 15V5a2 2 0 012-2h10" />
+            </svg>
           </button>
         </div>
       )}
@@ -431,14 +446,16 @@ export function PvpScreen({
           Place Bet · {room.minBet}–{room.maxBet}
         </button>
         <p className="text-center text-[10px] text-white/25 mt-2.5">
-          House {(room.houseEdge * 100).toFixed(0)}% · up to {room.maxPlayers}{" "}
-          players · {room.countdownSec}s
+          Up to {room.maxPlayers} players · {room.countdownSec}s
         </p>
       </div>
 
       <div className="mx-4 mb-2 flex items-center justify-between">
         <span className="text-[11px] text-white/35 uppercase tracking-[0.12em] font-medium">
           Players · {players.length}
+        </span>
+        <span className="text-[11px] text-white/35 uppercase tracking-[0.12em] font-medium tabular-nums">
+          SPIN {rollId}
         </span>
       </div>
 

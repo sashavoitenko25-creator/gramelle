@@ -70,8 +70,11 @@ export function useRound(
 
       if (data.spinResult) {
         const rid = data.spinResult.rollId;
-        if (handledSpinRoll.current !== rid) {
-          const mapped = mapBets(data.bets);
+        if (handledSpinRoll.current !== rid && !animatingRef.current) {
+          const betsMapped = mapBets(
+            // @ts-expect-error bets optional on spinResult
+            (data.spinResult.bets as typeof data.bets) || data.bets
+          );
           setPendingSpin({
             spinDegrees: data.spinResult.spinDegrees,
             winnerTelegramId: data.spinResult.winnerTelegramId,
@@ -81,16 +84,16 @@ export function useRound(
             potAfterFee: data.spinResult.potAfterFee,
             houseFee: data.spinResult.houseFee,
             serverSeed: data.spinResult.serverSeed,
-            bets: mapped,
+            bets: betsMapped,
           });
-          if (mapped.length) setPlayers(mapped);
+          if (betsMapped.length) setPlayers(betsMapped);
+          setRollId(rid);
+          setRoundStatus("finished");
+          return;
         }
-        if (data.round) setRollId(data.round.rollId);
-        setRoundStatus("finished");
-        return;
       }
 
-      // While client is animating a spin, ignore empty open-round overwrites
+      // While client is animating a spin, ignore open-round overwrites
       if (animatingRef.current) {
         return;
       }
@@ -100,7 +103,10 @@ export function useRound(
         setRoundStatus(data.round.status);
         setCountdownEndsAt(data.round.countdownEndsAt || null);
         setServerSeedHash(data.round.serverSeedHash || null);
-        setPlayers(mapBets(data.bets));
+        // Don't wipe players with empty open while we still show result
+        if (data.round.status !== "finished") {
+          setPlayers(mapBets(data.bets));
+        }
       } else {
         setPlayers([]);
         setRoundStatus("open");

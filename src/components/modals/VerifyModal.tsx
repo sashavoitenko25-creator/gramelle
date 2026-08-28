@@ -152,7 +152,7 @@ export function VerifyModal({ open, onClose, initialRollId }: VerifyModalProps) 
               }
             />
             <Row label="Bank" value={`${result.total} GRAM`} />
-            <Row label="House fee" value={`${result.houseFee} GRAM`} />
+            
             <Row label="Pot after fee" value={`${result.potAfterFee} GRAM`} />
             <Row label="Roll (0–1)" value={result.roll.toFixed(8)} />
 

@@ -150,15 +150,28 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
           { amount: +Number(p.amount).toFixed(4), username: p.username },
         ])
       );
-    const blob = new Blob([JSON.stringify(payload)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `gramelle-roll-${data.rollId}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const json = JSON.stringify(payload);
+    const filename = `gramelle-spin-${data.rollId}.json`;
+    try {
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    } catch {
+      /* ignore */
+    }
+    // Telegram WebView often blocks downloads — copy as fallback
+    try {
+      void navigator.clipboard.writeText(json);
+    } catch {
+      /* ignore */
+    }
   };
 
   const runLegitCheck = async () => {
@@ -383,8 +396,7 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
               </div>
 
               <p className="text-center text-[10px] text-white/25 pt-1 pb-2">
-                Bank {formatGram(data.bank)} · house {formatGram(data.houseFee)}{" "}
-                GRAM
+                Bank {formatGram(data.bank)} GRAM
               </p>
             </>
           )}

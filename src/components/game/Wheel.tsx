@@ -13,6 +13,8 @@ interface WheelProps {
   countdownProgress?: number | null;
   /** seconds left for display */
   countdownSec?: number | null;
+  countdownEndsAt?: string | null;
+  countdownTotalSec?: number;
 }
 
 const SIZE = 280;
@@ -59,10 +61,14 @@ export function Wheel({
   status,
   countdownProgress = null,
   countdownSec = null,
+  countdownEndsAt = null,
+  countdownTotalSec = 20,
 }: WheelProps) {
   const wheelRef = useRef<HTMLDivElement>(null);
   const frozenPlayers = useRef<Player[] | null>(null);
   const [animKey, setAnimKey] = useState(0);
+  const [smoothProgress, setSmoothProgress] = useState(0);
+  const [smoothSec, setSmoothSec] = useState<number | null>(null);
 
   if (isSpinning && !frozenPlayers.current && players.length > 0) {
     frozenPlayers.current = players.map((p) => ({ ...p }));
@@ -85,6 +91,32 @@ export function Wheel({
   useEffect(() => {
     if (!isSpinning) setAnimKey((k) => k + 1);
   }, [fingerprint, isSpinning]);
+
+  useEffect(() => {
+    if (!countdownEndsAt || isSpinning) {
+      setSmoothProgress(0);
+      setSmoothSec(null);
+      return;
+    }
+    const ends = new Date(countdownEndsAt).getTime();
+    const totalMs = Math.max(1000, countdownTotalSec * 1000);
+    let raf = 0;
+    const tick = () => {
+      const leftMs = ends - Date.now();
+      if (leftMs <= 0) {
+        setSmoothProgress(1);
+        setSmoothSec(0);
+        return;
+      }
+      const elapsed = totalMs - leftMs;
+      setSmoothProgress(Math.min(1, Math.max(0, elapsed / totalMs)));
+      setSmoothSec(Math.min(countdownTotalSec, Math.max(0, Math.ceil(leftMs / 1000))));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [countdownEndsAt, countdownTotalSec, isSpinning]);
+
 
   useEffect(() => {
     const el = wheelRef.current;
@@ -115,11 +147,19 @@ export function Wheel({
     });
   }, [displayPlayers, total]);
 
+  const ringProgress =
+    countdownEndsAt && !isSpinning
+      ? smoothProgress
+      : countdownProgress;
+  const displaySec =
+    countdownEndsAt && !isSpinning
+      ? smoothSec
+      : countdownSec;
   const showTimer =
     !isSpinning &&
-    countdownSec != null &&
-    countdownSec > 0 &&
-    countdownProgress != null;
+    displaySec != null &&
+    displaySec > 0 &&
+    ringProgress != null;
 
   return (
     <div className="relative flex justify-center mb-4">
@@ -258,9 +298,8 @@ export function Wheel({
                 strokeWidth="3.5"
                 strokeLinecap="round"
                 strokeDasharray={RING_CIRC}
-                strokeDashoffset={RING_CIRC * (1 - (countdownProgress ?? 0))}
+                strokeDashoffset={RING_CIRC * (1 - (ringProgress ?? 0))}
                 transform={`rotate(-90 ${RING_R + 6} ${RING_R + 6})`}
-                className="transition-[stroke-dashoffset] duration-300 ease-linear"
               />
             )}
             <defs>
@@ -275,7 +314,7 @@ export function Wheel({
             {showTimer ? (
               <>
                 <span className="text-[22px] font-semibold tabular-nums text-white leading-none tracking-tight">
-                  {countdownSec}
+                  {displaySec}
                 </span>
                 <span className="text-[9px] text-white/35 uppercase tracking-wider mt-1">
                   sec

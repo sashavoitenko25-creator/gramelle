@@ -476,7 +476,24 @@ export async function tickRoom(mode: RoomMode = DEFAULT_ROOM): Promise<{
       const spin = await spinRound(round.id, mode);
       return { action: "spun", round: spin.round, bets: spin.bets, spin };
     } catch {
-      // another authority won the race
+      // another authority won the race — deliver recent spin to clients
+      const recent = await getRecentFinishedSpin(mode, 20000);
+      if (recent) {
+        return {
+          action: "spun",
+          round: recent.round,
+          bets: recent.bets,
+          spin: {
+            round: recent.round,
+            winner: recent.winner,
+            spinDegrees: recent.spinDegrees,
+            mult: recent.mult,
+            houseFee: recent.houseFee,
+            potAfterFee: recent.potAfterFee,
+            bets: recent.bets,
+          },
+        };
+      }
       const fresh = await getOpenRound(mode);
       return {
         action: "waiting",
@@ -486,8 +503,85 @@ export async function tickRoom(mode: RoomMode = DEFAULT_ROOM): Promise<{
     }
   }
 
+  // If current open is empty but a spin just finished, replay for late clients
+  if ((round.status === "open" && bets.length === 0) || round.status === "open") {
+    const recent = await getRecentFinishedSpin(mode, 12000);
+    if (recent) {
+      return {
+        action: "spun",
+        round: recent.round,
+        bets: recent.bets,
+        spin: {
+          round: recent.round,
+          winner: recent.winner,
+          spinDegrees: recent.spinDegrees,
+          mult: recent.mult,
+          houseFee: recent.houseFee,
+          potAfterFee: recent.potAfterFee,
+          bets: recent.bets,
+        },
+      };
+    }
+  }
+
   const withPhotos = await enrichBetsWithPhotos(bets);
   return { action: "waiting", round, bets: withPhotos };
+}
+
+
+/** Last finished spin for this mode within windowMs (for late clients to animate). */
+export async function getRecentFinishedSpin(
+  mode: RoomMode = DEFAULT_ROOM,
+  windowMs = 15000
+): Promise<{
+  round: RoundRow;
+  bets: RoundBet[];
+  spinDegrees: number;
+  winner: RoundBet;
+  mult: number;
+  houseFee: number;
+  potAfterFee: number;
+} | null> {
+  const db = getAdminClient();
+  const { data: latest } = await db
+    .from("rounds")
+    .select("*")
+    .eq("mode", mode)
+    .eq("status", "finished")
+    .not("spin_degrees", "is", null)
+    .order("roll_id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!latest) return null;
+  const endAt = latest.countdown_ends_at
+    ? new Date(latest.countdown_ends_at).getTime()
+    : new Date(latest.created_at).getTime();
+  if (Date.now() - endAt > windowMs) return null;
+
+  const { data: betsData } = await db
+    .from("round_bets")
+    .select("telegram_id, username, amount, color")
+    .eq("round_id", latest.id);
+  const bets = await enrichBetsWithPhotos((betsData || []) as RoundBet[]);
+  if (!bets.length) return null;
+  const winner =
+    bets.find((b) => b.telegram_id === latest.winner_telegram_id) || bets[0];
+  const total = bets.reduce((s, b) => s + Number(b.amount), 0);
+  const houseFee = Number(latest.house_fee || 0);
+  const potAfterFee = Number(latest.pot_after_fee || total - houseFee);
+  const mult =
+    winner && Number(winner.amount) > 0
+      ? +(potAfterFee / Number(winner.amount)).toFixed(2)
+      : 0;
+  return {
+    round: latest as RoundRow,
+    bets,
+    spinDegrees: Number(latest.spin_degrees || 0),
+    winner,
+    mult,
+    houseFee,
+    potAfterFee,
+  };
 }
 
 export async function getRoundState(mode: RoomMode = DEFAULT_ROOM) {
