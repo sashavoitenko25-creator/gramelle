@@ -10,20 +10,20 @@ import { HistoryScreen } from "@/components/screens/HistoryScreen";
 import { ProfileScreen } from "@/components/screens/ProfileScreen";
 import { ReferralsScreen } from "@/components/screens/ReferralsScreen";
 import { TransactionsScreen } from "@/components/screens/TransactionsScreen";
+import { GamesScreen } from "@/components/screens/GamesScreen";
+import { RpsScreen } from "@/components/screens/RpsScreen";
 import { BottomNav } from "@/components/game/BottomNav";
 import { BetModal } from "@/components/modals/BetModal";
 import { DepositModal } from "@/components/modals/DepositModal";
 import { HowRefModal } from "@/components/modals/HowRefModal";
 import { Toast } from "@/components/ui/Toast";
 import { WinOverlay } from "@/components/ui/WinOverlay";
-import { RecentRounds } from "@/components/game/RecentRounds";
 import { Confetti } from "@/components/ui/Confetti";
 import { WithdrawModal } from "@/components/modals/WithdrawModal";
 import { VerifyModal } from "@/components/modals/VerifyModal";
 import { playSpinSound, playWinSound, playLoseSound } from "@/lib/sounds";
 import { placeBetApi } from "@/lib/api";
 import {
-  MIN_BET,
   SPIN_FINISH_DELAY_MS,
   MAX_PLAYERS,
   BOT_USERNAME,
@@ -73,7 +73,6 @@ export default function Home() {
     setPlayers,
     rollId,
     setRollId,
-    roundStatus,
     countdownEndsAt,
     pendingSpin,
     clearPendingSpin,
@@ -85,7 +84,7 @@ export default function Home() {
     setAnimating,
   } = useRound(telegramId, username, mode);
 
-  const [screen, setScreen] = useState<Screen>("pvp");
+  const [screen, setScreen] = useState<Screen>("games");
   const [isSpinning, setIsSpinning] = useState(false);
   const [spinDegrees, setSpinDegrees] = useState(0);
   const [status, setStatus] = useState("Waiting");
@@ -162,8 +161,14 @@ export default function Home() {
   // Handle server-authoritative spin result
   useEffect(() => {
     if (!pendingSpin || spinningRef.current) return;
-    const { spinDegrees: deg, winnerTelegramId, winnerUsername, mult, total, potAfterFee } =
-      pendingSpin;
+    const {
+      spinDegrees: deg,
+      winnerTelegramId,
+      winnerUsername,
+      mult,
+      total,
+      potAfterFee,
+    } = pendingSpin;
 
     setIsSpinning(true);
     setAnimating(true);
@@ -180,7 +185,6 @@ export default function Home() {
 
     const modeAtSpin = modeRef.current;
     setTimeout(async () => {
-      // User left this room mid-spin — drop local result UI
       if (modeRef.current !== modeAtSpin) {
         setIsSpinning(false);
         setSpinDegrees(0);
@@ -198,7 +202,9 @@ export default function Home() {
         playWinSound();
         setConfetti(true);
         setTimeout(() => setConfetti(false), 2400);
-        showToast("You won " + (potAfterFee ?? total).toFixed(2) + " GRAM · x" + mult);
+        showToast(
+          "You won " + (potAfterFee ?? total).toFixed(2) + " GRAM · x" + mult
+        );
         setWinOverlay({
           open: true,
           isWin: true,
@@ -214,7 +220,9 @@ export default function Home() {
       } else {
         haptic("medium");
         playLoseSound();
-        showToast("@" + winnerUsername + " won " + (potAfterFee ?? total).toFixed(2) + " GRAM");
+        showToast(
+          "@" + winnerUsername + " won " + (potAfterFee ?? total).toFixed(2) + " GRAM"
+        );
         setWinOverlay({
           open: true,
           isWin: false,
@@ -232,9 +240,7 @@ export default function Home() {
       await saveItem({
         id: rollIdRef.current,
         winner: isMe ? "You" : winnerUsername,
-        chance: winner
-          ? +((winner.amount / total) * 100).toFixed(2)
-          : 0,
+        chance: winner ? +((winner.amount / total) * 100).toFixed(2) : 0,
         win: potAfterFee ?? total,
         mult,
         bet: winner?.amount || 0,
@@ -267,9 +273,10 @@ export default function Home() {
     refreshRound,
     clearCountdown,
     setAnimating,
+    profile?.photo_url,
   ]);
 
-  // Demo-mode local spin (when server not available)
+  // Demo-mode local spin
   const finishRoundLocal = useCallback(
     async (winner: Player, total: number, currentRollId: number) => {
       setIsSpinning(false);
@@ -306,7 +313,16 @@ export default function Home() {
       setRollId(currentRollId + 1);
       setSpinDegrees(0);
     },
-    [saveBalance, saveItem, showToast, haptic, hapticSuccess, clearCountdown, setPlayers, setRollId]
+    [
+      saveBalance,
+      saveItem,
+      showToast,
+      haptic,
+      hapticSuccess,
+      clearCountdown,
+      setPlayers,
+      setRollId,
+    ]
   );
 
   const startSpinLocal = useCallback(() => {
@@ -410,7 +426,6 @@ export default function Home() {
         return;
       }
 
-      // Server-authoritative bet
       if (serverMode) {
         try {
           const color = randomColor(playersRef.current.map((p) => p.color));
@@ -432,7 +447,6 @@ export default function Home() {
         return;
       }
 
-      // Demo local
       if (
         playersRef.current.length >= MAX_PLAYERS &&
         !playersRef.current.some((p) => p.isMe)
@@ -440,11 +454,9 @@ export default function Home() {
         showToast("Round is full");
         return;
       }
-
       const newBal = +(balanceRef.current - amount).toFixed(2);
       await saveBalance(newBal);
       haptic("light");
-
       setPlayers((prev) => {
         const me = prev.find((p) => p.isMe);
         if (me) {
@@ -464,7 +476,6 @@ export default function Home() {
           },
         ];
       });
-
       setBetOpen(false);
       showToast("Bet placed");
     },
@@ -539,8 +550,22 @@ export default function Home() {
     <div className="relative min-h-[100dvh] w-full">
       {!serverMode && (
         <div className="mx-4 mt-2 mb-1 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-200/90 text-center">
-          Demo mode — balances are local only. Open inside Telegram with server configured for real play.
+          Demo mode — balances are local only. Open inside Telegram with server
+          configured for real play.
         </div>
+      )}
+
+      {screen === "games" && (
+        <GamesScreen
+          onSelectSpin={() => {
+            haptic("light");
+            setScreen("pvp");
+          }}
+          onSelectRps={() => {
+            haptic("light");
+            setScreen("rps");
+          }}
+        />
       )}
 
       {screen === "pvp" && (
@@ -560,7 +585,6 @@ export default function Home() {
           onModeChange={(m) => {
             if (m === mode) return;
             haptic("light");
-            // Isolate rooms: drop local spin/countdown UI for the room we leave
             setIsSpinning(false);
             setSpinDegrees(0);
             setCountdown(null);
@@ -596,6 +620,10 @@ export default function Home() {
             setVerifyOpen(true);
           }}
         />
+      )}
+
+      {screen === "rps" && (
+        <RpsScreen onBack={() => setScreen("games")} />
       )}
 
       {screen === "history" && (
@@ -709,9 +737,6 @@ export default function Home() {
         initialRollId={verifyRollId ?? (rollId > 0 ? rollId - 1 : null)}
       />
 
-      
-      
-
       <WinOverlay
         open={winOverlay.open}
         isWin={winOverlay.isWin}
@@ -727,13 +752,33 @@ export default function Home() {
       {!onboarded && (
         <div className="fixed inset-0 z-[70] flex items-end justify-center modal-backdrop">
           <div className="w-full max-w-md glass-strong rounded-t-3xl p-6 slide-up border-t border-white/10 safe-bottom">
-            <h3 className="text-xl font-semibold tracking-tight mb-2">How it works</h3>
+            <h3 className="text-xl font-semibold tracking-tight mb-2">
+              How it works
+            </h3>
             <div className="space-y-3 mb-5 text-sm text-white/70">
-              <p><span className="text-cyan-300 font-medium">1. Bet</span> — put GRAM into the round bank</p>
-              <p><span className="text-cyan-300 font-medium">2. Chance</span> — your share of the bank is your win chance</p>
-              <p><span className="text-cyan-300 font-medium">3. Spin</span> — winner takes the pot</p>
-              <p className="text-[11px] text-white/35 pt-1">18+ · Entertainment only · Play responsibly</p>
-              <p className="text-[11px] text-white/25"><a href="/fair" className="text-cyan-300/70 underline-offset-2 hover:underline">How fairness works →</a></p>
+              <p>
+                <span className="text-cyan-300 font-medium">1. Bet</span> — put
+                GRAM into the round bank
+              </p>
+              <p>
+                <span className="text-cyan-300 font-medium">2. Chance</span> —
+                your share of the bank is your win chance
+              </p>
+              <p>
+                <span className="text-cyan-300 font-medium">3. Spin</span> —
+                winner takes the pot
+              </p>
+              <p className="text-[11px] text-white/35 pt-1">
+                18+ · Entertainment only · Play responsibly
+              </p>
+              <p className="text-[11px] text-white/25">
+                <a
+                  href="/fair"
+                  className="text-cyan-300/70 underline-offset-2 hover:underline"
+                >
+                  How fairness works →
+                </a>
+              </p>
             </div>
             <button
               className="w-full h-12 rounded-2xl btn-primary text-sm btn-press"

@@ -37,7 +37,7 @@ export interface Profile {
   games?: number;
 }
 
-export type Screen = "pvp" | "history" | "profile" | "referrals" | "transactions";
+export type Screen = "games" | "pvp" | "rps" | "history" | "profile" | "referrals" | "transactions";
 export type HistoryFilter = "all" | "lucky" | "top" | "wins" | "my";
 export type DepositMethod = "stars" | "ton";
 

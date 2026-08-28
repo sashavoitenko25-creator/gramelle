@@ -21,7 +21,7 @@ import {
   gramFromTon,
 } from "@/lib/payments";
 import { createTonPending, checkTonDeposits } from "@/lib/api";
-import { tonAmountToNano, tonCommentPayload } from "@/lib/tonPayload";
+import { tonAmountToNano } from "@/lib/tonPayload";
 import { cn } from "@/lib/utils";
 import type { DepositMethod } from "@/lib/types";
 import { TonIcon } from "@/components/ui/TonIcon";
@@ -213,59 +213,34 @@ export function DepositModal({
     setLoading(true);
     haptic("light");
     try {
-      let sent = false;
-      try {
-        await tonConnectUI.sendTransaction({
-          validUntil: Math.floor(Date.now() / 1000) + 600,
-          messages: [
-            {
-              address: TON_DEPOSIT_ADDRESS,
-              amount: tonAmountToNano(tonAmount),
-              payload: tonCommentPayload(tonMemo),
-            },
-          ],
-        });
-        sent = true;
-      } catch (e1) {
-        // Invalid payload on some wallets — retry without payload, then open Tonkeeper
-        const msg1 = e1 instanceof Error ? e1.message : String(e1);
-        if (/reject|cancel|abort|user/i.test(msg1)) {
-          showToast("Cancelled");
-          return;
-        }
-        try {
-          await tonConnectUI.sendTransaction({
-            validUntil: Math.floor(Date.now() / 1000) + 600,
-            messages: [
-              {
-                address: TON_DEPOSIT_ADDRESS,
-                amount: tonAmountToNano(tonAmount),
-              },
-            ],
-          });
-          sent = true;
-          showToast("Sent — add memo in next try if not credited");
-        } catch (e2) {
-          const msg2 = e2 instanceof Error ? e2.message : String(e2);
-          if (/reject|cancel|abort|user/i.test(msg2)) {
-            showToast("Cancelled");
-            return;
-          }
-          // Last resort: Tonkeeper deep link with memo
-          openLink(buildTonTransferLink(tonAmount, tonMemo));
-          showToast("Open wallet and confirm — memo is included");
-          return;
-        }
-      }
-      if (sent) {
-        showToast("Sent — checking network…");
-        const ok = await pollCredit();
-        if (!ok) showToast("Sent. Tap “I paid” if balance not updated yet");
-      }
+      // No payload/memo in Connect — wallets reject custom BOC ("Invalid data format").
+      // Credit is matched by amount + your pending deposit (see /api/ton/check).
+      await tonConnectUI.sendTransaction({
+        validUntil: Math.floor(Date.now() / 1000) + 600,
+        messages: [
+          {
+            address: TON_DEPOSIT_ADDRESS,
+            amount: tonAmountToNano(tonAmount),
+          },
+        ],
+      });
+      showToast("Sent — checking network…");
+      const ok = await pollCredit();
+      if (!ok) showToast("Sent. Tap “I paid” if balance not updated yet");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed";
-      hapticError();
-      showToast(msg);
+      if (/reject|cancel|abort|user/i.test(msg)) {
+        showToast("Cancelled");
+      } else {
+        hapticError();
+        // Fallback: Tonkeeper deep link includes memo
+        try {
+          openLink(buildTonTransferLink(tonAmount, tonMemo));
+          showToast("Open wallet and confirm transfer");
+        } catch {
+          showToast(msg);
+        }
+      }
     } finally {
       setLoading(false);
     }
