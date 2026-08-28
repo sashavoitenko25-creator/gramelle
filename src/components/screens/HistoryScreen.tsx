@@ -94,8 +94,10 @@ export function HistoryScreen({ history, onBack, onVerify }: HistoryScreenProps)
             return (
               <div
                 key={`${h.id}-${h.bet}-${i}`}
+                role="button"
+                onClick={() => onVerify?.(h.id)}
                 className={cn(
-                  "rounded-2xl border p-3.5 fade-in",
+                  "rounded-2xl border p-3.5 fade-in cursor-pointer active:scale-[0.99] transition",
                   h.isMe
                     ? "bg-emerald-500/[0.06] border-emerald-500/15"
                     : "bg-white/[0.03] border-white/[0.06]"

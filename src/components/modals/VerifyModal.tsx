@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
 interface VerifyModalProps {
@@ -40,6 +40,14 @@ export function VerifyModal({ open, onClose, initialRollId }: VerifyModalProps) 
   const [rollId, setRollId] = useState(
     initialRollId != null ? String(initialRollId) : ""
   );
+
+  useEffect(() => {
+    if (open && initialRollId != null) {
+      setRollId(String(initialRollId));
+      setResult(null);
+      setError(null);
+    }
+  }, [open, initialRollId]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<VerifyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);

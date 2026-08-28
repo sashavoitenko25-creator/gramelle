@@ -14,6 +14,8 @@ import { BetModal } from "@/components/modals/BetModal";
 import { DepositModal } from "@/components/modals/DepositModal";
 import { HowRefModal } from "@/components/modals/HowRefModal";
 import { Toast } from "@/components/ui/Toast";
+import { WinOverlay } from "@/components/ui/WinOverlay";
+import { RecentRounds } from "@/components/game/RecentRounds";
 import { Confetti } from "@/components/ui/Confetti";
 import { WithdrawModal } from "@/components/modals/WithdrawModal";
 import { VerifyModal } from "@/components/modals/VerifyModal";
@@ -93,7 +95,14 @@ export default function Home() {
   const [howRefOpen, setHowRefOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifyRollId, setVerifyRollId] = useState<number | null>(null);
   const [confetti, setConfetti] = useState(false);
+  const [winOverlay, setWinOverlay] = useState<{
+    open: boolean;
+    isWin: boolean;
+    title: string;
+    subtitle: string;
+  }>({ open: false, isWin: false, title: "", subtitle: "" });
   const [onboarded, setOnboarded] = useState(() => {
     if (typeof window === "undefined") return true;
     return localStorage.getItem("gramelle_onboarded") === "1";
@@ -172,11 +181,23 @@ export default function Home() {
         setConfetti(true);
         setTimeout(() => setConfetti(false), 2400);
         showToast("You won " + (potAfterFee ?? total).toFixed(2) + " GRAM · x" + mult);
+        setWinOverlay({
+          open: true,
+          isWin: true,
+          title: "You won!",
+          subtitle: (potAfterFee ?? total).toFixed(2) + " GRAM · x" + mult,
+        });
         await reloadProfile();
       } else {
         haptic("medium");
         playLoseSound();
-        showToast("@" + winnerUsername + " won " + total.toFixed(2) + " GRAM");
+        showToast("@" + winnerUsername + " won " + (potAfterFee ?? total).toFixed(2) + " GRAM");
+        setWinOverlay({
+          open: true,
+          isWin: false,
+          title: "@" + winnerUsername + " won",
+          subtitle: (potAfterFee ?? total).toFixed(2) + " GRAM",
+        });
         await reloadProfile();
       }
       setAnimating(false);
@@ -515,6 +536,11 @@ export default function Home() {
           onOpenHistory={() => setScreen("history")}
           onOpenVerify={() => {
             haptic("light");
+            setVerifyRollId(rollId > 0 ? rollId - 1 : null);
+            setVerifyOpen(true);
+          }}
+          onVerifyRoll={(id) => {
+            setVerifyRollId(id);
             setVerifyOpen(true);
           }}
         />
@@ -525,6 +551,7 @@ export default function Home() {
           history={history}
           onBack={() => setScreen("pvp")}
           onVerify={(id) => {
+            setVerifyRollId(id);
             setVerifyOpen(true);
           }}
         />
@@ -620,7 +647,18 @@ export default function Home() {
       <VerifyModal
         open={verifyOpen}
         onClose={() => setVerifyOpen(false)}
-        initialRollId={rollId > 0 ? rollId - 1 : null}
+        initialRollId={verifyRollId ?? (rollId > 0 ? rollId - 1 : null)}
+      />
+
+      
+      
+
+      <WinOverlay
+        open={winOverlay.open}
+        isWin={winOverlay.isWin}
+        title={winOverlay.title}
+        subtitle={winOverlay.subtitle}
+        onClose={() => setWinOverlay((s) => ({ ...s, open: false }))}
       />
 
       <Confetti active={confetti} />

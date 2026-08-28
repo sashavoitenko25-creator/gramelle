@@ -8,6 +8,7 @@ import {
   GRAM_PER_TON,
   WITHDRAW_FEE_GRAM,
 } from "@/lib/constants";
+// antifraud imported below if needed
 import { creditHouse } from "@/lib/server/house";
 import { rateLimit } from "@/lib/server/rateLimit";
 import { assertNotBanned } from "@/lib/server/ban";
@@ -28,7 +29,25 @@ export async function POST(req: NextRequest) {
     if (!rl.ok) {
       return NextResponse.json({ error: "Too many withdraw requests" }, { status: 429 });
     }
+    
     await assertNotBanned(auth.user.id);
+
+    // Anti-abuse: limit open withdrawal requests
+    {
+      const { MAX_PENDING_WITHDRAWALS } = await import("@/lib/constants");
+      const dbCheck = getAdminClient();
+      const { count } = await dbCheck
+        .from("withdrawals")
+        .select("id", { count: "exact", head: true })
+        .eq("telegram_id", auth.user.id)
+        .in("status", ["pending", "processing"]);
+      if ((count || 0) >= MAX_PENDING_WITHDRAWALS) {
+        return NextResponse.json(
+          { error: `Max ${MAX_PENDING_WITHDRAWALS} pending withdrawals` },
+          { status: 400 }
+        );
+      }
+    }
 
     const body = await req.json();
     const amountTon = Number(body.amountTon ?? body.amount);

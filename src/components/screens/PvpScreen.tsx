@@ -2,6 +2,7 @@
 
 import { Wheel } from "@/components/game/Wheel";
 import { PlayerList } from "@/components/game/PlayerList";
+import { RecentRounds } from "@/components/game/RecentRounds";
 import { TonIcon } from "@/components/ui/TonIcon";
 import type { Player } from "@/lib/types";
 import { formatGram, cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ interface PvpScreenProps {
   onOpenDeposit: () => void;
   onOpenHistory: () => void;
   onOpenVerify?: () => void;
+  onVerifyRoll?: (rollId: number) => void;
 }
 
 export function PvpScreen({
@@ -38,6 +40,7 @@ export function PvpScreen({
   onOpenBet,
   onOpenDeposit,
   onOpenVerify,
+  onVerifyRoll,
 }: PvpScreenProps) {
   const total = players.reduce((s, p) => s + p.amount, 0);
   const room = ROOMS[mode];
@@ -180,6 +183,8 @@ export function PvpScreen({
           House {(room.houseEdge * 100).toFixed(0)}% · up to {room.maxPlayers} players
         </p>
       </div>
+
+      <RecentRounds mode={mode} onVerify={onVerifyRoll} />
 
       <div className="mx-4 mb-2 flex items-center justify-between">
         <span className="text-[11px] text-white/35 uppercase tracking-[0.12em] font-medium">

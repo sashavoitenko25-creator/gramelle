@@ -1,12 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBotToken } from "@/lib/server/telegram";
 import { creditBalance, creditReferralOnDeposit } from "@/lib/server/ledger";
-import { GRAM_PER_STAR } from "@/lib/constants";
+import { BOT_USERNAME, GRAM_PER_STAR } from "@/lib/constants";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
+
+const START_TEXT = `Welcome to Gramelle — PvP roulette on TON.
+
+How it works:
+1. Deposit Stars or TON → get GRAM
+2. Place a bet into the round bank
+3. Your share of the bank = your win chance
+4. Winner takes 95% of the pot (5% house)
+
+Provably fair: each round commits a seed hash before the spin. Verify any finished roll in the app.
+
+Rules:
+• Classic from 0.25 GRAM · High from 10 GRAM
+• Entertainment only. Play responsibly.
+• 18+
+
+Open the Mini App to play.`;
+
+async function tgApi(method: string, body: Record<string, unknown>) {
+  const token = getBotToken();
+  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json().catch(() => ({}));
+}
 
 /**
  * Telegram Bot webhook.
- * Handles successful_payment for Stars (XTR).
+ * - /start welcome + Mini App button
+ * - successful_payment for Stars (XTR)
+ * - pre_checkout_query
  */
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +48,41 @@ export async function POST(req: NextRequest) {
     }
 
     const update = await req.json();
+
+    // /start
+    const msg = update?.message;
+    if (msg?.text && typeof msg.text === "string" && msg.chat?.id) {
+      const text = msg.text.trim();
+      if (text === "/start" || text.startsWith("/start ")) {
+        const webAppUrl =
+          process.env.NEXT_PUBLIC_APP_URL ||
+          (process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : "https://gramelle-gamma.vercel.app");
+
+        await tgApi("sendMessage", {
+          chat_id: msg.chat.id,
+          text: START_TEXT,
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "Play Gramelle",
+                  web_app: { url: webAppUrl },
+                },
+              ],
+              [
+                {
+                  text: "Channel / support",
+                  url: process.env.NEXT_PUBLIC_SUPPORT_URL || "https://t.me/" + BOT_USERNAME,
+                },
+              ],
+            ],
+          },
+        });
+        return NextResponse.json({ ok: true });
+      }
+    }
 
     const payment = update?.message?.successful_payment;
     if (payment && isSupabaseConfigured()) {
@@ -46,7 +110,10 @@ export async function POST(req: NextRequest) {
             provider_payment_charge_id: payment.provider_payment_charge_id,
           });
           try {
-            await creditReferralOnDeposit(fromId, gram, { payload, stars: totalAmount });
+            await creditReferralOnDeposit(fromId, gram, {
+              payload,
+              stars: totalAmount,
+            });
           } catch (e) {
             console.warn("referral credit failed", e);
           }
@@ -55,12 +122,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (update?.pre_checkout_query) {
-      const token = getBotToken();
       const id = update.pre_checkout_query.id;
-      await fetch(`https://api.telegram.org/bot${token}/answerPreCheckoutQuery`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pre_checkout_query_id: id, ok: true }),
+      await tgApi("answerPreCheckoutQuery", {
+        pre_checkout_query_id: id,
+        ok: true,
       });
     }
 

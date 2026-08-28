@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTelegramUser } from "@/lib/server/telegram";
 import { placeBet } from "@/lib/server/round";
 import { isSupabaseConfigured } from "@/lib/server/supabase";
-import { COLORS, DEFAULT_ROOM, ROOMS, type RoomMode } from "@/lib/constants";
+import { COLORS, DEFAULT_ROOM, ROOMS, MAX_BETS_PER_MINUTE, type RoomMode } from "@/lib/constants";
 import { rateLimit } from "@/lib/server/rateLimit";
 import { assertNotBanned } from "@/lib/server/ban";
 import { captureException } from "@/lib/server/sentry";
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     const auth = await requireTelegramUser(req);
 
-    const rl = rateLimit(`bet:${auth.user.id}`, 30, 60_000);
+    const rl = rateLimit(`bet:${auth.user.id}`, MAX_BETS_PER_MINUTE, 60_000);
     if (!rl.ok) {
       return NextResponse.json(
         { error: "Too many bets — slow down" },

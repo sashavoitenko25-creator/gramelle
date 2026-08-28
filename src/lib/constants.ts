@@ -201,4 +201,10 @@ export const ROOMS: Record<RoomMode, RoomConfig> = {
   },
 };
 
+
+/** Anti-abuse */
+export const MAX_PENDING_WITHDRAWALS = 3;
+export const MAX_BETS_PER_MINUTE = 20;
+export const MIN_BANK_TO_SPIN = 0.5; // classic soft floor for UX messaging
+
 export const DEFAULT_ROOM: RoomMode = "classic";

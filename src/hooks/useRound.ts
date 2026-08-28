@@ -119,10 +119,26 @@ export function useRound(
     refresh();
   }, [mode, refresh]);
 
+  // Adaptive poll: faster while countdown/spin so lobby feels realtime
   useEffect(() => {
-    const id = setInterval(refresh, 1500);
-    return () => clearInterval(id);
-  }, [refresh]);
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const tick = async () => {
+      if (!alive) return;
+      await refresh();
+      if (!alive) return;
+      const status = roundStatus;
+      const ms =
+        status === "countdown" || status === "spinning" ? 600 : 1500;
+      timer = setTimeout(tick, ms);
+    };
+    tick();
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [refresh, roundStatus]);
 
   const applyServerBets = useCallback(
     (
