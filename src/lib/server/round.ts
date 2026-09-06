@@ -27,6 +27,7 @@ function sortBets<T extends { telegram_id: number }>(bets: T[]): T[] {
 export interface RoundRow {
   id: string;
   roll_id: number;
+  room_seq?: number | null;
   mode: RoomMode;
   status: "open" | "countdown" | "spinning" | "finished";
   server_seed_hash: string;
@@ -116,27 +117,49 @@ export async function ensureOpenRound(
   const serverSeed = randomSeed();
   const serverSeedHash = hashSeed(serverSeed);
 
-  const { data: last } = await db
+  // Global unique roll_id (API / verify)
+  const { data: lastGlobal } = await db
     .from("rounds")
     .select("roll_id")
     .order("roll_id", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const rollId = (last?.roll_id ?? -1) + 1; // first round = 0
+  const rollId = (lastGlobal?.roll_id ?? -1) + 1;
 
-  const { data, error } = await db
+  // Per-room sequence for display (Classic #1, High #1, …)
+  const { data: lastRoom } = await db
     .from("rounds")
-    .insert({
-      roll_id: rollId,
-      mode,
-      status: "open",
-      server_seed_hash: serverSeedHash,
-      server_seed: serverSeed,
-      total_bank: 0,
-      version: 0,
-    })
+    .select("room_seq")
+    .eq("mode", mode)
+    .order("room_seq", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const roomSeq = (lastRoom?.room_seq != null ? Number(lastRoom.room_seq) : 0) + 1;
+
+  const insertPayload: Record<string, unknown> = {
+    roll_id: rollId,
+    mode,
+    status: "open",
+    server_seed_hash: serverSeedHash,
+    server_seed: serverSeed,
+    total_bank: 0,
+    version: 0,
+    room_seq: roomSeq,
+  };
+
+  let { data, error } = await db
+    .from("rounds")
+    .insert(insertPayload)
     .select("*")
     .single();
+
+  // Fallback if room_seq column not migrated yet
+  if (error && /room_seq/i.test(error.message || "")) {
+    delete insertPayload.room_seq;
+    const retry = await db.from("rounds").insert(insertPayload).select("*").single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     // race: another process created it

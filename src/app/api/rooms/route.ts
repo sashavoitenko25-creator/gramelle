@@ -38,7 +38,6 @@ export async function GET() {
         description: cfg.description,
         minBet: cfg.minBet,
         maxBet: cfg.maxBet,
-        houseEdge: cfg.houseEdge,
         maxPlayers: cfg.maxPlayers,
         countdownSec: cfg.countdownSec,
         players,

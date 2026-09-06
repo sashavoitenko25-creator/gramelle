@@ -12,6 +12,7 @@ export function useRound(
 ) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [rollId, setRollId] = useState(0);
+  const [roomSeq, setRoomSeq] = useState(0);
   const [roundStatus, setRoundStatus] = useState<string>("open");
   const [countdownEndsAt, setCountdownEndsAt] = useState<string | null>(null);
   const [serverSeedHash, setServerSeedHash] = useState<string | null>(null);
@@ -72,6 +73,7 @@ export function useRound(
       // Always prefer the live open/countdown round for SPIN # display
       if (data.round && data.round.status !== "finished") {
         setRollId(data.round.rollId);
+        if (data.round.roomSeq != null) setRoomSeq(Number(data.round.roomSeq));
         setRoundStatus(data.round.status);
         setCountdownEndsAt(data.round.countdownEndsAt || null);
         setServerSeedHash(data.round.serverSeedHash || null);
@@ -223,6 +225,7 @@ export function useRound(
     players,
     setPlayers,
     rollId,
+    roomSeq,
     setRollId,
     roundStatus,
     countdownEndsAt,

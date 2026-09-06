@@ -1,6 +1,7 @@
 "use client";
 
 import type { Screen } from "@/lib/types";
+import { SpinIcon } from "@/components/ui/SpinIcon";
 import { cn } from "@/lib/utils";
 
 interface BottomNavProps {
@@ -12,22 +13,7 @@ const items: { id: Screen; label: string; icon: React.ReactNode }[] = [
   {
     id: "games",
     label: "Play",
-    icon: (
-      <svg
-        width="22"
-        height="22"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 3v18M3 12h18" opacity="0.4" />
-        <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" opacity="0.3" />
-      </svg>
-    ),
+    icon: <SpinIcon size={22} />,
   },
   {
     id: "tasks",

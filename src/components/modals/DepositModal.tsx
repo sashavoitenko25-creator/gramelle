@@ -414,10 +414,6 @@ export function DepositModal({
                 Continue
               </button>
             </div>
-            <p className="text-[11px] text-white/35">
-              1 TON = 1 GRAM · payment window {Math.floor(TON_PENDING_TTL_SEC / 60)}{" "}
-              min
-            </p>
           </div>
         )}
 
@@ -433,7 +429,7 @@ export function DepositModal({
                 → {gramFromTon(tonAmount)} GRAM
               </div>
               <div className="text-[11px] text-amber-300/80 mt-2">
-                Status: pending · expires in ~{minsLeft} min
+                Pending · ~{minsLeft} min left
               </div>
             </div>
 

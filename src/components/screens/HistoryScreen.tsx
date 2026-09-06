@@ -16,6 +16,8 @@ type HistTab = "all" | "lucky" | "top";
 
 interface ServerItem {
   rollId: number;
+  roomSeq?: number;
+  mode?: string;
   winner: string;
   pot: number;
   chance: number;
@@ -177,7 +179,13 @@ export function HistoryScreen({
                       )}
                     </div>
                     <div className="text-[11px] text-white/30 mt-0.5 flex flex-wrap gap-x-1.5">
-                      <span>SPIN #{id}</span>
+                      <span>
+                        {"mode" in h && (h as ServerItem).mode
+                          ? ((h as ServerItem).mode === "high" ? "H" : "C")
+                          : "SPIN"}
+                        #
+                        {(h as ServerItem).roomSeq ?? id}
+                      </span>
                       <span>·</span>
                       <span>{chance}%</span>
                       {timeLabel && (

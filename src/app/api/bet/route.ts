@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
       round: {
         id: result.round.id,
         rollId: result.round.roll_id,
+        roomSeq: result.round.room_seq != null ? Number(result.round.room_seq) : result.round.roll_id,
         mode: result.round.mode || mode,
         status: result.round.status,
         totalBank: result.round.total_bank,

@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
         round: {
           id: s.round.id,
           rollId: s.round.roll_id,
+          roomSeq: s.round.room_seq != null ? Number(s.round.room_seq) : s.round.roll_id,
           mode: s.round.mode || mode,
           status: "finished",
           totalBank: s.round.total_bank,
@@ -49,6 +50,7 @@ export async function GET(req: NextRequest) {
         bets: mapBets(s.bets),
         spinResult: {
           rollId: s.round.roll_id,
+          roomSeq: s.round.room_seq != null ? Number(s.round.room_seq) : s.round.roll_id,
           spinDegrees: s.spinDegrees,
           winnerTelegramId: s.winner.telegram_id,
           winnerUsername: s.winner.username,
@@ -81,6 +83,7 @@ export async function GET(req: NextRequest) {
         ? {
             id: open.id,
             rollId: open.roll_id,
+            roomSeq: open.room_seq != null ? Number(open.room_seq) : open.roll_id,
             mode: open.mode || mode,
             status: open.status,
             totalBank: open.total_bank,

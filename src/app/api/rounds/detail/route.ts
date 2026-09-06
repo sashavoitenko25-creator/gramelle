@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const { data: round, error } = await db
       .from("rounds")
       .select(
-        "id, roll_id, mode, total_bank, house_fee, pot_after_fee, winner_telegram_id, server_seed_hash, server_seed, client_seed, created_at, status"
+        "id, roll_id, room_seq, mode, total_bank, house_fee, pot_after_fee, winner_telegram_id, server_seed_hash, server_seed, client_seed, created_at, status"
       )
       .eq("roll_id", rollId)
       .eq("status", "finished")
@@ -89,6 +89,7 @@ export async function GET(req: NextRequest) {
     const mult = winnerAmt > 0 ? +(pot / winnerAmt).toFixed(2) : 0;
 
     return NextResponse.json({
+      roomSeq: round.room_seq != null ? Number(round.room_seq) : Number(round.roll_id),
       rollId: Number(round.roll_id),
       mode: round.mode,
       bank,

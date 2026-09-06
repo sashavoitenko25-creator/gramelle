@@ -21,6 +21,7 @@ interface PvpScreenProps {
   balance: number;
   online: number;
   rollId: number;
+  roomSeq?: number;
   isSpinning: boolean;
   spinDegrees: number;
   status: string;
@@ -95,6 +96,7 @@ export function PvpScreen({
   balance,
   online,
   rollId,
+  roomSeq,
   isSpinning,
   spinDegrees,
   status,
@@ -455,7 +457,7 @@ export function PvpScreen({
           Players · {players.length}
         </span>
         <span className="text-[11px] text-white/35 uppercase tracking-[0.12em] font-medium tabular-nums">
-          SPIN #{rollId}
+          {mode === "high" ? "H" : "C"}#{roomSeq ?? rollId}
         </span>
       </div>
 

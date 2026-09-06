@@ -1,5 +1,6 @@
 "use client";
 
+import { SpinIcon } from "@/components/ui/SpinIcon";
 import { useEffect, useState } from "react";
 import { rpsList } from "@/lib/rpsApi";
 import { fetchRoundState } from "@/lib/api";
@@ -123,58 +124,12 @@ export function GamesScreen({
 
           <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="relative w-14 h-14 rounded-2xl bg-white/[0.12] border border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_8px_32px_rgba(0,0,0,0.35)] overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/20 to-violet-500/20" />
-                  <svg
-                    width="28"
-                    height="28"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    className="relative text-cyan-200 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]"
-                  >
-                    <circle
-                      cx="12"
-                      cy="12"
-                      r="9"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                    />
-                    <circle
-                      cx="12"
-                      cy="12"
-                      r="3.5"
-                      fill="currentColor"
-                      opacity="0.35"
-                    />
-                    <path
-                      d="M12 3v18M3 12h18"
-                      stroke="currentColor"
-                      strokeWidth="1.4"
-                      opacity="0.55"
-                    />
-                    <path
-                      d="M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"
-                      stroke="currentColor"
-                      strokeWidth="1.1"
-                      opacity="0.3"
-                    />
-                  </svg>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/40 to-fuchsia-500/30 border border-white/15 flex items-center justify-center">
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    className="text-violet-200"
-                  >
-                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                </div>
+              <div className="relative w-14 h-14 rounded-2xl bg-white/[0.12] border border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_8px_32px_rgba(0,0,0,0.35)] overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/20 to-violet-500/20" />
+                <SpinIcon
+                  size={30}
+                  className="relative text-cyan-200 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]"
+                />
               </div>
               <OnlineBadge count={spin} />
             </div>

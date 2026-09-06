@@ -35,6 +35,7 @@ create index if not exists ledger_reason_idx on ledger(reason);
 create table if not exists rounds (
   id uuid primary key default gen_random_uuid(),
   roll_id bigint unique not null,
+  room_seq bigint,
   status text not null default 'open'
     check (status in ('open', 'countdown', 'spinning', 'finished')),
   server_seed_hash text not null,
@@ -115,3 +116,6 @@ create policy "public read round_bets" on round_bets for select using (true);
 
 -- Prevent direct balance updates even if someone bypasses (defense in depth)
 -- Service role bypasses RLS by design — that is intentional for our API.
+
+-- Per-room display numbers (Classic #1, High #1, …)
+create unique index if not exists rounds_mode_room_seq_uidx on rounds (mode, room_seq);

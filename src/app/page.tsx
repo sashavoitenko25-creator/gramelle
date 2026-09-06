@@ -72,7 +72,7 @@ export default function Home() {
   const {
     players,
     setPlayers,
-    rollId,
+    rollId, roomSeq,
     setRollId,
     countdownEndsAt,
     pendingSpin,
@@ -602,6 +602,7 @@ export default function Home() {
           balance={balance}
           online={online}
           rollId={rollId}
+          roomSeq={roomSeq}
           isSpinning={isSpinning}
           spinDegrees={spinDegrees}
           status={displayStatus}

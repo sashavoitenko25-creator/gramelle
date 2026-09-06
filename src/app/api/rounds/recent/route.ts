@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     let q = db
       .from("rounds")
       .select(
-        "id, roll_id, mode, total_bank, house_fee, pot_after_fee, winner_telegram_id, server_seed_hash, server_seed, created_at"
+        "id, roll_id, room_seq, mode, total_bank, house_fee, pot_after_fee, winner_telegram_id, server_seed_hash, server_seed, created_at"
       )
       .eq("status", "finished")
       .order("roll_id", { ascending: false })
@@ -84,6 +84,7 @@ export async function GET(req: NextRequest) {
       const tg = r.winner_telegram_id != null ? Number(r.winner_telegram_id) : null;
       return {
         rollId: Number(r.roll_id),
+        roomSeq: r.room_seq != null ? Number(r.room_seq) : Number(r.roll_id),
         mode: r.mode,
         bank: Number(r.total_bank || 0),
         pot: Number(r.pot_after_fee || r.total_bank || 0),
