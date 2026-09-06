@@ -12,7 +12,8 @@ export type LedgerReason =
   | "withdraw_fee"
   | "adjust"
   | "refund"
-  | "house_fee";
+  | "house_fee"
+  | "task_reward";
 
 export interface ProfileRow {
   id: string;
