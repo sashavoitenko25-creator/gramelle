@@ -10,16 +10,38 @@ import { notifyUser, fmtAmount } from "@/lib/server/notify";
 function channelIdCandidates(channel: string): string[] {
   const raw = channel.trim();
   if (!raw) return [];
-  // numeric private / public id
   if (/^-?\d+$/.test(raw)) {
-    const n = raw.startsWith("-") ? raw : `-${raw}`;
-    const digits = n.replace(/^-/, "");
-    const with100 = digits.startsWith("100") ? n : `-100${digits}`;
-    // unique preserve order
-    return [...new Set([n, with100, raw])];
+    const neg = raw.startsWith("-") ? raw : `-${raw}`;
+    const abs = neg.replace(/^-/, "");
+    // Channels/supergroups in Bot API are almost always -100XXXXXXXXXX
+    const forms: string[] = [];
+    if (abs.startsWith("100")) {
+      forms.push(`-${abs}`, abs, neg);
+    } else {
+      forms.push(`-100${abs}`, neg, `-${abs}`, abs);
+    }
+    // also strip -100 if someone stored full form and we need short
+    if (abs.startsWith("100") && abs.length > 3) {
+      forms.push(`-${abs.slice(3)}`);
+    }
+    return [...new Set(forms)];
   }
   const u = raw.replace(/^@/, "");
   return [`@${u}`, u];
+}
+
+function friendlyChatError(desc: string): string {
+  const d = (desc || "").toLowerCase();
+  if (d.includes("chat not found") || d.includes("chat_id is empty")) {
+    return "Channel not found. Bot must be added as admin of the channel.";
+  }
+  if (d.includes("bot is not a member") || d.includes("not enough rights")) {
+    return "Bot is not admin of the channel. Add the bot as administrator.";
+  }
+  if (d.includes("user not found")) {
+    return "Open the app from Telegram and try again.";
+  }
+  return desc || "Cannot verify subscription.";
 }
 
 async function isChannelMember(
@@ -32,19 +54,36 @@ async function isChannelMember(
 
   for (const chatId of candidates) {
     const url = `https://api.telegram.org/bot${token}/getChatMember?chat_id=${encodeURIComponent(chatId)}&user_id=${userId}`;
-    const res = await fetch(url, { cache: "no-store" });
-    const data = await res.json().catch(() => ({}));
-    if (!data.ok) {
-      lastError = data.description || lastError;
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!data.ok) {
+        lastError = friendlyChatError(String(data.description || lastError));
+        continue;
+      }
+      const status = String(data.result?.status || "");
+      // left / kicked = not subscribed
+      if (status === "left" || status === "kicked") {
+        return {
+          ok: false,
+          status,
+          error: "Not subscribed yet. Open the channel, join, then press Check again.",
+        };
+      }
+      const member =
+        status === "member" ||
+        status === "administrator" ||
+        status === "creator" ||
+        status === "restricted";
+      if (member) return { ok: true, status };
+      return {
+        ok: false,
+        status,
+        error: "Not subscribed yet. Open the channel, join, then press Check again.",
+      };
+    } catch {
       continue;
     }
-    const status = String(data.result?.status || "");
-    const member =
-      status === "member" ||
-      status === "administrator" ||
-      status === "creator" ||
-      status === "restricted";
-    return { ok: member, status };
   }
   return { ok: false, error: lastError };
 }

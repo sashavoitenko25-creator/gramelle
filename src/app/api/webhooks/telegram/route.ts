@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
           process.env.NEXT_PUBLIC_APP_URL ||
           (process.env.VERCEL_URL
             ? `https://${process.env.VERCEL_URL}`
-            : "https://gramelle-gamma.vercel.app");
+            : "https://t.me/Gramelle_bot");
 
         await tgApi("sendMessage", {
           chat_id: msg.chat.id,

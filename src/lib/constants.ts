@@ -138,18 +138,18 @@ export const TASKS: TaskDef[] = [
     inviteLink:
       process.env.NEXT_PUBLIC_TASK_CHANNEL_PROJECT_LINK ||
       "https://t.me/GramellePlay",
-    rewardGram: 0.125,
+    rewardGram: 0.1,
   },
   {
     id: "channel_friend",
     title: "Subscribe to partner channel",
     description: "Join the partner channel",
     // private channel id (also try -100… form in API if needed)
-    channel: process.env.NEXT_PUBLIC_TASK_CHANNEL_FRIEND || "-1858402844",
+    channel: process.env.NEXT_PUBLIC_TASK_CHANNEL_FRIEND || "-1001858402844",
     inviteLink:
       process.env.NEXT_PUBLIC_TASK_CHANNEL_FRIEND_LINK ||
       "https://t.me/+GHAd4K5SauZhMTcy",
-    rewardGram: 0.125,
+    rewardGram: 0.1,
   },
 ];
 

@@ -127,13 +127,10 @@ export function TasksScreen({
                   <div className="text-[12px] text-white/40 mt-1">
                     {t.description}
                   </div>
-                  <div className="text-[11px] text-cyan-300/70 mt-1.5 font-mono">
-                    {/^-?\d+$/.test(t.channel) ? "Private channel" : `@${t.channel}`}
-                  </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0 text-sm font-semibold text-cyan-300 tabular-nums">
+                <div className="flex items-center gap-1.5 shrink-0 text-sm font-semibold text-cyan-300 tabular-nums">
+                  <span>+{formatGram(t.rewardGram)}</span>
                   <GramIcon size={16} />
-                  +{formatGram(t.rewardGram)}
                 </div>
               </div>
 

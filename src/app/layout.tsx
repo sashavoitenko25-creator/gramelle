@@ -4,8 +4,10 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Gramelle — PvP Roulette",
-  description: "Premium PvP Roulette Mini App",
+  title: "Gramelle",
+  description: "Gramelle — PvP roulette on TON",
+  applicationName: "Gramelle",
+  icons: { icon: "/gram-badge.png", apple: "/gram-badge.png" },
 };
 
 export const viewport: Viewport = {

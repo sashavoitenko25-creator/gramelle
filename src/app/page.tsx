@@ -613,7 +613,7 @@ export default function Home() {
     <div className="relative min-h-[100dvh] w-full">
       {!serverMode && (
         <div className="mx-4 mt-2 mb-1 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-200/90 text-center">
-          Demo mode — balances are local only. Open inside Telegram with server
+          Demo mode — balances are local only. Open inside Telegram for full features
           configured for real play.
         </div>
       )}
