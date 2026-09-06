@@ -40,6 +40,8 @@ export async function fetchSession() {
       biggest_win?: number;
       wins?: number;
       games?: number;
+      ref_active?: number;
+      ref_turnover?: number;
     };
     user?: { telegramId: number; username: string };
   }>("/api/auth/session", { method: "POST", body: "{}" });
