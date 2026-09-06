@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { useEffect, useState } from "react";
-import { HOUSE_EDGE, MIN_BET, ROOMS } from "@/lib/constants";
+import { MIN_BET, ROOMS } from "@/lib/constants";
 
 interface RecentItem {
   rollId: number;
@@ -83,8 +83,7 @@ export default function FairPage() {
             is published; SHA256(seed) must match the hash.
           </p>
           <p className="text-xs text-white/35 pt-1">
-            House edge {(HOUSE_EDGE * 100).toFixed(0)}% · Classic from {MIN_BET}{" "}
-            GRAM · High from {ROOMS.high.minBet} GRAM
+            Classic from {MIN_BET} GRAM · High from {ROOMS.high.minBet} GRAM
           </p>
         </div>
 

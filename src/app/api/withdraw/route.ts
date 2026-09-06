@@ -17,7 +17,7 @@ import { notifyUser, fmtAmount } from "@/lib/server/notify";
 
 /**
  * Request TON withdrawal.
- * Debits (amount + 0.2 fee) immediately; admin sends amount on-chain.
+ * Debits amount immediately (no fee); admin sends TON on-chain.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -98,7 +98,9 @@ export async function POST(req: NextRequest) {
     if (Number(profile.balance) < totalDebit) {
       return NextResponse.json(
         {
-          error: `Need ${totalDebit} GRAM (incl. ${fee} fee)`,
+          error: fee > 0
+            ? `Need ${totalDebit} GRAM (incl. ${fee} fee)`
+            : `Need ${totalDebit} GRAM`,
         },
         { status: 400 }
       );
@@ -127,10 +129,12 @@ export async function POST(req: NextRequest) {
     });
 
     try {
-      await creditHouse(fee, "profit", "withdraw_fee", {
-        telegram_id: auth.user.id,
-        amount_ton: amountTon,
-      });
+      if (fee > 0) {
+        await creditHouse(fee, "profit", "withdraw_fee", {
+          telegram_id: auth.user.id,
+          amount_ton: amountTon,
+        });
+      }
     } catch {}
 
     const { data: row, error } = await db

@@ -77,7 +77,7 @@ export function ReferralsScreen({
           <span className="text-base text-white/40 font-normal">GRAM</span>
         </div>
         <p className="text-[11px] text-white/35 mt-2 leading-relaxed">
-          % of house fee from friends&apos; bets. Withdraw to main balance (min{" "}
+          from friends&apos; play. Withdraw to main balance (min{" "}
           {REFERRAL_MIN_WITHDRAW} GRAM).
         </p>
         <button
@@ -132,7 +132,7 @@ export function ReferralsScreen({
         </div>
         {tier && (
           <div className="mt-2 text-xs text-cyan-300/80">
-            You earn {Math.round(tier.shareOfHouseFee * 100)}% of house fee
+            You earn {Math.round(tier.shareOfHouseFee * 100)}% share
           </div>
         )}
       </div>

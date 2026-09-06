@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBotToken } from "@/lib/server/telegram";
-import { creditBalance, creditReferralOnDeposit } from "@/lib/server/ledger";
+import { creditBalance } from "@/lib/server/ledger";
 import { notifyUser, fmtAmount } from "@/lib/server/notify";
 import { BOT_USERNAME, GRAM_PER_STAR } from "@/lib/constants";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
@@ -11,14 +11,14 @@ How it works:
 1. Deposit Stars or TON → get GRAM
 2. Place a bet into the round bank
 3. Your share of the bank = your win chance
-4. Winner takes 95% of the pot (5% house)
+4. Spin — winner takes the pot
 
 Provably fair: each round commits a seed hash before the spin. Verify any finished roll in the app.
 
 Rules:
 • Classic from 0.25 GRAM · High from 10 GRAM
-• Entertainment only. Play responsibly.
-• 18+
+• Min withdraw 5 TON · Entertainment only · 18+
+• Play responsibly
 
 Open the Mini App to play.`;
 

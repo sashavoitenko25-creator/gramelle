@@ -3,10 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTonAddress, useTonConnectUI, useTonWallet } from "@tonconnect/ui-react";
 import { apiFetch } from "@/lib/api";
-import {
-  MIN_WITHDRAW_TON,
-  WITHDRAW_FEE_GRAM,
-} from "@/lib/constants";
+import { MIN_WITHDRAW_TON } from "@/lib/constants";
 import { formatGram } from "@/lib/utils";
 import { TonIcon } from "@/components/ui/TonIcon";
 
@@ -41,24 +38,17 @@ export function WithdrawModal({
 
   const [amount, setAmount] = useState("");
   const [wallet, setWallet] = useState("");
-  const [editingWallet, setEditingWallet] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const fee = WITHDRAW_FEE_GRAM;
   const val = Number(amount) || 0;
-  const totalNeed = val + fee;
   const can =
     val >= MIN_WITHDRAW_TON &&
-    totalNeed <= balance + 1e-9 &&
+    val <= balance + 1e-9 &&
     wallet.trim().length >= 20;
 
-  // Prefill from TonConnect or saved profile when modal opens
   useEffect(() => {
     if (!open) return;
-    setEditingWallet(false);
-    const fromConnect = tonAddress || "";
-    const fromProfile = prefilledWallet || "";
-    setWallet(fromConnect || fromProfile || "");
+    setWallet(tonAddress || prefilledWallet || "");
   }, [open, tonAddress, prefilledWallet]);
 
   if (!open) return null;
@@ -80,7 +70,7 @@ export function WithdrawModal({
         }
       );
       hapticSuccess();
-      showToast("Withdraw requested — check Transactions");
+      showToast("Withdraw requested — pending review");
       onDone(res.balance);
       onClose();
     } catch (e) {
@@ -102,126 +92,90 @@ export function WithdrawModal({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="w-full max-w-md glass-strong rounded-t-3xl p-5 slide-up border-t border-white/10 safe-bottom">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
-            <TonIcon size={20} /> Withdraw
-          </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Withdraw TON</h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-white/[0.05] flex items-center justify-center text-white/40"
+            className="w-8 h-8 rounded-xl bg-white/[0.05] flex items-center justify-center text-white/40 btn-press"
           >
-            ✕
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
           </button>
         </div>
-        <p className="text-xs text-white/40 mb-4">
-          Balance {formatGram(balance)} GRAM · min {MIN_WITHDRAW_TON}{" "}
-          <TonIcon size={11} className="inline-block align-[-2px]" /> · fee{" "}
-          {fee}
-        </p>
 
-        <label className="text-[11px] text-white/40 uppercase tracking-wider flex items-center gap-1.5">
-          Amount <TonIcon size={12} />
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 mb-4 flex justify-between text-sm">
+          <span className="text-white/40">Available</span>
+          <span className="tabular-nums font-medium">{formatGram(balance)} GRAM</span>
+        </div>
+
+        <label className="text-[11px] text-white/40 uppercase tracking-widest mb-1.5 block">
+          Amount (TON)
         </label>
         <input
           type="number"
           inputMode="decimal"
+          min={MIN_WITHDRAW_TON}
+          step="0.1"
+          placeholder={`Min ${MIN_WITHDRAW_TON}`}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder={`Min ${MIN_WITHDRAW_TON}`}
-          className="w-full h-12 mt-1 mb-3 rounded-2xl bg-black/35 border border-white/[0.08] px-4 text-base outline-none focus:border-cyan-500/35 tabular-nums"
+          className="w-full h-12 rounded-2xl bg-black/30 border border-white/10 px-4 text-base tabular-nums mb-1 outline-none focus:border-cyan-500/40"
         />
+        <p className="text-[11px] text-white/35 mb-4">
+          Minimum {MIN_WITHDRAW_TON} TON · 1 TON = 1 GRAM · no fee
+        </p>
 
-        <label className="text-[11px] text-white/40 uppercase tracking-wider">
-          TON wallet
+        <label className="text-[11px] text-white/40 uppercase tracking-widest mb-1.5 block">
+          Wallet
         </label>
-
-        {!editingWallet && wallet ? (
-          <div className="mt-1 mb-3 flex items-center gap-2 rounded-2xl bg-black/35 border border-white/[0.08] px-3 h-12">
-            <TonIcon size={18} />
-            <div className="flex-1 min-w-0">
-              <div className="text-[10px] text-[#6DD3FF]/80">
-                {walletConnected ? "From TON Connect" : "Saved address"}
-              </div>
-              <div className="text-sm font-mono text-white/90 truncate">
-                {short}
-              </div>
-            </div>
+        {walletConnected && tonAddress && !wallet ? null : null}
+        <div className="flex gap-2 mb-2">
+          <input
+            type="text"
+            value={wallet}
+            onChange={(e) => setWallet(e.target.value)}
+            placeholder="UQ…"
+            className="flex-1 h-12 rounded-2xl bg-black/30 border border-white/10 px-4 text-sm font-mono outline-none focus:border-cyan-500/40"
+          />
+          {!walletConnected && (
             <button
               type="button"
-              onClick={() => setEditingWallet(true)}
-              className="shrink-0 h-8 px-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-[11px] text-white/60 hover:text-white/90"
+              onClick={() => tonConnectUI.openModal()}
+              className="h-12 px-3 rounded-2xl border border-white/10 bg-white/[0.04] text-xs text-cyan-300 btn-press whitespace-nowrap"
             >
-              Edit
+              Connect
             </button>
-          </div>
-        ) : (
-          <div className="mt-1 mb-3 space-y-2">
-            <input
-              value={wallet}
-              onChange={(e) => setWallet(e.target.value)}
-              placeholder="UQ… or EQ…"
-              className="w-full h-12 rounded-2xl bg-black/35 border border-white/[0.08] px-4 text-sm font-mono outline-none focus:border-cyan-500/35"
-              autoFocus={editingWallet}
-            />
-            <div className="flex gap-2">
-              {tonAddress && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWallet(tonAddress);
-                    setEditingWallet(false);
-                  }}
-                  className="flex-1 h-9 rounded-xl border border-[#0098EA]/30 bg-[#0098EA]/10 text-[11px] font-medium text-sky-100 flex items-center justify-center gap-1.5"
-                >
-                  <TonIcon size={14} /> Use connected
-                </button>
-              )}
-              {!walletConnected && (
-                <button
-                  type="button"
-                  onClick={() => tonConnectUI.openModal()}
-                  className="flex-1 h-9 rounded-xl border border-[#0098EA]/30 bg-[#0098EA]/10 text-[11px] font-medium text-sky-100 flex items-center justify-center gap-1.5"
-                >
-                  <TonIcon size={14} /> Connect wallet
-                </button>
-              )}
-              {editingWallet && wallet.trim().length >= 20 && (
-                <button
-                  type="button"
-                  onClick={() => setEditingWallet(false)}
-                  className="h-9 px-3 rounded-xl border border-white/10 bg-white/[0.05] text-[11px] text-white/70"
-                >
-                  Done
-                </button>
-              )}
-            </div>
-          </div>
+          )}
+        </div>
+        {walletConnected && tonAddress && (
+          <button
+            type="button"
+            onClick={() => setWallet(tonAddress)}
+            className="text-[11px] text-cyan-300/80 mb-4 btn-press"
+          >
+            Use connected: {short || tonAddress.slice(0, 6) + "…"}
+          </button>
         )}
 
-        {val > 0 && (
-          <div className="mb-3 text-xs text-white/45 flex justify-between px-1">
-            <span>You receive</span>
-            <span className="tabular-nums text-white/80 flex items-center gap-1">
-              {val} <TonIcon size={12} />
-            </span>
-          </div>
+        {val > 0 && val < MIN_WITHDRAW_TON && (
+          <p className="text-[12px] text-amber-300/90 mb-3">Min {MIN_WITHDRAW_TON} TON</p>
         )}
-        {val > 0 && (
-          <div className="mb-4 text-xs text-white/45 flex justify-between px-1">
-            <span>Debited</span>
-            <span className="tabular-nums text-white/80">
-              {formatGram(totalNeed)} GRAM (incl. fee)
-            </span>
-          </div>
+        {val >= MIN_WITHDRAW_TON && val > balance && (
+          <p className="text-[12px] text-amber-300/90 mb-3">Not enough balance</p>
         )}
 
         <button
-          disabled={!can || loading}
           onClick={submit}
-          className="w-full h-12 rounded-2xl btn-primary text-sm btn-press disabled:opacity-40"
+          disabled={!can || loading}
+          className="w-full h-12 rounded-2xl btn-primary text-sm font-semibold btn-press disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          {loading ? "Submitting…" : "Request withdraw"}
+          <TonIcon className="w-4 h-4" />
+          {loading ? "Submitting…" : `Withdraw ${val > 0 ? formatGram(val) + " TON" : ""}`}
         </button>
+        <p className="text-[10px] text-white/30 text-center mt-3">
+          Requests are reviewed manually. Status appears in Transactions.
+        </p>
       </div>
     </div>
   );

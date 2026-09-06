@@ -8,7 +8,6 @@ Telegram Mini App with **server-authoritative** balance, bets, and spin.
 |---------|-------|
 | Min bet (Classic) | **0.25 GRAM** |
 | Min bet (High) | **10 GRAM** |
-| House edge | **5%** of bank (winner receives 95%) |
 | Max players | Classic 10 / High 8 |
 | Countdown | **20s** after 2+ players |
 

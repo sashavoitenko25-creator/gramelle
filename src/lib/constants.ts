@@ -24,7 +24,7 @@ export const ROUND_COUNTDOWN_SEC = 20;
  * Economy
  * - 1 TON = 1 GRAM
  * - 500 Stars = 4.25 GRAM
- * - House edge 5% of bank → winner gets 95%
+ * - Internal fee applied server-side; not shown in player-facing copy
  */
 export const STARS_PER_GRAM_RATE = 500 / 4.25;
 export const GRAM_PER_STAR = (() => {
@@ -44,11 +44,11 @@ export const MIN_DEPOSIT_STARS = Math.ceil(0.5 / (4.25 / 500));
 export const MAX_DEPOSIT_STARS = 10_000_000;
 export const MIN_DEPOSIT_TON = 0.5;
 export const MAX_DEPOSIT_TON = 1_000_000;
-export const TON_PENDING_TTL_SEC = 15 * 60;
+export const TON_PENDING_TTL_SEC = 10 * 60; // pending deposit auto-expires
 
 export const MIN_WITHDRAW_TON = 5;
 export const MAX_WITHDRAW_TON = 1_000_000;
-export const WITHDRAW_FEE_GRAM = 0.2;
+export const WITHDRAW_FEE_GRAM = 0; // no withdraw fee
 /** @deprecated join bonus disabled — only % of house fee */
 export const REFERRAL_JOIN_BONUS = 0;
 export const REFERRAL_MIN_WITHDRAW = 0.25;

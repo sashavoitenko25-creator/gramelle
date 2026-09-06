@@ -21,8 +21,8 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
         <div className="space-y-3 text-sm text-white/65 leading-relaxed mb-4">
           <p>
             Invite friends with your link. When they play, you earn a{" "}
-            <span className="text-white/90">% of Gramelle commission</span>{" "}
-            (5% house edge) from their bets — not from deposits.
+            <span className="text-white/90">share of platform revenue</span>{" "}
+            from their bets — not from deposits.
           </p>
           <p>
             Earnings go to your{" "}
@@ -36,7 +36,7 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
                   {t.emoji} {t.name}
                 </span>
                 <span className="text-cyan-300/90">
-                  {Math.round(t.shareOfHouseFee * 100)}% of fee
+                  {Math.round(t.shareOfHouseFee * 100)}%
                 </span>
               </div>
             ))}

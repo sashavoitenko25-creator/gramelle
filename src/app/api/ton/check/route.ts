@@ -3,7 +3,7 @@ import { AuthError, requireTelegramUser } from "@/lib/server/telegram";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 import { creditBalance } from "@/lib/server/ledger";
 import { notifyUser, fmtAmount } from "@/lib/server/notify";
-import { TON_DEPOSIT_ADDRESS } from "@/lib/constants";
+import { TON_DEPOSIT_ADDRESS, TON_PENDING_TTL_SEC } from "@/lib/constants";
 
 type TonTransfer = {
   amount?: number;
@@ -32,13 +32,23 @@ export async function POST(req: NextRequest) {
     const auth = await requireTelegramUser(req);
     const db = getAdminClient();
 
-    // Expire stale intents before matching anything.
+    // Expire stale intents (max 10 min) before matching.
+    const nowIso = new Date().toISOString();
+    const ttlCutoff = new Date(Date.now() - TON_PENDING_TTL_SEC * 1000).toISOString();
     await db
       .from("ton_deposits")
       .update({ status: "expired" })
       .eq("telegram_id", auth.user.id)
       .eq("status", "pending")
-      .lt("expires_at", new Date().toISOString());
+      .lt("expires_at", nowIso);
+    // Fallback if expires_at was null
+    await db
+      .from("ton_deposits")
+      .update({ status: "expired" })
+      .eq("telegram_id", auth.user.id)
+      .eq("status", "pending")
+      .is("expires_at", null)
+      .lt("created_at", ttlCutoff);
 
     const { data: pending } = await db
       .from("ton_deposits")

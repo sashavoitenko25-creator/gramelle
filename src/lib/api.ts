@@ -162,7 +162,8 @@ export async function createTonPending(ton: number) {
     ok: boolean;
     memo: string;
     gram: number;
-    deposit: { id: string };
+    expiresAt?: string;
+    deposit?: { id: string; expires_at?: string };
   }>("/api/ton/pending", {
     method: "POST",
     body: JSON.stringify({ ton }),
@@ -173,6 +174,7 @@ export async function checkTonDeposits() {
   return apiFetch<{
     ok: boolean;
     credited: Array<{ memo: string; gram: number }>;
+    message?: string;
     error?: string;
   }>("/api/ton/check", { method: "POST", body: "{}" });
 }
