@@ -110,14 +110,6 @@ export async function POST(req: NextRequest) {
             telegram_payment_charge_id: payment.telegram_payment_charge_id,
             provider_payment_charge_id: payment.provider_payment_charge_id,
           });
-          try {
-            await creditReferralOnDeposit(fromId, gram, {
-              payload,
-              stars: totalAmount,
-            });
-          } catch (e) {
-            console.warn("referral credit failed", e);
-          }
           await notifyUser(
             fromId,
             `✅ <b>Deposit completed</b>\n` +
