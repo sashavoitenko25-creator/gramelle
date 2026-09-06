@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Wheel } from "@/components/game/Wheel";
 import { PlayerList } from "@/components/game/PlayerList";
-import { TonIcon } from "@/components/ui/TonIcon";
+import { SpinIcon } from "@/components/ui/SpinIcon";
+import { GramIcon } from "@/components/ui/GramIcon";
 import type { Player } from "@/lib/types";
 import { formatGram, cn } from "@/lib/utils";
 import { ROOMS, type RoomMode } from "@/lib/constants";
@@ -205,18 +206,7 @@ export function PvpScreen({
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-violet-500/35 to-cyan-500/25 border border-white/10 flex items-center justify-center shadow-[0_0_24px_rgba(139,92,246,0.2)]">
-            <svg
-              width="17"
-              height="17"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="text-cyan-300"
-            >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 3v18M3 12h18" opacity="0.45" />
-            </svg>
+            <SpinIcon size={18} className="text-cyan-300" />
           </div>
           <div>
             <div className="text-[15px] font-semibold tracking-tight leading-tight">
@@ -405,7 +395,7 @@ export function PvpScreen({
         <div className="flex items-center justify-between bg-white/[0.035] rounded-2xl px-4 py-3.5 border border-white/[0.07]">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-[#0098EA]/15 border border-[#0098EA]/30 flex items-center justify-center shadow-[0_0_16px_rgba(0,152,234,0.15)]">
-              <TonIcon size={18} />
+              <GramIcon size={18} />
             </div>
             <div>
               <div className="text-[10px] text-white/35 uppercase tracking-wider">
@@ -457,7 +447,7 @@ export function PvpScreen({
           Players · {players.length}
         </span>
         <span className="text-[11px] text-white/35 uppercase tracking-[0.12em] font-medium tabular-nums">
-          {mode === "high" ? "H" : "C"}#{roomSeq ?? rollId}
+          SPIN#{roomSeq ?? rollId}
         </span>
       </div>
 

@@ -64,8 +64,7 @@ export function RecentRounds({ mode, onVerify }: Props) {
           >
             <div className="flex items-center justify-between gap-2 mb-1">
               <span className="text-[10px] text-white/35 tabular-nums">
-                {r.mode === "high" ? "H" : "C"}#
-                {r.roomSeq ?? r.rollId}
+                SPIN#{r.roomSeq ?? r.rollId}
               </span>
               <span className="text-[9px] uppercase text-white/25">
                 {r.mode}

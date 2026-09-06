@@ -676,6 +676,7 @@ export default function Home() {
         <HistoryScreen
           history={history}
           initialTab={historyFilter}
+          telegramId={telegramId}
           onBack={() => setScreen("pvp")}
           onVerify={(id) => {
             setVerifyRollId(id);

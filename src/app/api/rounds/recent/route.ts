@@ -32,10 +32,29 @@ export async function GET(req: NextRequest) {
     if (!rounds?.length) return NextResponse.json({ items: [] });
 
     const rollIds = rounds.map((r) => r.roll_id);
+    const roundUuids = rounds.map((r) => r.id);
     const { data: hist } = await db
       .from("game_history")
       .select("roll_id, winner, chance")
       .in("roll_id", rollIds);
+
+    const playersByRoll = new Map<number, number[]>();
+    if (roundUuids.length) {
+      const { data: allBets } = await db
+        .from("round_bets")
+        .select("round_id, telegram_id")
+        .in("round_id", roundUuids);
+      const uuidToRoll = new Map(
+        rounds.map((r) => [r.id, Number(r.roll_id)])
+      );
+      for (const b of allBets || []) {
+        const rid = uuidToRoll.get(b.round_id);
+        if (rid == null || b.telegram_id == null) continue;
+        const arr = playersByRoll.get(rid) || [];
+        arr.push(Number(b.telegram_id));
+        playersByRoll.set(rid, arr);
+      }
+    }
 
     const byRoll = new Map<number, { winner: string; chance: number }>();
     for (const h of hist || []) {
@@ -86,6 +105,7 @@ export async function GET(req: NextRequest) {
         rollId: Number(r.roll_id),
         roomSeq: r.room_seq != null ? Number(r.room_seq) : Number(r.roll_id),
         mode: r.mode,
+        playerTelegramIds: playersByRoll.get(Number(r.roll_id)) || [],
         bank: Number(r.total_bank || 0),
         pot: Number(r.pot_after_fee || r.total_bank || 0),
         houseFee: Number(r.house_fee || 0),

@@ -323,7 +323,7 @@ export function Wheel({
               <span className="text-[11px] font-semibold tracking-wider uppercase text-cyan-300 pulse-soft px-1 text-center">
                 {status || "Spinning"}
               </span>
-            ) : (
+            ) : players.length === 0 ? (
               <>
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-white/12 to-white/[0.03] border border-white/10 mb-1 flex items-center justify-center">
                   <svg
@@ -343,6 +343,10 @@ export function Wheel({
                   {status}
                 </span>
               </>
+            ) : (
+              <span className="text-[11px] font-semibold tracking-wider uppercase text-white/50 px-1 text-center">
+                {status || "Waiting"}
+              </span>
             )}
           </div>
         </div>

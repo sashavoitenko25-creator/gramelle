@@ -1,7 +1,7 @@
 "use client";
 
 import { formatGram } from "@/lib/utils";
-import { TonIcon } from "@/components/ui/TonIcon";
+import { GramIcon } from "@/components/ui/GramIcon";
 import { ConnectWalletButton } from "@/components/ton/ConnectWalletButton";
 
 interface ProfileScreenProps {
@@ -55,7 +55,7 @@ export function ProfileScreen({
           Balance
         </div>
         <div className="flex items-center gap-2.5 mb-4">
-          <TonIcon size={24} />
+          <GramIcon size={24} />
           <div className="text-3xl font-semibold tabular-nums text-gradient-cyan leading-none">
             {formatGram(balance)}
             <span className="text-sm text-white/35 font-normal ml-1.5">GRAM</span>
