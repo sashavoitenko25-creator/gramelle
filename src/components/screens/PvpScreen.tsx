@@ -180,7 +180,7 @@ export function PvpScreen({
     const list = players.map((p) =>
       p.isMe && myPhotoUrl && !p.photoUrl ? { ...p, photoUrl: myPhotoUrl } : p
     );
-    const duration = 4200;
+    const duration = 30_000;
     const t0 = performance.now();
     let raf = 0;
     const tick = (now: number) => {
@@ -437,9 +437,6 @@ export function PvpScreen({
         >
           Place Bet · {room.minBet}–{room.maxBet}
         </button>
-        <p className="text-center text-[10px] text-white/25 mt-2.5">
-          Up to {room.maxPlayers} players · {room.countdownSec}s
-        </p>
       </div>
 
       <div className="mx-4 mb-2 flex items-center justify-between">

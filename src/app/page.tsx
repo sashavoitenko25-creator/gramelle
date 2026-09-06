@@ -22,7 +22,7 @@ import { WinOverlay } from "@/components/ui/WinOverlay";
 import { Confetti } from "@/components/ui/Confetti";
 import { WithdrawModal } from "@/components/modals/WithdrawModal";
 import { VerifyModal } from "@/components/modals/VerifyModal";
-import { playSpinSound, playWinSound, playLoseSound } from "@/lib/sounds";
+import { playSpinSound, playWinSound, playLoseSound, playBetSound } from "@/lib/sounds";
 import {
   SPIN_FINISH_DELAY_MS,
   MAX_PLAYERS,
@@ -431,6 +431,7 @@ export default function Home() {
         try {
           const color = randomColor(playersRef.current.map((p) => p.color));
           const res = await placeBetApi(amount, color, mode);
+          playBetSound();
           setBalanceFromServer(res.balance);
           applyServerBets(
             res.bets,

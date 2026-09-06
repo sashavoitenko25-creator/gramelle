@@ -15,8 +15,8 @@ export const COLORS = [
 
 export const MIN_BET = 0.25;
 export const START_BALANCE = 0;
-export const SPIN_DURATION_MS = 4200;
-export const SPIN_FINISH_DELAY_MS = 4500;
+export const SPIN_DURATION_MS = 30_000;
+export const SPIN_FINISH_DELAY_MS = 30_500;
 export const MAX_PLAYERS = 10;
 export const BOT_USERNAME = "Gramelle_bot";
 export const ROUND_COUNTDOWN_SEC = 20;
@@ -105,8 +105,8 @@ export interface RoomConfig {
   houseEdge: number; maxPlayers: number; countdownSec: number;
 }
 export const ROOMS: Record<RoomMode, RoomConfig> = {
-  classic: { id: "classic", name: "Classic", description: "Standard stakes", minBet: 0.25, maxBet: 500, houseEdge: HOUSE_EDGE, maxPlayers: 10, countdownSec: 20 },
-  high: { id: "high", name: "High", description: "Higher stakes", minBet: 10, maxBet: 5000, houseEdge: HOUSE_EDGE, maxPlayers: 8, countdownSec: 20 },
+  classic: { id: "classic", name: "Classic", description: "Standard stakes", minBet: 0.25, maxBet: 500, houseEdge: HOUSE_EDGE, maxPlayers: 10_000, countdownSec: 20 },
+  high: { id: "high", name: "High", description: "Higher stakes", minBet: 10, maxBet: 5000, houseEdge: HOUSE_EDGE, maxPlayers: 10_000, countdownSec: 20 },
 };
 export const MAX_PENDING_WITHDRAWALS = 3;
 export const MAX_BETS_PER_MINUTE = 20;

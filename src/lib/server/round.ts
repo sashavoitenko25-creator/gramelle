@@ -215,11 +215,6 @@ export async function placeBet(opts: {
     .eq("round_id", round.id);
 
   const bets = (existingBets || []) as RoundBet[];
-  const unique = new Set(bets.map((b) => b.telegram_id));
-
-  if (!unique.has(telegramId) && unique.size >= room.maxPlayers) {
-    throw new Error("Round is full");
-  }
 
   // Debit first (atomic enough via ledger)
   const { balance } = await creditBalance(telegramId, -amount, "bet", {

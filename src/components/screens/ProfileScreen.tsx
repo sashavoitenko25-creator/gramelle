@@ -36,8 +36,8 @@ export function ProfileScreen({
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
       <div className="px-4 pt-8 pb-2 text-center">
         <div className="relative w-[88px] h-[88px] mx-auto mb-4">
-          <div className="absolute inset-0 rounded-[28px] bg-gradient-to-br from-violet-500/40 to-cyan-500/30 blur-md opacity-70" />
-          <div className="relative w-full h-full rounded-[28px] bg-gradient-to-br from-violet-500/25 to-cyan-500/20 border border-white/12 flex items-center justify-center overflow-hidden shadow-[0_0_40px_rgba(139,92,246,0.2)]">
+          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-500/40 to-cyan-500/30 blur-md opacity-70" />
+          <div className="relative w-full h-full rounded-full bg-gradient-to-br from-violet-500/25 to-cyan-500/20 border border-white/12 flex items-center justify-center overflow-hidden shadow-[0_0_40px_rgba(139,92,246,0.2)]">
             {photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={photoUrl} alt="" className="w-full h-full object-cover" />

@@ -43,3 +43,10 @@ export function playLoseSound() {
   tone(300, 0, 0.1, "triangle", 0.05);
   tone(220, 0.1, 0.18, "triangle", 0.04);
 }
+
+export function playBetSound() {
+  // soft coin / chip drop
+  tone(880, 0, 0.06, "sine", 0.06);
+  tone(1320, 0.04, 0.08, "triangle", 0.05);
+  tone(990, 0.09, 0.1, "sine", 0.035);
+}
