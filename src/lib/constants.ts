@@ -65,10 +65,10 @@ export interface ReferralTier {
   emoji: string;
 }
 export const REFERRAL_TIERS: ReferralTier[] = [
-  { id: "bronze", name: "Bronze", minActive: 1, maxActive: 9, minTurnover: 0, shareOfHouseFee: 0.1, color: "#cd7f32", emoji: "🥉" },
-  { id: "silver", name: "Silver", minActive: 10, maxActive: 49, minTurnover: 500, shareOfHouseFee: 0.15, color: "#c0c0c0", emoji: "🥈" },
-  { id: "gold", name: "Gold", minActive: 50, maxActive: 99, minTurnover: 2500, shareOfHouseFee: 0.2, color: "#f5c542", emoji: "🥇" },
-  { id: "platinum", name: "Platinum", minActive: 100, maxActive: null, minTurnover: 10_000, shareOfHouseFee: 0.25, color: "#a78bfa", emoji: "💎" },
+  { id: "bronze", name: "Bronze", minActive: 1, maxActive: 4, minTurnover: 0, shareOfHouseFee: 0.1, color: "#cd7f32", emoji: "🥉" },
+  { id: "silver", name: "Silver", minActive: 5, maxActive: 14, minTurnover: 300, shareOfHouseFee: 0.15, color: "#c0c0c0", emoji: "🥈" },
+  { id: "gold", name: "Gold", minActive: 15, maxActive: 44, minTurnover: 1500, shareOfHouseFee: 0.2, color: "#f5c542", emoji: "🥇" },
+  { id: "platinum", name: "Platinum", minActive: 45, maxActive: null, minTurnover: 4000, shareOfHouseFee: 0.3, color: "#a78bfa", emoji: "💎" },
 ];
 export function getReferralTier(activeRefs: number, turnover: number): ReferralTier | null {
   if (activeRefs < 1) return null;
