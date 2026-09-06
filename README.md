@@ -10,7 +10,7 @@ Telegram Mini App with **server-authoritative** balance, bets, and spin.
 | Min bet (High) | **10 GRAM** |
 | House edge | **5%** of bank (winner receives 95%) |
 | Max players | Classic 10 / High 8 |
-| Countdown | 8s / 10s after 2+ players |
+| Countdown | **20s** after 2+ players |
 
 ## Security model
 
@@ -66,7 +66,7 @@ https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://YOUR_DOMAIN/api/webho
 
 ### Vercel Cron
 
-`vercel.json` schedules `/api/round/tick` every minute so rounds spin even if all clients leave.
+`vercel.json` schedules `/api/round/tick` every minute (`* * * * *`) so rounds spin even if all clients leave.
 
 ## API (main)
 

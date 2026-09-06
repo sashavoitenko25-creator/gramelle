@@ -18,6 +18,12 @@ export interface RoundBet {
   photo_url?: string | null;
 }
 
+/** Deterministic order for fairness — same order on spin + verify */
+function sortBets<T extends { telegram_id: number }>(bets: T[]): T[] {
+  return [...bets].sort((a, b) => a.telegram_id - b.telegram_id);
+}
+
+
 export interface RoundRow {
   id: string;
   roll_id: number;
@@ -217,15 +223,51 @@ export async function placeBet(opts: {
     });
   }
 
-  const newBank = +(Number(round.total_bank) + amount).toFixed(4);
-  await db.from("rounds").update({ total_bank: newBank }).eq("id", round.id);
+  // Atomic-ish bank bump with version (retry once on conflict)
+  let newBank = +(Number(round.total_bank) + amount).toFixed(4);
+  let version = round.version || 0;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data: bankUpdated, error: bankErr } = await db
+      .from("rounds")
+      .update({
+        total_bank: newBank,
+        version: version + 1,
+      })
+      .eq("id", round.id)
+      .eq("version", version)
+      .select("total_bank, version, status, countdown_ends_at")
+      .maybeSingle();
+
+    if (bankUpdated) {
+      round.total_bank = Number(bankUpdated.total_bank);
+      round.version = bankUpdated.version;
+      round.status = bankUpdated.status as RoundRow["status"];
+      round.countdown_ends_at = bankUpdated.countdown_ends_at;
+      break;
+    }
+
+    // concurrent update — re-read and recompute
+    const { data: fresh } = await db
+      .from("rounds")
+      .select("total_bank, version, status, countdown_ends_at")
+      .eq("id", round.id)
+      .maybeSingle();
+    if (!fresh) throw new Error("Round disappeared");
+    version = Number(fresh.version) || 0;
+    newBank = +(Number(fresh.total_bank) + amount).toFixed(4);
+    if (attempt === 2) {
+      // last resort without version guard
+      await db.from("rounds").update({ total_bank: newBank }).eq("id", round.id);
+      round.total_bank = newBank;
+    }
+  }
 
   const { data: allBets } = await db
     .from("round_bets")
     .select("telegram_id, username, amount, color")
     .eq("round_id", round.id);
 
-  const list = (allBets || []) as RoundBet[];
+  const list = sortBets((allBets || []) as RoundBet[]);
 
   // Start countdown at 2+ unique players
   if (list.length >= 2 && round.status === "open") {
@@ -251,8 +293,6 @@ export async function placeBet(opts: {
       round.countdown_ends_at = ends;
     }
   }
-
-  round.total_bank = newBank;
   const withPhotos = await enrichBetsWithPhotos(list);
   return { round, bets: withPhotos, balance };
 }
@@ -315,7 +355,7 @@ export async function spinRound(
     .select("telegram_id, username, amount, color")
     .eq("round_id", round.id);
 
-  const bets = (betsData || []) as RoundBet[];
+  const bets = sortBets((betsData || []) as RoundBet[]);
   if (bets.length < 2) {
     // rollback to open
     await db
@@ -465,7 +505,7 @@ export async function tickRoom(mode: RoomMode = DEFAULT_ROOM): Promise<{
     .from("round_bets")
     .select("telegram_id, username, amount, color")
     .eq("round_id", round.id);
-  const bets = (betsData || []) as RoundBet[];
+  const bets = sortBets((betsData || []) as RoundBet[]);
 
   if (
     round.status === "countdown" &&
@@ -562,7 +602,7 @@ export async function getRecentFinishedSpin(
     .from("round_bets")
     .select("telegram_id, username, amount, color")
     .eq("round_id", latest.id);
-  const bets = await enrichBetsWithPhotos((betsData || []) as RoundBet[]);
+  const bets = await enrichBetsWithPhotos(sortBets((betsData || []) as RoundBet[]));
   if (!bets.length) return null;
   const winner =
     bets.find((b) => b.telegram_id === latest.winner_telegram_id) || bets[0];

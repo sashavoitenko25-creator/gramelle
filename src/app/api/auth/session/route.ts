@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTelegramUser } from "@/lib/server/telegram";
-import { getOrCreateProfile, creditBalance } from "@/lib/server/ledger";
+import { getOrCreateProfile } from "@/lib/server/ledger";
 import { isSupabaseConfigured } from "@/lib/server/supabase";
-import { START_BALANCE, REFERRAL_JOIN_BONUS } from "@/lib/constants";
+import { START_BALANCE } from "@/lib/constants";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       auth.user.photo_url || null
     );
 
-    // referral once: start_param ref_*
+    // referral once: start_param ref_* — bind only, no join bonus
     if (auth.startParam?.startsWith("ref_")) {
       const code = auth.startParam;
       if (code !== profile.referral_code) {
@@ -34,12 +34,11 @@ export async function POST(req: NextRequest) {
           const db = getAdminClient();
           const { data: referrer } = await db
             .from("profiles")
-            .select("id, telegram_id, ref_count, ref_earned")
+            .select("id, telegram_id, ref_count")
             .eq("referral_code", code)
             .maybeSingle();
 
           if (referrer?.telegram_id && referrer.telegram_id !== auth.user.id) {
-            // only if this user has no referrer recorded yet
             const { data: me } = await db
               .from("profiles")
               .select("referred_by")
@@ -56,14 +55,8 @@ export async function POST(req: NextRequest) {
                 .from("profiles")
                 .update({
                   ref_count: (referrer.ref_count || 0) + 1,
-                  ref_earned: Number(referrer.ref_earned || 0) + REFERRAL_JOIN_BONUS,
                 })
                 .eq("id", referrer.id);
-
-              await creditBalance(referrer.telegram_id, REFERRAL_JOIN_BONUS, "referral", {
-                from: auth.user.id,
-                type: "join",
-              });
             }
           }
         } catch {

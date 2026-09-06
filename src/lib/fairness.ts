@@ -97,7 +97,9 @@ export async function verifyRound(input: VerifyInput): Promise<VerifyResult> {
     const hashMatches =
       computedHash.toLowerCase() === input.serverSeedHash.toLowerCase();
 
-    const bets = input.bets.filter((b) => Number(b.amount) > 0);
+    const bets = input.bets
+      .filter((b) => Number(b.amount) > 0)
+      .sort((a, b) => Number(a.telegramId) - Number(b.telegramId));
     if (bets.length < 1) {
       return {
         ok: false,

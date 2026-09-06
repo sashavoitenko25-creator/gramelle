@@ -10,6 +10,7 @@ import { HistoryScreen } from "@/components/screens/HistoryScreen";
 import { ProfileScreen } from "@/components/screens/ProfileScreen";
 import { ReferralsScreen } from "@/components/screens/ReferralsScreen";
 import { TransactionsScreen } from "@/components/screens/TransactionsScreen";
+import { TasksScreen } from "@/components/screens/TasksScreen";
 import { GamesScreen } from "@/components/screens/GamesScreen";
 import { RpsScreen } from "@/components/screens/RpsScreen";
 import { BottomNav } from "@/components/game/BottomNav";
@@ -22,7 +23,6 @@ import { Confetti } from "@/components/ui/Confetti";
 import { WithdrawModal } from "@/components/modals/WithdrawModal";
 import { VerifyModal } from "@/components/modals/VerifyModal";
 import { playSpinSound, playWinSound, playLoseSound } from "@/lib/sounds";
-import { placeBetApi } from "@/lib/api";
 import {
   SPIN_FINISH_DELAY_MS,
   MAX_PLAYERS,
@@ -34,6 +34,7 @@ import {
 } from "@/lib/constants";
 import { randomColor } from "@/lib/utils";
 import type { Player, Screen } from "@/lib/types";
+import { placeBetApi, withdrawReferralSavings } from "@/lib/api";
 
 export default function Home() {
   const {
@@ -85,6 +86,7 @@ export default function Home() {
   } = useRound(telegramId, username, mode);
 
   const [screen, setScreen] = useState<Screen>("games");
+  const [refWithdrawing, setRefWithdrawing] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
   const [spinDegrees, setSpinDegrees] = useState(0);
   const [status, setStatus] = useState("Waiting");
@@ -506,8 +508,12 @@ export default function Home() {
   );
 
   const copyRefLink = useCallback(() => {
-    const code = username.toLowerCase().replace(/\s+/g, "");
-    const link = "https://t.me/" + BOT_USERNAME + "?start=ref_" + code;
+    // Must use server referral_code (includes telegram suffix) — not username alone
+    const code =
+      profile?.referral_code ||
+      ("ref_" + username.toLowerCase().replace(/\s+/g, ""));
+    const start = code.startsWith("ref_") ? code : "ref_" + code;
+    const link = "https://t.me/" + BOT_USERNAME + "?start=" + start;
     if (navigator.clipboard) {
       navigator.clipboard
         .writeText(link)
@@ -519,7 +525,30 @@ export default function Home() {
     } else {
       showToast(link);
     }
-  }, [username, showToast, hapticSuccess]);
+  }, [profile?.referral_code, username, showToast, hapticSuccess]);
+
+  const doReferralWithdraw = useCallback(async () => {
+    if (!serverMode) {
+      showToast("Available in Telegram");
+      return;
+    }
+    setRefWithdrawing(true);
+    try {
+      const res = await withdrawReferralSavings();
+      if (res.ok) {
+        setBalanceFromServer(res.balance);
+        await reloadProfile();
+        showToast("Withdrawn " + res.withdrawn + " GRAM");
+        hapticSuccess();
+      }
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Withdraw failed");
+      hapticError();
+    } finally {
+      setRefWithdrawing(false);
+    }
+  }, [serverMode, showToast, hapticSuccess, hapticError, reloadProfile, setBalanceFromServer]);
+
 
   const displayStatus =
     countdown !== null && countdown > 0
@@ -683,14 +712,19 @@ export default function Home() {
         <ReferralsScreen
           earned={profile?.ref_earned ?? 0}
           count={profile?.ref_count ?? 0}
-          active={(profile as { ref_active?: number })?.ref_active ?? 0}
-          turnover={(profile as { ref_turnover?: number })?.ref_turnover ?? 0}
+          active={profile?.ref_active ?? 0}
+          turnover={profile?.ref_turnover ?? 0}
           username={username}
+          referralCode={profile?.referral_code}
           onBack={() => setScreen("profile")}
           onHowItWorks={() => setHowRefOpen(true)}
           onCopy={copyRefLink}
+          onWithdraw={doReferralWithdraw}
+          withdrawing={refWithdrawing}
         />
       )}
+
+      {screen === "tasks" && <TasksScreen />}
 
       <BottomNav
         screen={screen}

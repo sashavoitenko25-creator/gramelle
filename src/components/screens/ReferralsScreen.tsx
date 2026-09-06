@@ -1,6 +1,12 @@
 "use client";
 
-import { BOT_USERNAME, REFERRAL_TIERS, getReferralTier, REFERRAL_JOIN_BONUS } from "@/lib/constants";
+import { useState } from "react";
+import {
+  BOT_USERNAME,
+  REFERRAL_TIERS,
+  getReferralTier,
+  REFERRAL_MIN_WITHDRAW,
+} from "@/lib/constants";
 import { formatGram, cn } from "@/lib/utils";
 
 interface ReferralsScreenProps {
@@ -9,9 +15,12 @@ interface ReferralsScreenProps {
   active?: number;
   turnover?: number;
   username: string;
+  referralCode?: string | null;
   onBack: () => void;
   onHowItWorks: () => void;
   onCopy: () => void;
+  onWithdraw: () => Promise<void>;
+  withdrawing?: boolean;
 }
 
 export function ReferralsScreen({
@@ -20,15 +29,20 @@ export function ReferralsScreen({
   active = 0,
   turnover = 0,
   username,
+  referralCode,
   onBack,
   onHowItWorks,
   onCopy,
+  onWithdraw,
+  withdrawing = false,
 }: ReferralsScreenProps) {
-  const refLink = `https://t.me/${BOT_USERNAME}?start=ref_${username.toLowerCase().replace(/\s+/g, "")}`;
+  const code =
+    referralCode ||
+    ("ref_" + username.toLowerCase().replace(/\s+/g, ""));
+  const start = code.startsWith("ref_") ? code : "ref_" + code;
+  const refLink = `https://t.me/${BOT_USERNAME}?start=${start}`;
   const tier = getReferralTier(active || count, turnover);
-  const next = REFERRAL_TIERS.find(
-    (t) => t.minActive > (active || 0) || t.minTurnover > turnover
-  );
+  const canWithdraw = earned >= REFERRAL_MIN_WITHDRAW;
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
@@ -53,8 +67,40 @@ export function ReferralsScreen({
         </button>
       </div>
 
+      {/* Savings balance */}
+      <div className="mx-4 mb-3 rounded-3xl p-5 border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-transparent">
+        <div className="text-[11px] text-white/40 uppercase tracking-widest mb-1">
+          Referral savings
+        </div>
+        <div className="text-3xl font-semibold tabular-nums text-cyan-300">
+          {formatGram(earned)}{" "}
+          <span className="text-base text-white/40 font-normal">GRAM</span>
+        </div>
+        <p className="text-[11px] text-white/35 mt-2 leading-relaxed">
+          % of house fee from friends&apos; bets. Withdraw to main balance (min{" "}
+          {REFERRAL_MIN_WITHDRAW} GRAM).
+        </p>
+        <button
+          onClick={() => !withdrawing && canWithdraw && onWithdraw()}
+          disabled={!canWithdraw || withdrawing}
+          className={cn(
+            "w-full mt-4 h-11 rounded-xl text-sm font-medium btn-press transition-opacity",
+            canWithdraw && !withdrawing
+              ? "btn-primary"
+              : "bg-white/[0.06] text-white/30 cursor-not-allowed"
+          )}
+        >
+          {withdrawing
+            ? "Withdrawing…"
+            : canWithdraw
+              ? `Withdraw ${formatGram(earned)} GRAM`
+              : `Min ${REFERRAL_MIN_WITHDRAW} GRAM to withdraw`}
+        </button>
+      </div>
+
       {/* Tier badge */}
-      <div className="mx-4 mb-4 rounded-3xl p-5 border border-white/[0.08] relative overflow-hidden"
+      <div
+        className="mx-4 mb-4 rounded-3xl p-5 border border-white/[0.08] relative overflow-hidden"
         style={{
           background: tier
             ? `linear-gradient(135deg, ${tier.color}22, transparent 60%)`
@@ -70,47 +116,32 @@ export function ReferralsScreen({
             {tier?.name || "Starter"}
           </span>
         </div>
-        <p className="text-xs text-white/40 mt-2 leading-relaxed">
-          {tier
-            ? `You earn ${Math.round(tier.shareOfHouseFee * 100)}% of Gramelle commission from friends' bets`
-            : `Invite friends to unlock Bronze (${Math.round(REFERRAL_TIERS[0].shareOfHouseFee * 100)}% of house fee)`}
-        </p>
-        {next && (
-          <p className="text-[11px] text-white/30 mt-2">
-            Next: {next.emoji} {next.name} — {next.minActive}+ active
-            {next.minTurnover > 0 ? `, ${next.minTurnover} GRAM turnover` : ""}
-          </p>
+        <div className="mt-3 flex gap-4 text-xs text-white/50">
+          <span>
+            <span className="text-white/80 font-medium">{count}</span> invited
+          </span>
+          <span>
+            <span className="text-white/80 font-medium">{active}</span> active
+          </span>
+          <span>
+            <span className="text-white/80 font-medium tabular-nums">
+              {formatGram(turnover)}
+            </span>{" "}
+            turnover
+          </span>
+        </div>
+        {tier && (
+          <div className="mt-2 text-xs text-cyan-300/80">
+            You earn {Math.round(tier.shareOfHouseFee * 100)}% of house fee
+          </div>
         )}
       </div>
 
-      <div className="mx-4 grid grid-cols-3 gap-2">
-        {[
-          { label: "Earned", value: formatGram(earned), gold: true },
-          { label: "Friends", value: String(count) },
-          { label: "Active", value: String(active || 0) },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-3 text-center"
-          >
-            <div
-              className={cn(
-                "text-lg font-semibold tabular-nums",
-                s.gold && "text-gradient-gold"
-              )}
-            >
-              {s.value}
-            </div>
-            <div className="text-[10px] text-white/30 mt-0.5 uppercase tracking-wider">
-              {s.label}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mx-4 mt-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 flex justify-between text-xs">
+      <div className="mx-4 mt-1 rounded-2xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 flex justify-between text-xs">
         <span className="text-white/35">Referral turnover</span>
-        <span className="tabular-nums text-white/70">{formatGram(turnover)} GRAM</span>
+        <span className="tabular-nums text-white/70">
+          {formatGram(turnover)} GRAM
+        </span>
       </div>
 
       {/* Tiers list */}
@@ -151,7 +182,7 @@ export function ReferralsScreen({
 
       <div className="mx-4 mt-5 rounded-2xl glass p-4 border border-white/[0.07]">
         <div className="text-[11px] text-white/35 uppercase tracking-widest mb-2">
-          Your link · +{REFERRAL_JOIN_BONUS} GRAM per new friend
+          Your link
         </div>
         <div className="text-[11px] text-white/45 break-all font-mono bg-black/30 rounded-xl px-3 py-2.5 border border-white/[0.04]">
           {refLink}

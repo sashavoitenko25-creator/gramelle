@@ -1,6 +1,6 @@
 "use client";
 
-import { REFERRAL_JOIN_BONUS, REFERRAL_TIERS } from "@/lib/constants";
+import { REFERRAL_TIERS, REFERRAL_MIN_WITHDRAW } from "@/lib/constants";
 
 interface HowRefModalProps {
   open: boolean;
@@ -20,13 +20,14 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
         <h3 className="text-lg font-semibold mb-3">Referral program</h3>
         <div className="space-y-3 text-sm text-white/65 leading-relaxed mb-4">
           <p>
-            Invite a <span className="text-white/90">new</span> player — get{" "}
-            <span className="text-cyan-300 font-medium">{REFERRAL_JOIN_BONUS} GRAM</span>{" "}
-            when they open the app for the first time.
+            Invite friends with your link. When they play, you earn a{" "}
+            <span className="text-white/90">% of Gramelle commission</span>{" "}
+            (5% house edge) from their bets — not from deposits.
           </p>
           <p>
-            Then earn a <span className="text-white/90">% of Gramelle commission</span>{" "}
-            (5% house edge) from every bet your active friends place — not from deposits.
+            Earnings go to your{" "}
+            <span className="text-cyan-300 font-medium">referral savings</span>.
+            Withdraw to main balance anytime (min {REFERRAL_MIN_WITHDRAW} GRAM).
           </p>
           <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-3 space-y-2">
             {REFERRAL_TIERS.map((t) => (
@@ -41,7 +42,8 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
             ))}
           </div>
           <p className="text-xs text-white/40">
-            Silver+ also need referral turnover (sum of friends' bets). Active = friends with ≥1 game.
+            Silver+ also need referral turnover (sum of friends&apos; bets).
+            Active = friends with ≥1 game. No signup bonus.
           </p>
         </div>
         <div className="flex gap-2">

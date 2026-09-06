@@ -98,6 +98,8 @@ export function useProfile({
             biggest_win: session.profile.biggest_win,
             wins: session.profile.wins,
             games: session.profile.games,
+            ref_active: session.profile.ref_active,
+            ref_turnover: session.profile.ref_turnover,
           };
           setProfile(p);
           setBalance(p.balance);

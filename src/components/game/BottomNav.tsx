@@ -30,6 +30,25 @@ const items: { id: Screen; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
+    id: "tasks",
+    label: "Tasks",
+    icon: (
+      <svg
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M9 11l3 3L22 4" />
+        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+      </svg>
+    ),
+  },
+  {
     id: "profile",
     label: "Profile",
     icon: (
@@ -67,7 +86,7 @@ export function BottomNav({ screen, onChange }: BottomNavProps) {
                 key={item.id}
                 onClick={() => onChange(item.id)}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 py-2.5 px-6 rounded-xl transition-all duration-200 btn-press min-w-[72px]",
+                  "flex flex-col items-center gap-0.5 py-2.5 px-5 rounded-xl transition-all duration-200 btn-press min-w-[64px]",
                   active
                     ? "text-cyan-300"
                     : "text-white/35 hover:text-white/55"

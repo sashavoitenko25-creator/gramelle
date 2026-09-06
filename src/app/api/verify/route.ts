@@ -40,12 +40,14 @@ export async function GET(req: NextRequest) {
       .select("telegram_id, username, amount, color")
       .eq("round_id", round.id);
 
-    const bets = (betsData || []).map((b) => ({
-      telegramId: Number(b.telegram_id),
-      username: String(b.username),
-      amount: Number(b.amount),
-      color: String(b.color || ""),
-    }));
+    const bets = (betsData || [])
+      .map((b) => ({
+        telegramId: Number(b.telegram_id),
+        username: String(b.username),
+        amount: Number(b.amount),
+        color: String(b.color || ""),
+      }))
+      .sort((a, b) => a.telegramId - b.telegramId);
 
     const serverSeed = String(round.server_seed || "");
     const serverSeedHash = String(round.server_seed_hash || "");

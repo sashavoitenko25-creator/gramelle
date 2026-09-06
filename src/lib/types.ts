@@ -35,9 +35,11 @@ export interface Profile {
   biggest_win?: number;
   wins?: number;
   games?: number;
+  ref_active?: number;
+  ref_turnover?: number;
 }
 
-export type Screen = "games" | "pvp" | "rps" | "history" | "profile" | "referrals" | "transactions";
+export type Screen = "games" | "pvp" | "rps" | "history" | "profile" | "referrals" | "transactions" | "tasks";
 export type HistoryFilter = "all" | "lucky" | "top" | "wins" | "my";
 export type DepositMethod = "stars" | "ton";
 

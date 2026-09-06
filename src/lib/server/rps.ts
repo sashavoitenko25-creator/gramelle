@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { getAdminClient } from "./supabase";
 import { creditBalance, recordWinStats } from "./ledger";
 import { creditHouse } from "./house";
+import { payReferralFromHouseFee } from "./referral";
 import { HOUSE_EDGE, MIN_BET } from "@/lib/constants";
 
 export type RpsChoice = "rock" | "paper" | "scissors";
@@ -428,6 +429,16 @@ export async function finishRoom(roomId: string): Promise<RpsRoomRow | null> {
         room_id: roomId,
       });
     } catch {}
+    // Referral share of house fee (same model as roulette) — half each player's stake
+    if (houseFee > 0) {
+      const slice = +(houseFee / 2).toFixed(6);
+      try {
+        await payReferralFromHouseFee(creatorId, amount, slice);
+      } catch {}
+      try {
+        await payReferralFromHouseFee(joinerId, amount, slice);
+      } catch {}
+    }
   }
 
   // History for both players

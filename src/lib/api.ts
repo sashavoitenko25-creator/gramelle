@@ -214,3 +214,16 @@ export async function fetchWithdrawals() {
     }>;
   }>("/api/withdraw");
 }
+
+export async function withdrawReferralSavings(amount?: number) {
+  return apiFetch<{
+    ok: boolean;
+    balance: number;
+    refEarned: number;
+    withdrawn: number;
+    minWithdraw: number;
+  }>("/api/referral/withdraw", {
+    method: "POST",
+    body: JSON.stringify(amount != null ? { amount } : {}),
+  });
+}
