@@ -218,7 +218,7 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold tracking-tight">
-                SPIN#{data?.roomSeq ?? rollId}
+                {(data?.mode === "high" ? "SPINH" : "SPINC")}#{data?.roomSeq ?? rollId}
               </h2>
               {data?.at && (
                 <p className="text-[11px] text-white/35 mt-0.5">

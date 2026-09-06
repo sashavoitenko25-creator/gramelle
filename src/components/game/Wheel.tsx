@@ -124,7 +124,7 @@ export function Wheel({
       el.style.transition = "none";
       el.style.transform = "rotate(0deg)";
       void el.offsetWidth;
-      el.style.transition = "transform 30s cubic-bezier(0.05, 0.7, 0.1, 1)";
+      el.style.transition = "transform 20s cubic-bezier(0.02, 0.85, 0.05, 1)";
       el.style.transform = `rotate(${spinDegrees}deg)`;
     } else if (!isSpinning) {
       el.style.transition = "none";

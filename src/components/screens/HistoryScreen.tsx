@@ -176,7 +176,12 @@ export function HistoryScreen({
                     @{winner}
                   </div>
                   <div className="text-[11px] text-white/40 flex items-center gap-1.5 mt-0.5">
-                    <span>SPIN#{roomSeq}</span>
+                    <span>
+                      {(isServer ? (h as ServerItem).mode : undefined) === "high"
+                        ? "SPINH"
+                        : "SPINC"}
+                      #{roomSeq}
+                    </span>
                     <span>·</span>
                     <span>{chance}%</span>
                     {timeLabel && (

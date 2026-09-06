@@ -70,8 +70,8 @@ function Avatar({
 /** Approximate cubic-bezier(0.12, 0.85, 0.15, 1) progress 0..1 */
 function spinEase(t: number) {
   const x = Math.min(1, Math.max(0, t));
-  // smooth ease-out matching wheel CSS
-  return 1 - Math.pow(1 - x, 3.4);
+  // match cubic-bezier(0.02, 0.85, 0.05, 1) — long soft deceleration
+  return 1 - Math.pow(1 - x, 4.2);
 }
 
 function playerUnderPointer(
@@ -180,7 +180,7 @@ export function PvpScreen({
     const list = players.map((p) =>
       p.isMe && myPhotoUrl && !p.photoUrl ? { ...p, photoUrl: myPhotoUrl } : p
     );
-    const duration = 30_000;
+    const duration = 20_000;
     const t0 = performance.now();
     let raf = 0;
     const tick = (now: number) => {
@@ -214,9 +214,7 @@ export function PvpScreen({
             </div>
             <div className="text-[10px] text-white/40 flex items-center gap-1.5 mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
-              {players.length > 0
-                ? `${players.length} online`
-                : "online"}
+              {online > 0 ? `${online} online` : "online"}
             </div>
           </div>
         </div>
@@ -444,7 +442,7 @@ export function PvpScreen({
           Players · {players.length}
         </span>
         <span className="text-[11px] text-white/35 uppercase tracking-[0.12em] font-medium tabular-nums">
-          SPIN#{roomSeq ?? rollId}
+          {mode === "high" ? "SPINH" : "SPINC"}#{roomSeq ?? rollId}
         </span>
       </div>
 

@@ -22,8 +22,8 @@ import { WinOverlay } from "@/components/ui/WinOverlay";
 import { Confetti } from "@/components/ui/Confetti";
 import { WithdrawModal } from "@/components/modals/WithdrawModal";
 import { VerifyModal } from "@/components/modals/VerifyModal";
-import { playSpinSound, playWinSound, playLoseSound, playBetSound } from "@/lib/sounds";
-import {
+import { playSpinSound, playWinSound, playLoseSound, playBetSound, startWheelSound, stopWheelSound } from "@/lib/sounds";
+import { SPIN_DURATION_MS,
   SPIN_FINISH_DELAY_MS,
   MAX_PLAYERS,
   BOT_USERNAME,
@@ -34,7 +34,7 @@ import {
 } from "@/lib/constants";
 import { randomColor } from "@/lib/utils";
 import type { Player, Screen } from "@/lib/types";
-import { placeBetApi, withdrawReferralSavings } from "@/lib/api";
+import { placeBetApi, withdrawReferralSavings, fetchRoundState } from "@/lib/api";
 
 export default function Home() {
   const {
@@ -128,7 +128,37 @@ export default function Home() {
   modeRef.current = mode;
 
   const showToast = useCallback((msg: string) => setToast(msg), []);
-  const online = players.length;
+  // Shared SPIN online across Classic + High
+  const [spinOnline, setSpinOnline] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const [classic, high] = await Promise.all([
+          fetchRoundState("classic").catch(() => null),
+          fetchRoundState("high").catch(() => null),
+        ]);
+        if (!alive) return;
+        const ids = new Set<number>();
+        for (const st of [classic, high]) {
+          if (!st?.bets) continue;
+          for (const b of st.bets) {
+            if (b.telegramId) ids.add(Number(b.telegramId));
+          }
+        }
+        setSpinOnline(ids.size);
+      } catch {
+        /* keep */
+      }
+    };
+    load();
+    const id = setInterval(load, 5000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [players, mode]);
+  const online = Math.max(spinOnline, players.length);
 
   const clearCountdown = useCallback(() => {
     if (countdownTimer.current) {
@@ -176,6 +206,7 @@ export default function Home() {
     setSpinDegrees(deg);
     haptic("medium");
     playSpinSound();
+    startWheelSound(SPIN_DURATION_MS);
     clearCountdown();
 
     const list = playersRef.current;
@@ -199,6 +230,7 @@ export default function Home() {
 
       if (isMe) {
         hapticSuccess();
+        stopWheelSound();
         playWinSound();
         setConfetti(true);
         setTimeout(() => setConfetti(false), 2400);
@@ -219,6 +251,7 @@ export default function Home() {
         await reloadProfile();
       } else {
         haptic("medium");
+        stopWheelSound();
         playLoseSound();
         showToast(
           "@" +
@@ -340,6 +373,7 @@ export default function Home() {
     setStatus("Spinning");
     haptic("medium");
     playSpinSound();
+    startWheelSound(SPIN_DURATION_MS);
 
     const total = list.reduce((s, p) => s + p.amount, 0);
     let r = Math.random() * total;
