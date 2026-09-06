@@ -233,3 +233,32 @@ export async function withdrawReferralSavings(amount?: number) {
     body: JSON.stringify(amount != null ? { amount } : {}),
   });
 }
+
+
+export async function fetchTasks() {
+  return apiFetch<{
+    ok: boolean;
+    tasks: Array<{
+      id: string;
+      title: string;
+      description: string;
+      channel: string;
+      channelLink: string;
+      rewardGram: number;
+      completed: boolean;
+    }>;
+  }>("/api/tasks");
+}
+
+export async function claimTask(taskId: string) {
+  return apiFetch<{
+    ok: boolean;
+    completed: boolean;
+    rewardGram: number;
+    balance: number;
+    taskId: string;
+  }>("/api/tasks/claim", {
+    method: "POST",
+    body: JSON.stringify({ taskId }),
+  });
+}

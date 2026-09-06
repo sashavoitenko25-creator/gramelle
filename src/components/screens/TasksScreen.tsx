@@ -1,10 +1,84 @@
 "use client";
 
-/**
- * Tasks hub — placeholder for future missions
- * (e.g. subscribe to channel → 0.125 GRAM).
- */
-export function TasksScreen({ onBack }: { onBack?: () => void }) {
+import { useCallback, useEffect, useState } from "react";
+import { fetchTasks, claimTask } from "@/lib/api";
+import { formatGram, cn } from "@/lib/utils";
+import { GramIcon } from "@/components/ui/GramIcon";
+
+interface TaskRow {
+  id: string;
+  title: string;
+  description: string;
+  channel: string;
+  channelLink: string;
+  rewardGram: number;
+  completed: boolean;
+}
+
+interface Props {
+  onBack?: () => void;
+  openLink?: (url: string) => void;
+  showToast?: (msg: string) => void;
+  haptic?: (t?: "light" | "medium" | "heavy") => void;
+  hapticSuccess?: () => void;
+  hapticError?: () => void;
+  onRewarded?: (balance?: number) => void;
+}
+
+export function TasksScreen({
+  onBack,
+  openLink,
+  showToast,
+  haptic,
+  hapticSuccess,
+  hapticError,
+  onRewarded,
+}: Props) {
+  const [tasks, setTasks] = useState<TaskRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetchTasks();
+      setTasks(res.tasks || []);
+    } catch (e) {
+      showToast?.(e instanceof Error ? e.message : "Failed to load tasks");
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const openChannel = (t: TaskRow) => {
+    haptic?.("light");
+    if (openLink) openLink(t.channelLink);
+    else window.open(t.channelLink, "_blank");
+  };
+
+  const check = async (t: TaskRow) => {
+    if (t.completed || busyId) return;
+    setBusyId(t.id);
+    haptic?.("light");
+    try {
+      const res = await claimTask(t.id);
+      hapticSuccess?.();
+      showToast?.(`+${formatGram(res.rewardGram)} GRAM`);
+      setTasks((prev) =>
+        prev.map((x) => (x.id === t.id ? { ...x, completed: true } : x))
+      );
+      onRewarded?.(res.balance);
+    } catch (e) {
+      hapticError?.();
+      showToast?.(e instanceof Error ? e.message : "Check failed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
       <div className="flex items-center justify-between px-4 pt-3 pb-3">
@@ -24,34 +98,70 @@ export function TasksScreen({ onBack }: { onBack?: () => void }) {
         <div className="w-9" />
       </div>
 
-      <div className="mx-4 mt-6 rounded-3xl border border-white/[0.08] bg-white/[0.03] p-6 text-center">
-        <div className="text-4xl mb-3">🎯</div>
-        <h3 className="text-lg font-semibold mb-2">Coming soon</h3>
-        <p className="text-sm text-white/45 leading-relaxed">
-          Complete simple tasks — subscribe to a channel, invite friends, play
-          rounds — and earn GRAM rewards.
-        </p>
-      </div>
+      <p className="px-4 text-[12px] text-white/40 mb-3 leading-relaxed">
+        Join the channel, then press Check. Reward is paid once after verification.
+      </p>
 
-      <div className="mx-4 mt-4 space-y-2 opacity-50 pointer-events-none">
-        {[
-          { title: "Subscribe to channel", reward: "0.125 GRAM" },
-          { title: "Play 5 rounds", reward: "0.25 GRAM" },
-          { title: "Invite 1 friend", reward: "0.125 GRAM" },
-        ].map((t) => (
-          <div
-            key={t.title}
-            className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-3.5 flex items-center justify-between"
-          >
-            <div>
-              <div className="text-sm text-white/70">{t.title}</div>
-              <div className="text-[11px] text-white/30 mt-0.5">Locked</div>
-            </div>
-            <div className="text-xs font-medium text-cyan-300/60 tabular-nums">
-              +{t.reward}
-            </div>
+      <div className="px-4 space-y-3">
+        {loading && (
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 text-center text-sm text-white/40">
+            Loading…
           </div>
-        ))}
+        )}
+        {!loading &&
+          tasks.map((t) => (
+            <div
+              key={t.id}
+              className={cn(
+                "rounded-2xl border px-4 py-4",
+                t.completed
+                  ? "border-emerald-500/25 bg-emerald-500/[0.06]"
+                  : "border-white/[0.08] bg-white/[0.03]"
+              )}
+            >
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-white/90">
+                    {t.title}
+                  </div>
+                  <div className="text-[12px] text-white/40 mt-1">
+                    {t.description}
+                  </div>
+                  <div className="text-[11px] text-cyan-300/70 mt-1.5 font-mono">
+                    {/^-?\d+$/.test(t.channel) ? "Private channel" : `@${t.channel}`}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 text-sm font-semibold text-cyan-300 tabular-nums">
+                  <GramIcon size={16} />
+                  +{formatGram(t.rewardGram)}
+                </div>
+              </div>
+
+              {t.completed ? (
+                <div className="h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-300 text-sm font-medium flex items-center justify-center">
+                  Completed
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openChannel(t)}
+                    className="flex-1 h-10 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-white/75 btn-press"
+                  >
+                    Open channel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyId === t.id}
+                    onClick={() => void check(t)}
+                    className="flex-1 h-10 rounded-xl btn-primary text-sm font-medium btn-press disabled:opacity-50"
+                  >
+                    {busyId === t.id ? "Checking…" : "Check"}
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
       </div>
     </div>
   );

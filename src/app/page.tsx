@@ -761,7 +761,16 @@ export default function Home() {
         />
       )}
 
-      {screen === "tasks" && <TasksScreen />}
+      {screen === "tasks" && (
+        <TasksScreen
+          openLink={openLink}
+          showToast={showToast}
+          haptic={haptic}
+          hapticSuccess={hapticSuccess}
+          hapticError={hapticError}
+          onRewarded={() => void reloadProfile()}
+        />
+      )}
 
       <BottomNav
         screen={screen}

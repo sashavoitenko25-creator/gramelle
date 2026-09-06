@@ -113,3 +113,49 @@ export const MAX_BETS_PER_MINUTE = 20;
 export const DAILY_WITHDRAW_LIMIT_TON = 50;
 export const MIN_BANK_TO_SPIN = 0.5;
 export const DEFAULT_ROOM: RoomMode = "classic";
+
+
+/** One-time channel subscribe tasks (bot must be admin in these channels) */
+export type TaskId = "channel_project" | "channel_friend";
+
+export interface TaskDef {
+  id: TaskId;
+  title: string;
+  description: string;
+  /** @username OR numeric chat id (private: -100... / -18...) */
+  channel: string;
+  /** Open button link (public t.me/name or private invite t.me/+) */
+  inviteLink: string;
+  rewardGram: number;
+}
+
+export const TASKS: TaskDef[] = [
+  {
+    id: "channel_project",
+    title: "Subscribe to project channel",
+    description: "Join the official Gramelle channel",
+    channel: process.env.NEXT_PUBLIC_TASK_CHANNEL_PROJECT || "GramellePlay",
+    inviteLink:
+      process.env.NEXT_PUBLIC_TASK_CHANNEL_PROJECT_LINK ||
+      "https://t.me/GramellePlay",
+    rewardGram: 0.125,
+  },
+  {
+    id: "channel_friend",
+    title: "Subscribe to partner channel",
+    description: "Join the partner channel",
+    // private channel id (also try -100… form in API if needed)
+    channel: process.env.NEXT_PUBLIC_TASK_CHANNEL_FRIEND || "-1858402844",
+    inviteLink:
+      process.env.NEXT_PUBLIC_TASK_CHANNEL_FRIEND_LINK ||
+      "https://t.me/+GHAd4K5SauZhMTcy",
+    rewardGram: 0.125,
+  },
+];
+
+export function taskChannelLink(task: TaskDef): string {
+  if (task.inviteLink) return task.inviteLink;
+  const ch = task.channel.replace(/^@/, "");
+  if (/^-?\d+$/.test(ch)) return task.inviteLink || "";
+  return `https://t.me/${ch}`;
+}
