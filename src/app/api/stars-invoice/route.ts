@@ -6,15 +6,10 @@ import { rateLimit } from "@/lib/server/rateLimit";
 export async function POST(req: NextRequest) {
   try {
     let telegramId: number;
-    let _username: string;
 
     try {
       const auth = await requireTelegramUser(req);
       telegramId = auth.user.id;
-      _username =
-        auth.user.username ||
-        auth.user.first_name ||
-        String(auth.user.id);
     } catch {
       // allow body fallback only in development without initData
       if (process.env.NODE_ENV === "production") {
@@ -22,7 +17,6 @@ export async function POST(req: NextRequest) {
       }
       const body = await req.clone().json();
       telegramId = Number(body.telegramId) || 0;
-      _username = body.username || "dev";
       if (!telegramId) throw new AuthError("Missing Telegram auth");
     }
 
@@ -55,7 +49,6 @@ export async function POST(req: NextRequest) {
 
     const gram = stars * GRAM_PER_STAR;
     const payload = `stars_${stars}_${telegramId}_${Date.now()}`;
-    void username;
 
     const tgRes = await fetch(
       `https://api.telegram.org/bot${token}/createInvoiceLink`,
