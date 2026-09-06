@@ -15,6 +15,7 @@ interface PlayerRow {
 
 interface DetailData {
   rollId: number;
+  roomSeq?: number;
   mode?: string;
   bank: number;
   pot: number;

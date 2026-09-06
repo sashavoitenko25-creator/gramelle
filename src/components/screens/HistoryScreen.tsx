@@ -22,7 +22,6 @@ interface ServerItem {
   pot: number;
   chance: number;
   at?: string;
-  mode?: string;
 }
 
 export function HistoryScreen({

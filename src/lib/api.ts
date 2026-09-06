@@ -58,6 +58,7 @@ export async function placeBetApi(
     round: {
       id: string;
       rollId: number;
+      roomSeq?: number;
       mode: string;
       status: string;
       totalBank: number;
@@ -82,6 +83,7 @@ export async function fetchRoundState(mode: string = "classic") {
     round: {
       id: string;
       rollId: number;
+      roomSeq?: number;
       mode: string;
       status: string;
       totalBank: number;
