@@ -10,9 +10,7 @@ import {
   TON_PACKAGES,
   TON_DEPOSIT_ADDRESS,
   MIN_DEPOSIT_STARS,
-  MAX_DEPOSIT_STARS,
   MIN_DEPOSIT_TON,
-  MAX_DEPOSIT_TON,
 } from "@/lib/constants";
 import {
   requestStarsInvoice,
@@ -26,7 +24,6 @@ import { cn } from "@/lib/utils";
 import type { DepositMethod } from "@/lib/types";
 import { TonIcon } from "@/components/ui/TonIcon";
 import { StarsIcon } from "@/components/ui/StarsIcon";
-import { GRAM_PER_STAR } from "@/lib/constants";
 
 interface DepositModalProps {
   open: boolean;

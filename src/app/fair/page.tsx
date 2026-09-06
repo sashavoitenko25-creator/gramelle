@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useState } from "react";
 import { HOUSE_EDGE, MIN_BET, ROOMS } from "@/lib/constants";
 
@@ -10,11 +12,6 @@ interface RecentItem {
   winner: string;
   chance: number;
   hasSeed: boolean;
-}
-
-interface Stats {
-  rounds24h?: number;
-  bets24h?: number;
 }
 
 export default function FairPage() {
@@ -165,9 +162,9 @@ export default function FairPage() {
         </div>
 
         <p className="text-center text-[11px] text-white/25 mt-6">
-          <a href="/" className="hover:text-white/50 transition">
+          <Link href="/">
             ← Back to app
-          </a>
+          </Link>
         </p>
       </div>
     </div>

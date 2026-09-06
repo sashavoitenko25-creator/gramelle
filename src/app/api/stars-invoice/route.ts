@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTelegramUser, getBotToken } from "@/lib/server/telegram";
-import { GRAM_PER_STAR, MIN_DEPOSIT_STARS, MAX_DEPOSIT_STARS } from "@/lib/constants";
+import { GRAM_PER_STAR, MIN_DEPOSIT_STARS } from "@/lib/constants";
 import { rateLimit } from "@/lib/server/rateLimit";
 
 export async function POST(req: NextRequest) {
   try {
     let telegramId: number;
-    let username: string;
+    let _username: string;
 
     try {
       const auth = await requireTelegramUser(req);
       telegramId = auth.user.id;
-      username =
+      _username =
         auth.user.username ||
         auth.user.first_name ||
         String(auth.user.id);
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       }
       const body = await req.clone().json();
       telegramId = Number(body.telegramId) || 0;
-      username = body.username || "dev";
+      _username = body.username || "dev";
       if (!telegramId) throw new AuthError("Missing Telegram auth");
     }
 
@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
 
     const gram = stars * GRAM_PER_STAR;
     const payload = `stars_${stars}_${telegramId}_${Date.now()}`;
+    void username;
 
     const tgRes = await fetch(
       `https://api.telegram.org/bot${token}/createInvoiceLink`,

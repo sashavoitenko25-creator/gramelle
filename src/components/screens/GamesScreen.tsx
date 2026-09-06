@@ -51,11 +51,7 @@ export function GamesScreen({
         // RPS: players in open rooms (1 each) + anyone in a playing duel (2)
         if (rps) {
           const open = (rps.rooms || []).length;
-          // mine open counts as 1; if mine is playing, 2 people in duel
-          let extra = 0;
-          if (rps.mine?.status === "playing") extra = 2;
-          else if (rps.mine?.status === "open") extra = 0; // already in open list if listed
-          // open rooms each have 1 creator waiting
+          // open rooms: 1 creator each; playing duel: 2 players
           setRpsOnline(Math.max(0, open + (rps.mine?.status === "playing" ? 2 : 0)));
         }
 

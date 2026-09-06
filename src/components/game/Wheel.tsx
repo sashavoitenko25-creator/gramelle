@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Player } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 interface WheelProps {
   players: Player[];

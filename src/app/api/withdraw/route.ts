@@ -4,7 +4,6 @@ import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 import { creditBalance, getOrCreateProfile } from "@/lib/server/ledger";
 import {
   MIN_WITHDRAW_TON,
-  MAX_WITHDRAW_TON,
   GRAM_PER_TON,
   WITHDRAW_FEE_GRAM,
   DAILY_WITHDRAW_LIMIT_TON,

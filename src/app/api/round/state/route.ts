@@ -4,7 +4,6 @@ import {
   getRecentFinishedSpin,
   ensureOpenRound,
   enrichBetsWithPhotos,
-  getOpenRound,
 } from "@/lib/server/round";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 import { DEFAULT_ROOM, type RoomMode } from "@/lib/constants";

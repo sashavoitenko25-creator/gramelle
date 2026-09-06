@@ -80,7 +80,7 @@ function playerUnderPointer(
   const total = list.reduce((s, p) => s + p.amount, 0);
   if (total <= 0) return null;
   // Pointer at top; wheel rotated by rotationDeg clockwise
-  let angle = (360 - (rotationDeg % 360) + 360) % 360;
+  const angle = (360 - (rotationDeg % 360) + 360) % 360;
   let acc = 0;
   for (const p of list) {
     const sweep = (p.amount / total) * 360;

@@ -66,7 +66,7 @@ https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://YOUR_DOMAIN/api/webho
 
 ### Vercel Cron
 
-`vercel.json` schedules `/api/round/tick` every minute (`* * * * *`) so rounds spin even if all clients leave.
+Use an **external cron** (e.g. cron-job.org) to hit `GET /api/round/tick` every minute — Vercel Hobby only allows daily crons.
 
 ## API (main)
 
