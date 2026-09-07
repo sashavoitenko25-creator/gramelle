@@ -2,6 +2,7 @@
 
 import type { Screen } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/context";
 
 interface BottomNavProps {
   screen: Screen;
@@ -71,6 +72,12 @@ const items: { id: Screen; label: string; icon: React.ReactNode }[] = [
 ];
 
 export function BottomNav({ screen, onChange }: BottomNavProps) {
+  const { t } = useI18n();
+  const labels: Record<string, string> = {
+    games: t("play"),
+    tasks: t("tasks"),
+    profile: t("profile"),
+  };
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 safe-bottom pointer-events-none">
       <div className="mx-auto max-w-lg px-4 pb-1 pointer-events-auto">
@@ -101,7 +108,7 @@ export function BottomNav({ screen, onChange }: BottomNavProps) {
                   {item.icon}
                 </span>
                 <span className="text-[10px] font-medium tracking-wide">
-                  {item.label}
+                  {labels[item.id] || item.label}
                 </span>
               </button>
             );

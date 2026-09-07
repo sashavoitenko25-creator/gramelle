@@ -24,6 +24,7 @@ import { tonAmountToNano } from "@/lib/tonPayload";
 import { cn } from "@/lib/utils";
 import type { DepositMethod } from "@/lib/types";
 import { TonIcon } from "@/components/ui/TonIcon";
+import { GramIcon } from "@/components/ui/GramIcon";
 import { StarsIcon } from "@/components/ui/StarsIcon";
 
 interface DepositModalProps {
@@ -346,7 +347,7 @@ export function DepositModal({
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-white/40 mt-1">
+                  <div className="text-[11px] text-white/40 mt-1 flex items-center gap-1">
                     → {p.gram} GRAM
                   </div>
                 </button>
@@ -387,8 +388,8 @@ export function DepositModal({
                     <TonIcon className="w-4 h-4" />
                     {p.ton} TON
                   </div>
-                  <div className="text-[11px] text-white/40 mt-1">
-                    → {p.gram} GRAM
+                  <div className="text-[11px] text-white/40 mt-1 flex items-center gap-1">
+                    → {p.gram} <GramIcon size={12} /> GRAM
                   </div>
                 </button>
               ))}

@@ -1,5 +1,7 @@
 "use client";
 
+import { ChoiceIcon } from "@/components/rps/RpsIcons";
+import { useI18n } from "@/lib/i18n/context";
 import { SpinIcon } from "@/components/ui/SpinIcon";
 import { useEffect, useState } from "react";
 import { rpsList } from "@/lib/rpsApi";
@@ -33,6 +35,7 @@ export function GamesScreen({
   onlineSpin: spinProp,
   onlineRps: rpsProp,
 }: GamesScreenProps) {
+  const { t } = useI18n();
   const [spinOnline, setSpinOnline] = useState(spinProp ?? 0);
   const [rpsOnline, setRpsOnline] = useState(rpsProp ?? 0);
 
@@ -91,7 +94,7 @@ export function GamesScreen({
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
           </span>
-          <span className="tabular-nums">{total} online</span>
+          <span className="tabular-nums">{total} {t("online")}</span>
         </div>
         <h1 className="text-center text-[30px] font-bold tracking-tight text-white leading-none">
           PvP Game
@@ -135,10 +138,10 @@ export function GamesScreen({
             </div>
             <div className="mt-6">
               <div className="text-[24px] font-bold text-white tracking-tight leading-none">
-                SPIN
+                {t("spin")}
               </div>
               <div className="text-[13px] text-white/55 mt-1.5 leading-snug">
-                Classic PvP roulette · winner takes the bank
+                {t("spinDesc")}
               </div>
             </div>
           </div>
@@ -167,37 +170,24 @@ export function GamesScreen({
           <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <div className="flex items-center -space-x-2.5">
-                <div className="w-11 h-11 rounded-full bg-white/[0.14] border-2 border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.3)] z-30">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white/90">
-                    <path
-                      d="M8 10.5c0-1.5 1-2.5 2.5-2.5h1c.8 0 1.5.4 2 1 .4-.6 1.1-1 2-1h1c1.5 0 2.5 1 2.5 2.5V15c0 2.2-1.8 4-4 4h-3c-2.2 0-4-1.8-4-4v-4.5z"
-                      fill="currentColor"
-                      opacity="0.9"
-                    />
-                  </svg>
+                <div className="w-11 h-11 rounded-full bg-white/[0.14] border-2 border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.3)] z-30 text-white">
+                  <ChoiceIcon choice="rock" className="w-5 h-5" />
                 </div>
-                <div className="w-11 h-11 rounded-full bg-white/[0.14] border-2 border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.3)] z-20">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white/90">
-                    <rect x="6" y="3" width="12" height="18" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
-                    <path d="M9 8h6M9 12h6M9 16h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity="0.7" />
-                  </svg>
+                <div className="w-11 h-11 rounded-full bg-white/[0.14] border-2 border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.3)] z-20 text-white">
+                  <ChoiceIcon choice="paper" className="w-5 h-5" />
                 </div>
-                <div className="w-11 h-11 rounded-full bg-white/[0.14] border-2 border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.3)] z-10">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white/90">
-                    <circle cx="6" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-                    <circle cx="6" cy="18" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-                    <path d="M8.5 7.5L20 18M8.5 16.5L20 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                  </svg>
+                <div className="w-11 h-11 rounded-full bg-white/[0.14] border-2 border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.3)] z-10 text-white">
+                  <ChoiceIcon choice="scissors" className="w-5 h-5" />
                 </div>
               </div>
               <OnlineBadge count={rps} />
             </div>
             <div className="mt-6">
               <div className="text-[22px] font-bold text-white tracking-tight leading-none">
-                Rock · Paper · Scissors
+                {t("rps")}
               </div>
               <div className="text-[13px] text-white/55 mt-1.5 leading-snug">
-                1v1 duel · create or join a room
+                {t("rpsDesc")}
               </div>
             </div>
           </div>

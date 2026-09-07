@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { formatGram } from "@/lib/utils";
 import { GramIcon } from "@/components/ui/GramIcon";
 import { ConnectWalletButton } from "@/components/ton/ConnectWalletButton";
+import { useI18n } from "@/lib/i18n/context";
+import type { Lang } from "@/lib/i18n/translations";
 
 interface ProfileScreenProps {
   username: string;
@@ -29,12 +32,48 @@ export function ProfileScreen({
   onReferrals,
   onTransactions,
 }: ProfileScreenProps) {
+  const { t, lang, setLang } = useI18n();
+  const [langOpen, setLangOpen] = useState(false);
   const initial = username.charAt(0).toUpperCase();
   const winrate = games > 0 ? Math.round((wins / games) * 100) : 0;
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      <div className="px-4 pt-8 pb-2 text-center">
+      <div className="relative px-4 pt-3 flex justify-end">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setLangOpen((v) => !v)}
+            className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-white/70 btn-press"
+            aria-label={t("language")}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18" strokeLinecap="round" />
+            </svg>
+          </button>
+          {langOpen && (
+            <div className="absolute right-0 top-11 z-50 w-36 rounded-2xl border border-white/10 bg-[#12121c] shadow-xl overflow-hidden">
+              {(["ru", "en"] as Lang[]).map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => {
+                    setLang(l);
+                    setLangOpen(false);
+                  }}
+                  className={`w-full text-left px-3.5 py-2.5 text-sm transition ${
+                    lang === l ? "bg-cyan-500/15 text-cyan-300" : "text-white/70 hover:bg-white/[0.05]"
+                  }`}
+                >
+                  {l === "ru" ? t("russian") : t("english")}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="px-4 pt-2 pb-2 text-center">
         <div className="relative w-[88px] h-[88px] mx-auto mb-4">
           <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-500/40 to-cyan-500/30 blur-md opacity-70" />
           <div className="relative w-full h-full rounded-full bg-gradient-to-br from-violet-500/25 to-cyan-500/20 border border-white/12 flex items-center justify-center overflow-hidden shadow-[0_0_40px_rgba(139,92,246,0.2)]">
@@ -47,12 +86,12 @@ export function ProfileScreen({
           </div>
         </div>
         <h2 className="text-xl font-semibold tracking-tight">{username}</h2>
-        <p className="text-xs text-white/35 mt-1">Player</p>
+        <p className="text-xs text-white/35 mt-1">{t("player")}</p>
       </div>
 
       <div className="mx-4 mt-5 rounded-3xl glass p-5 border border-white/[0.09]">
         <div className="text-[11px] text-white/40 uppercase tracking-widest mb-2">
-          Balance
+          {t("balance")}
         </div>
         <div className="flex items-center gap-2.5 mb-4">
           <GramIcon size={24} />
@@ -66,13 +105,13 @@ export function ProfileScreen({
             onClick={onDeposit}
             className="flex-1 px-4 py-2.5 rounded-xl btn-primary text-xs btn-press"
           >
-            Deposit
+            {t("deposit")}
           </button>
           <button
             onClick={onWithdraw}
             className="flex-1 px-4 py-2.5 rounded-xl btn-secondary text-xs btn-press border border-white/10"
           >
-            Withdraw
+            {t("withdraw")}
           </button>
         </div>
       </div>
@@ -112,7 +151,7 @@ export function ProfileScreen({
               </svg>
             </div>
             <div className="text-left">
-              <div className="text-sm font-medium">Transactions</div>
+              <div className="text-sm font-medium">{t("transactions")}</div>
               <div className="text-[11px] text-white/35">Deposits & withdrawals status</div>
             </div>
           </div>
@@ -133,7 +172,7 @@ export function ProfileScreen({
               </svg>
             </div>
             <div className="text-left">
-              <div className="text-sm font-medium">Referrals</div>
+              <div className="text-sm font-medium">{t("referrals")}</div>
               <div className="text-[11px] text-white/35">Share of house fee from friends&apos; bets</div>
             </div>
           </div>

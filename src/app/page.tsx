@@ -35,8 +35,10 @@ import { SPIN_DURATION_MS,
 import { randomColor } from "@/lib/utils";
 import type { Player, Screen } from "@/lib/types";
 import { placeBetApi, withdrawReferralSavings, fetchRoundState } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function Home() {
+  const { t } = useI18n();
   const {
     username: tgUsername,
     telegramId,
@@ -698,7 +700,9 @@ export default function Home() {
             setBalanceFromServer(b);
           }}
           onReloadBalance={() => {
-            reloadProfile();
+            void reloadProfile();
+            setTimeout(() => void reloadProfile(), 500);
+            setTimeout(() => void reloadProfile(), 1500);
           }}
           showToast={showToast}
           haptic={haptic}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchTasks, claimTask } from "@/lib/api";
 import { formatGram, cn } from "@/lib/utils";
 import { GramIcon } from "@/components/ui/GramIcon";
+import { useI18n } from "@/lib/i18n/context";
 
 interface TaskRow {
   id: string;
@@ -34,6 +35,7 @@ export function TasksScreen({
   hapticError,
   onRewarded,
 }: Props) {
+  const { t } = useI18n();
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -53,22 +55,22 @@ export function TasksScreen({
     void load();
   }, [load]);
 
-  const openChannel = (t: TaskRow) => {
+  const openChannel = (task: TaskRow) => {
     haptic?.("light");
-    if (openLink) openLink(t.channelLink);
-    else window.open(t.channelLink, "_blank");
+    if (openLink) openLink(task.channelLink);
+    else window.open(task.channelLink, "_blank");
   };
 
-  const check = async (t: TaskRow) => {
-    if (t.completed || busyId) return;
-    setBusyId(t.id);
+  const check = async (task: TaskRow) => {
+    if (task.completed || busyId) return;
+    setBusyId(task.id);
     haptic?.("light");
     try {
-      const res = await claimTask(t.id);
+      const res = await claimTask(task.id);
       hapticSuccess?.();
       showToast?.(`+${formatGram(res.rewardGram)} GRAM`);
       setTasks((prev) =>
-        prev.map((x) => (x.id === t.id ? { ...x, completed: true } : x))
+        prev.map((x) => (x.id === task.id ? { ...x, completed: true } : x))
       );
       onRewarded?.(res.balance);
     } catch (e) {
@@ -94,12 +96,12 @@ export function TasksScreen({
         ) : (
           <div className="w-9" />
         )}
-        <h2 className="text-base font-semibold tracking-tight">Tasks</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t("tasksTitle")}</h2>
         <div className="w-9" />
       </div>
 
       <p className="px-4 text-[12px] text-white/40 mb-3 leading-relaxed">
-        Join the channel, then press Check. Reward is paid once after verification.
+        {t("tasksHint")}
       </p>
 
       <div className="px-4 space-y-3">
@@ -109,12 +111,12 @@ export function TasksScreen({
           </div>
         )}
         {!loading &&
-          tasks.map((t) => (
+          tasks.map((task) => (
             <div
-              key={t.id}
+              key={task.id}
               className={cn(
                 "rounded-2xl border px-4 py-4",
-                t.completed
+                task.completed
                   ? "border-emerald-500/25 bg-emerald-500/[0.06]"
                   : "border-white/[0.08] bg-white/[0.03]"
               )}
@@ -122,19 +124,19 @@ export function TasksScreen({
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-white/90">
-                    {t.title}
+                    {task.title}
                   </div>
                   <div className="text-[12px] text-white/40 mt-1">
-                    {t.description}
+                    {task.description}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0 text-sm font-semibold text-cyan-300 tabular-nums">
-                  <span>+{formatGram(t.rewardGram)}</span>
+                  <span>+{formatGram(task.rewardGram)}</span>
                   <GramIcon size={16} />
                 </div>
               </div>
 
-              {t.completed ? (
+              {task.completed ? (
                 <div className="h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-300 text-sm font-medium flex items-center justify-center">
                   Completed
                 </div>
@@ -142,18 +144,18 @@ export function TasksScreen({
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => openChannel(t)}
+                    onClick={() => openChannel(task)}
                     className="flex-1 h-10 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-white/75 btn-press"
                   >
                     Open channel
                   </button>
                   <button
                     type="button"
-                    disabled={busyId === t.id}
-                    onClick={() => void check(t)}
+                    disabled={busyId === task.id}
+                    onClick={() => void check(task)}
                     className="flex-1 h-10 rounded-xl btn-primary text-sm font-medium btn-press disabled:opacity-50"
                   >
-                    {busyId === t.id ? "Checking…" : "Check"}
+                    {busyId === task.id ? t("loading") : t("check")}
                   </button>
                 </div>
               )}

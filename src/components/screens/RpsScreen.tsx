@@ -18,7 +18,7 @@ import {
   CHOICE_LABEL,
 } from "@/components/rps/RpsIcons";
 import { RPS_MIN_BET, RPS_MAX_BET } from "@/lib/rpsConstants";
-import { playWinSound, playLoseSound, playBetSound } from "@/lib/sounds";
+import { playWinSound, playLoseSound, playBetSound, startWheelSound, stopWheelSound } from "@/lib/sounds";
 
 interface RpsScreenProps {
   balance: number;
@@ -344,6 +344,7 @@ function ReelReveal({
     if (phase !== "spin") return;
     if (spinStartedRef.current) return;
     spinStartedRef.current = true;
+    startWheelSound(5200);
 
     const leftTarget = targetOffset(leftChoiceRef.current, 7);
     const rightTarget = targetOffset(rightChoiceRef.current, 8);
@@ -767,7 +768,10 @@ export function RpsScreen({
       const { room } = await rpsState(active.id);
       setActive(room);
       setView("result");
+      // Balance settles async on server — refresh a few times
       onReloadBalance?.();
+      setTimeout(() => onReloadBalance?.(), 400);
+      setTimeout(() => onReloadBalance?.(), 1200);
       loadHistory();
       const iWon =
         room.winnerTelegramId != null && room.winnerTelegramId === telegramId;
@@ -1071,8 +1075,8 @@ export function RpsScreen({
                     <div className="text-[14px] font-medium truncate">
                       @{r.creatorUsername}
                     </div>
-                    <div className="text-[11px] text-white/30 font-mono mt-0.5">
-                      {clipHash(r.creatorChoiceHash, 6, 4)}
+                    <div className="text-[11px] text-white/35 mt-0.5 tabular-nums">
+                      {formatGram(r.amount)} GRAM
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -1200,7 +1204,7 @@ export function RpsScreen({
 
           <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 mb-4">
             <div className="text-[9px] uppercase tracking-wider text-white/25 mb-1">
-              Provably fair · tap to copy
+              Fairness (after game) · tap to copy
             </div>
             <HashRow
               label="commit"
@@ -1219,27 +1223,6 @@ export function RpsScreen({
             />
           </div>
 
-          <button
-            type="button"
-            onClick={runVerify}
-            disabled={verifyState === "loading"}
-            className={cn(
-              "w-full h-12 rounded-2xl text-sm font-semibold btn-press mb-3 border transition",
-              verifyState === "ok"
-                ? "bg-emerald-500/15 border-emerald-400/30 text-emerald-300"
-                : verifyState === "fail"
-                  ? "bg-red-500/15 border-red-400/30 text-red-300"
-                  : "btn-secondary"
-            )}
-          >
-            {verifyState === "loading"
-              ? "Checking…"
-              : verifyState === "ok"
-                ? "Verified ✓"
-                : verifyState === "fail"
-                  ? "Failed ✗"
-                  : "Verify outcome"}
-          </button>
         </div>
       )}
 
@@ -1323,8 +1306,8 @@ export function RpsScreen({
               <div className="text-[15px] font-semibold truncate">
                 @{joinTarget.creatorUsername}
               </div>
-              <div className="text-[11px] text-white/30 font-mono mt-0.5">
-                {clipHash(joinTarget.creatorChoiceHash, 6, 4)}
+              <div className="text-[12px] text-white/40 mt-0.5">
+                {formatGram(joinTarget.amount)} GRAM
               </div>
             </div>
             <div className="text-right">
@@ -1472,27 +1455,7 @@ export function RpsScreen({
                   />
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => runVerifyRoom(active)}
-                  disabled={verifyState === "loading"}
-                  className={cn(
-                    "w-full max-w-sm h-11 rounded-2xl text-[13px] font-semibold btn-press mb-3 border transition",
-                    verifyState === "ok"
-                      ? "bg-emerald-500/15 border-emerald-400/30 text-emerald-300"
-                      : verifyState === "fail"
-                        ? "bg-red-500/15 border-red-400/30 text-red-300"
-                        : "btn-secondary"
-                  )}
-                >
-                  {verifyState === "loading"
-                    ? "Checking…"
-                    : verifyState === "ok"
-                      ? "Commit verified ✓"
-                      : verifyState === "fail"
-                        ? "Verify failed ✗"
-                        : "Verify fairness"}
-                </button>
+                
 
                 <button
                   type="button"
