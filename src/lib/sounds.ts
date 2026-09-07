@@ -72,12 +72,11 @@ export function startWheelSound(durationMs = 20_000) {
       return;
     }
     const p = elapsed / durationMs; // 0..1
-    // interval grows: start ~90ms, end ~420ms
-    const interval = 90 + p * p * 330;
-    const freq = 520 - p * 280;
-    const vol = 0.028 * (1 - p * 0.55);
-    tone(freq, 0, 0.04, "triangle", vol);
-    tone(freq * 0.5, 0.01, 0.05, "sine", vol * 0.5);
+    // Fewer ticks on mobile = less main-thread audio work
+    const interval = 140 + p * p * 420;
+    const freq = 480 - p * 240;
+    const vol = 0.022 * (1 - p * 0.55);
+    tone(freq, 0, 0.035, "triangle", vol);
     wheelTimer = setTimeout(tick, interval);
   };
   tick();

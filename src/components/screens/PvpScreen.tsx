@@ -183,10 +183,15 @@ export function PvpScreen({
     const duration = 20_000;
     const t0 = performance.now();
     let raf = 0;
+    let lastUi = 0;
     const tick = (now: number) => {
       const t = Math.min(1, (now - t0) / duration);
       const rot = spinDegrees * spinEase(t);
-      setPointedPlayer(playerUnderPointer(list, rot));
+      // Throttle React updates — every-frame setState was a major mobile lag source
+      if (now - lastUi >= 120 || t >= 1) {
+        lastUi = now;
+        setPointedPlayer(playerUnderPointer(list, rot));
+      }
       if (t < 1) raf = requestAnimationFrame(tick);
       else setPointedPlayer(playerUnderPointer(list, spinDegrees));
     };

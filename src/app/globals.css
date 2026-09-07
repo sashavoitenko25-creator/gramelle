@@ -275,3 +275,30 @@ html.tg-light {
 .wheel-avatar-in {
   animation: wheel-avatar-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+
+/* Mobile perf: cut expensive blurs / continuous animations */
+@media (max-width: 640px), (pointer: coarse) {
+  .glass {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .glass-strong {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .modal-backdrop {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .pulse-soft {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
