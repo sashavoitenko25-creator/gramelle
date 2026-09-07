@@ -11,6 +11,7 @@ interface WithdrawModalProps {
   open: boolean;
   onClose: () => void;
   balance: number;
+  wagerRemaining?: number;
   serverMode: boolean;
   onDone: (balance?: number) => void;
   showToast: (msg: string) => void;

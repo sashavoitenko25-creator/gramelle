@@ -37,6 +37,7 @@ export interface Profile {
   games?: number;
   ref_active?: number;
   ref_turnover?: number;
+  wager_remaining?: number;
 }
 
 export type Screen = "games" | "pvp" | "rps" | "history" | "profile" | "referrals" | "transactions" | "tasks";
