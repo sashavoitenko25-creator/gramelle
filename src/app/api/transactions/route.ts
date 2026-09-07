@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
         status,
         amount: Number(w.amount_ton || w.amount_gram || 0),
         unit: "TON",
-        title: "Withdraw TON",
+        title: "Вывод TON",
         detail: w.wallet_address
           ? String(w.wallet_address).slice(0, 8) +
             "…" +
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
           status,
           amount: Number(d.amount_ton || 0),
           unit: "TON",
-          title: "Deposit TON",
+          title: "Депозит TON",
           detail: d.memo ? `memo ${String(d.memo).slice(0, 12)}` : null,
           createdAt: d.created_at,
           txHash: d.tx_hash || null,
@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
           status: "completed",
           amount: Math.abs(Number(row.amount) || 0),
           unit: "GRAM",
-          title: "Deposit Stars",
+          title: "Депозит Stars",
           detail: null,
           createdAt: row.created_at,
         });
@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
           status: "completed",
           amount: Math.abs(Number(row.amount) || 0),
           unit: "GRAM",
-          title: "Deposit TON",
+          title: "Депозит TON",
           detail: null,
           createdAt: row.created_at,
         });
@@ -146,8 +146,8 @@ export async function GET(req: NextRequest) {
           status: "rejected",
           amount: Math.abs(Number(row.amount) || 0),
           unit: "GRAM",
-          title: "Refund",
-          detail: "Returned to balance",
+          title: "Возврат",
+          detail: "Возвращено на баланс",
           createdAt: row.created_at,
         });
       }

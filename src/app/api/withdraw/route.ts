@@ -22,14 +22,14 @@ import { notifyUser, fmtAmount } from "@/lib/server/notify";
 export async function POST(req: NextRequest) {
   try {
     if (!isSupabaseConfigured()) {
-      return NextResponse.json({ error: "Server not configured" }, { status: 503 });
+      return NextResponse.json({ error: "Сервер не настроен" }, { status: 503 });
     }
 
     const auth = await requireTelegramUser(req);
 
     const rl = rateLimit(`wd:${auth.user.id}`, 5, 60_000);
     if (!rl.ok) {
-      return NextResponse.json({ error: "Too many withdraw requests" }, { status: 429 });
+      return NextResponse.json({ error: "Слишком много запросов на вывод" }, { status: 429 });
     }
     
     await assertNotBanned(auth.user.id);
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       );
     }
     if (!wallet || wallet.length < 20) {
-      return NextResponse.json({ error: "Invalid TON wallet address" }, { status: 400 });
+      return NextResponse.json({ error: "Неверный TON-адрес" }, { status: 400 });
     }
 
     // Daily volume limit (UTC day)
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
 
     if ((count || 0) >= 3) {
       return NextResponse.json(
-        { error: "Too many pending withdrawals" },
+        { error: "Слишком много заявок на вывод" },
         { status: 429 }
       );
     }
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
     if (wagerLeft > 0.0001) {
       return NextResponse.json(
         {
-          error: `Wager required: play ${wagerLeft.toFixed(2)} GRAM more before withdraw`,
+          error: `Нужно отыграть ещё ${wagerLeft.toFixed(2)} GRAM перед выводом`,
           wagerRemaining: wagerLeft,
         },
         { status: 400 }

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/context";
 
 interface WinOverlayProps {
   open: boolean;
@@ -19,6 +20,8 @@ export function WinOverlay({
   photoUrl,
   onClose,
 }: WinOverlayProps) {
+  const { t } = useI18n();
+
   if (!open) return null;
 
   const letter = (winnerName || title || "?")
@@ -51,7 +54,7 @@ export function WinOverlay({
               isWin ? "text-emerald-300/70" : "text-white/35"
             }`}
           >
-            {isWin ? "Victory" : "Round result"}
+            {isWin ? t("victory") : t("roundResult")}
           </p>
 
           <div className="relative mx-auto mb-5 h-[88px] w-[88px]">

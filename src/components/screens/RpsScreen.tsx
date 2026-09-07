@@ -703,7 +703,7 @@ export function RpsScreen({
       refresh();
     } catch (e) {
       hapticError();
-      showToast(e instanceof Error ? e.message : "Failed");
+      showToast(e instanceof Error ? e.message : t("failed"));
     } finally {
       setBusy(false);
     }
@@ -810,7 +810,7 @@ export function RpsScreen({
 
   const runVerify = async () => {
     if (!detail?.creator_choice_hash) {
-      showToast("No commit hash");
+      showToast(t("noCommitHash"));
       return;
     }
     // We only stored hash in history — full verify needs choice+nonce from room.
@@ -833,11 +833,11 @@ export function RpsScreen({
       if (expected === detail.result) {
         setVerifyState("ok");
         hapticSuccess();
-        showToast("Outcome verified");
+        showToast(t("outcomeVerified"));
       } else {
         setVerifyState("fail");
         hapticError();
-        showToast("Outcome mismatch");
+        showToast(t("outcomeMismatch"));
       }
     } catch {
       setVerifyState("fail");
@@ -847,7 +847,7 @@ export function RpsScreen({
   // Better verify when we have result screen with nonce
   const runVerifyRoom = async (room: RpsPublicRoom) => {
     if (!room.creatorChoice || !room.creatorChoiceNonce || !room.creatorChoiceHash) {
-      showToast("Reveal data missing");
+      showToast(t("revealMissing"));
       return;
     }
     setVerifyState("loading");
@@ -858,11 +858,11 @@ export function RpsScreen({
       if (hash === room.creatorChoiceHash) {
         setVerifyState("ok");
         hapticSuccess();
-        showToast("Commit verified");
+        showToast(t("commitVerified"));
       } else {
         setVerifyState("fail");
         hapticError();
-        showToast("Commit mismatch");
+        showToast(t("commitMismatch"));
       }
     } catch {
       setVerifyState("fail");
@@ -887,7 +887,7 @@ export function RpsScreen({
       : view === "join"
         ? t("joinGame")
         : view === "reveal"
-          ? "Duel"
+          ? t("duel")
           : view === "result"
             ? t("result")
             : view === "history"
@@ -895,7 +895,7 @@ export function RpsScreen({
               : view === "detail"
                 ? detail
                   ? `RPS #${detail.no}`
-                  : "Game"
+                  : t("game")
                 : t("rpsTitle");
 
   return (
@@ -1124,7 +1124,7 @@ export function RpsScreen({
 
           {numberedHistory.length === 0 ? (
             <div className="text-[12px] text-white/25 text-center py-4 mb-4">
-              No games yet
+              {t("noGamesYet")}
             </div>
           ) : (
             <div className="space-y-1.5 pb-6">
@@ -1146,7 +1146,7 @@ export function RpsScreen({
           </div>
           {numberedHistory.length === 0 ? (
             <div className="text-center py-16 text-[13px] text-white/35">
-              No games yet
+              {t("noGamesYet")}
             </div>
           ) : (
             <div className="space-y-1.5 pb-6">
@@ -1440,7 +1440,7 @@ export function RpsScreen({
 
                 <div className="w-full max-w-sm rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 mb-3">
                   <div className="text-[9px] uppercase tracking-wider text-white/25 mb-1">
-                    Provably fair · tap to copy
+                    {t("fairnessAfter")}
                   </div>
                   <HashRow
                     label={t("commit")}
@@ -1472,7 +1472,7 @@ export function RpsScreen({
                   }}
                   className="w-full max-w-sm h-12 rounded-2xl btn-primary text-sm font-semibold btn-press mb-6"
                 >
-                  Back to lobby
+                  {t("backToLobby")}
                 </button>
               </>
             );

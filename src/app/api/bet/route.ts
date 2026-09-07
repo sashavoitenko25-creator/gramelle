@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     const rl = rateLimit(`bet:${auth.user.id}`, MAX_BETS_PER_MINUTE, 60_000);
     if (!rl.ok) {
       return NextResponse.json(
-        { error: "Too many bets — slow down" },
+        { error: "Слишком много ставок — подождите" },
         { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
       );
     }
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: 401 });
     }
-    const msg = e instanceof Error ? e.message : "Bet failed";
+    const msg = e instanceof Error ? e.message : "Не удалось сделать ставку";
     if (msg.toLowerCase().includes("banned")) {
       return NextResponse.json({ error: msg }, { status: 403 });
     }

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/context";
 
 import { useState } from "react";
 import {
@@ -36,6 +37,8 @@ export function ReferralsScreen({
   onWithdraw,
   withdrawing = false,
 }: ReferralsScreenProps) {
+  const { t } = useI18n();
+
   const code =
     referralCode ||
     ("ref_" + username.toLowerCase().replace(/\s+/g, ""));
@@ -55,7 +58,7 @@ export function ReferralsScreen({
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        <h2 className="text-base font-semibold tracking-tight">Referrals</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t("referralsTitle")}</h2>
         <button
           onClick={onHowItWorks}
           className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/50 btn-press"
@@ -70,7 +73,7 @@ export function ReferralsScreen({
       {/* Savings balance */}
       <div className="mx-4 mb-3 rounded-3xl p-5 border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-transparent">
         <div className="text-[11px] text-white/40 uppercase tracking-widest mb-1">
-          Referral savings
+          {t("refSavings")}
         </div>
         <div className="text-3xl font-semibold tabular-nums text-cyan-300">
           {formatGram(earned)}{" "}
@@ -91,7 +94,7 @@ export function ReferralsScreen({
           )}
         >
           {withdrawing
-            ? "Withdrawing…"
+            ? t("withdrawing")
             : canWithdraw
               ? `Withdraw ${formatGram(earned)} GRAM`
               : `Min ${REFERRAL_MIN_WITHDRAW} GRAM to withdraw`}
@@ -113,32 +116,32 @@ export function ReferralsScreen({
         <div className="text-2xl font-semibold flex items-center gap-2">
           <span>{tier?.emoji || "🌱"}</span>
           <span style={{ color: tier?.color || "#fff" }}>
-            {tier?.name || "Starter"}
+            {tier?.name || t("starter")}
           </span>
         </div>
         <div className="mt-3 flex gap-4 text-xs text-white/50">
           <span>
-            <span className="text-white/80 font-medium">{count}</span> invited
+            <span className="text-white/80 font-medium">{count}</span> {t("invited")}
           </span>
           <span>
-            <span className="text-white/80 font-medium">{active}</span> active
+            <span className="text-white/80 font-medium">{active}</span> {t("active")}
           </span>
           <span>
             <span className="text-white/80 font-medium tabular-nums">
               {formatGram(turnover)}
             </span>{" "}
-            turnover
+            {t("turnover")}
           </span>
         </div>
         {tier && (
           <div className="mt-2 text-xs text-cyan-300/80">
-            You earn {Math.round(tier.shareOfHouseFee * 100)}% share
+            {t("youEarnShare", { n: Math.round(tier.shareOfHouseFee * 100) })}
           </div>
         )}
       </div>
 
       <div className="mx-4 mt-1 rounded-2xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 flex justify-between text-xs">
-        <span className="text-white/35">Referral turnover</span>
+        <span className="text-white/35">{t("referralTurnover")}</span>
         <span className="tabular-nums text-white/70">
           {formatGram(turnover)} GRAM
         </span>
@@ -182,7 +185,7 @@ export function ReferralsScreen({
 
       <div className="mx-4 mt-5 rounded-2xl glass p-4 border border-white/[0.07]">
         <div className="text-[11px] text-white/35 uppercase tracking-widest mb-2">
-          Your link
+          {t("yourLink")}
         </div>
         <div className="text-[11px] text-white/45 break-all font-mono bg-black/30 rounded-xl px-3 py-2.5 border border-white/[0.04]">
           {refLink}

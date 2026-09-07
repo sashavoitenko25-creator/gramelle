@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: "Gramelle Deposit",
+          title: "Депозит Gramelle",
           description: `Top up ${gram} GRAM`,
           payload,
           currency: "XTR",

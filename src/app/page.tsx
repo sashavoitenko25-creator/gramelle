@@ -236,13 +236,11 @@ export default function Home() {
         playWinSound();
         setConfetti(true);
         setTimeout(() => setConfetti(false), 2400);
-        showToast(
-          "You won " + (potAfterFee ?? total).toFixed(2) + " GRAM · x" + mult
-        );
+        showToast(t("youWonAmount", { n: (potAfterFee ?? total).toFixed(2), mult }));
         setWinOverlay({
           open: true,
           isWin: true,
-          title: "You won!",
+          title: t("youWonTitle"),
           subtitle: (potAfterFee ?? total).toFixed(2) + " GRAM · x" + mult,
           winnerName: winnerUsername,
           photoUrl:
@@ -256,16 +254,15 @@ export default function Home() {
         stopWheelSound();
         playLoseSound();
         showToast(
-          "@" +
-            winnerUsername +
-            " won " +
-            (potAfterFee ?? total).toFixed(2) +
-            " GRAM"
+          t("playerWon", {
+            name: winnerUsername,
+            n: (potAfterFee ?? total).toFixed(2),
+          })
         );
         setWinOverlay({
           open: true,
           isWin: false,
-          title: "@" + winnerUsername + " won",
+          title: t("playerWonTitle", { name: winnerUsername }),
           subtitle: (potAfterFee ?? total).toFixed(2) + " GRAM",
           winnerName: winnerUsername,
           photoUrl:
@@ -329,10 +326,10 @@ export default function Home() {
         const newBal = +(balanceRef.current + winAmount).toFixed(2);
         await saveBalance(newBal);
         hapticSuccess();
-        showToast("You won " + winAmount.toFixed(2) + " GRAM · x" + mult);
+        showToast(t("youWonAmount", { n: winAmount.toFixed(2), mult }));
       } else {
         haptic("medium");
-        showToast("@" + winner.name + " won " + winAmount.toFixed(2) + " GRAM");
+        showToast(t("playerWon", { name: winner.name, n: winAmount.toFixed(2) }));
       }
 
       await saveItem({
@@ -447,19 +444,19 @@ export default function Home() {
       const roomMin = ROOMS[mode].minBet;
       const roomMax = ROOMS[mode].maxBet;
       if (isNaN(amount) || amount < roomMin) {
-        showToast("Min bet " + roomMin + " GRAM");
+        showToast(t("minBet", { n: roomMin }));
         return;
       }
       if (amount > roomMax) {
-        showToast("Max bet " + roomMax + " GRAM");
+        showToast(t("maxBet", { n: roomMax }));
         return;
       }
       if (amount > balanceRef.current) {
-        showToast("Not enough balance");
+        showToast(t("notEnoughBalance"));
         return;
       }
       if (spinningRef.current) {
-        showToast("Wait for the round to finish");
+        showToast(t("waitRoundFinish"));
         return;
       }
 
@@ -477,10 +474,10 @@ export default function Home() {
           );
           setBetOpen(false);
           haptic("light");
-          showToast("Bet placed");
+          showToast(t("betPlaced"));
         } catch (e) {
           hapticError();
-          showToast(e instanceof Error ? e.message : "Bet failed");
+          showToast(e instanceof Error ? e.message : t("betFailed"));
         }
         return;
       }
@@ -489,7 +486,7 @@ export default function Home() {
         playersRef.current.length >= MAX_PLAYERS &&
         !playersRef.current.some((p) => p.isMe)
       ) {
-        showToast("Round is full");
+        showToast(t("roundFull"));
         return;
       }
       const newBal = +(balanceRef.current - amount).toFixed(2);
@@ -515,7 +512,7 @@ export default function Home() {
         ];
       });
       setBetOpen(false);
-      showToast("Bet placed");
+      showToast(t("betPlaced"));
     },
     [
       serverMode,
@@ -556,7 +553,7 @@ export default function Home() {
         .writeText(link)
         .then(() => {
           hapticSuccess();
-          showToast("Link copied");
+          showToast(t("linkCopied"));
         })
         .catch(() => showToast(link));
     } else {
@@ -566,7 +563,7 @@ export default function Home() {
 
   const doReferralWithdraw = useCallback(async () => {
     if (!serverMode) {
-      showToast("Available in Telegram");
+      showToast(t("availableInTelegram"));
       return;
     }
     setRefWithdrawing(true);
@@ -575,11 +572,11 @@ export default function Home() {
       if (res.ok) {
         setBalanceFromServer(res.balance);
         await reloadProfile();
-        showToast("Withdrawn " + res.withdrawn + " GRAM");
+        showToast(t("withdrawnAmount", { n: res.withdrawn }));
         hapticSuccess();
       }
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "Withdraw failed");
+      showToast(e instanceof Error ? e.message : t("withdrawFailed"));
       hapticError();
     } finally {
       setRefWithdrawing(false);
@@ -615,7 +612,7 @@ export default function Home() {
     <div className="relative min-h-[100dvh] w-full">
       {!serverMode && (
         <div className="mx-4 mt-2 mb-1 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-200/90 text-center">
-          Demo mode — balances are local only. Open inside Telegram for full features
+          {t("demoMode")}
           configured for real play.
         </div>
       )}

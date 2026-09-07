@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/context";
 
 import { useEffect, useState } from "react";
 import { formatGram, cn } from "@/lib/utils";
@@ -20,6 +21,8 @@ interface Props {
 }
 
 export function RecentRounds({ mode, onVerify }: Props) {
+  const { t } = useI18n();
+
   const [items, setItems] = useState<RecentItem[]>([]);
 
   useEffect(() => {
@@ -48,7 +51,7 @@ export function RecentRounds({ mode, onVerify }: Props) {
     <div className="mx-4 mb-4">
       <div className="flex items-center justify-between mb-2 px-0.5">
         <span className="text-[11px] text-white/35 uppercase tracking-[0.12em] font-medium">
-          Recent
+          {t("recent")}
         </span>
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">

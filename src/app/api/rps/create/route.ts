@@ -9,14 +9,14 @@ import { captureException } from "@/lib/server/sentry";
 export async function POST(req: NextRequest) {
   try {
     if (!isSupabaseConfigured()) {
-      return NextResponse.json({ error: "Server not configured" }, { status: 503 });
+      return NextResponse.json({ error: "Сервер не настроен" }, { status: 503 });
     }
 
     const auth = await requireTelegramUser(req);
     const rl = rateLimit(`rps-create:${auth.user.id}`, 15, 60_000);
     if (!rl.ok) {
       return NextResponse.json(
-        { error: "Too many rooms — slow down" },
+        { error: "Слишком много комнат — подождите" },
         { status: 429 }
       );
     }
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const choice = body.choice;
 
     if (!isValidChoice(choice)) {
-      return NextResponse.json({ error: "Invalid choice" }, { status: 400 });
+      return NextResponse.json({ error: "Неверный выбор" }, { status: 400 });
     }
 
     const username =
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: 401 });
     }
-    const msg = e instanceof Error ? e.message : "Create failed";
+    const msg = e instanceof Error ? e.message : "Не удалось создать";
     if (msg.toLowerCase().includes("banned")) {
       return NextResponse.json({ error: msg }, { status: 403 });
     }

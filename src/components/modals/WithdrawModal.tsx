@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n/context";
 import { useEffect, useState } from "react";
 import { useTonAddress, useTonConnectUI, useTonWallet } from "@tonconnect/ui-react";
 import { apiFetch } from "@/lib/api";
@@ -34,6 +35,7 @@ export function WithdrawModal({
   hapticError,
   prefilledWallet,
 }: WithdrawModalProps) {
+  const { t } = useI18n();
   const [tonConnectUI] = useTonConnectUI();
   const walletConnected = useTonWallet();
   const tonAddress = useTonAddress();
@@ -59,7 +61,7 @@ export function WithdrawModal({
   const submit = async () => {
     if (!can || loading) return;
     if (!serverMode) {
-      showToast("Open in Telegram with server configured");
+      showToast(t("openTelegramServer"));
       return;
     }
     setLoading(true);
@@ -73,12 +75,12 @@ export function WithdrawModal({
         }
       );
       hapticSuccess();
-      showToast("Withdraw requested — pending review");
+      showToast(t("withdrawRequested"));
       onDone(res.balance);
       onClose();
     } catch (e) {
       hapticError();
-      showToast(e instanceof Error ? e.message : "Failed");
+      showToast(e instanceof Error ? e.message : t("failed"));
     } finally {
       setLoading(false);
     }
@@ -96,7 +98,7 @@ export function WithdrawModal({
     >
       <div className="w-full max-w-md glass-strong rounded-t-3xl p-5 slide-up border-t border-white/10 safe-bottom">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Withdraw</h3>
+          <h3 className="text-lg font-semibold">{t("withdrawTitle")}</h3>
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-xl bg-white/[0.05] flex items-center justify-center text-white/40 btn-press"
@@ -108,12 +110,12 @@ export function WithdrawModal({
         </div>
 
         <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 mb-2 flex justify-between text-sm">
-          <span className="text-white/40">Available</span>
+          <span className="text-white/40">{t("available")}</span>
           <span className="tabular-nums font-medium">{formatGram(balance)} GRAM</span>
         </div>
         {wagerRemaining > 0.0001 && (
           <div className="mb-4 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-3.5 py-2.5 text-[12px] text-amber-200/95 leading-snug">
-            Отыграйте ещё <span className="font-semibold tabular-nums">{formatGram(wagerRemaining)} GRAM</span> ставок, чтобы вывести средства (вейджер ×1 с депозита).
+            {t("wagerPlayMore", { n: formatGram(wagerRemaining) })}
           </div>
         )}
 
@@ -131,7 +133,7 @@ export function WithdrawModal({
           className="w-full h-12 rounded-2xl bg-black/30 border border-white/10 px-4 text-base tabular-nums mb-1 outline-none focus:border-cyan-500/40"
         />
         <p className="text-[11px] text-white/35 mb-1">
-          Min {MIN_WITHDRAW_TON} GRAM · 1 GRAM = 1 TON · no fee
+          {t("minNoFee", { n: MIN_WITHDRAW_TON })}
         </p>
         {val > 0 && (
           <p className="text-[12px] text-cyan-300/80 mb-4 tabular-nums">
@@ -168,7 +170,7 @@ export function WithdrawModal({
             onClick={() => setWallet(tonAddress)}
             className="text-[11px] text-cyan-300/80 mb-4 btn-press"
           >
-            Use connected: {short || tonAddress.slice(0, 6) + "…"}
+            {t("useConnected")}: {short || tonAddress.slice(0, 6) + "…"}
           </button>
         )}
 
@@ -176,7 +178,7 @@ export function WithdrawModal({
           <p className="text-[12px] text-amber-300/90 mb-3">Min {MIN_WITHDRAW_TON} GRAM</p>
         )}
         {val >= MIN_WITHDRAW_TON && val > balance && (
-          <p className="text-[12px] text-amber-300/90 mb-3">Not enough balance</p>
+          <p className="text-[12px] text-amber-300/90 mb-3">{t("notEnoughBalance")}</p>
         )}
 
         <button
@@ -186,13 +188,13 @@ export function WithdrawModal({
         >
           <GramIcon size={16} />
           {loading
-            ? "Submitting…"
+            ? t("submitting")
             : val > 0
               ? `Withdraw ${formatGram(val)} GRAM → ${formatGram(val)} TON`
-              : "Withdraw"}
+              : t("withdrawBtn")}
         </button>
         <p className="text-[10px] text-white/30 text-center mt-3">
-          Requests are reviewed manually. Status appears in Transactions.
+          {t("requestsManual")}
         </p>
       </div>
     </div>

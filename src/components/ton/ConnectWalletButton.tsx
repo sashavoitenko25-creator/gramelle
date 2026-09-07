@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n/context";
 import { useEffect, useState } from "react";
 import {
   useTonConnectUI,
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function ConnectWalletButton({ className, onAddress }: Props) {
+  const { t } = useI18n();
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
   const address = useTonAddress();
@@ -45,13 +47,13 @@ export function ConnectWalletButton({ className, onAddress }: Props) {
       >
         <div className="min-w-0">
           <div className="text-[10px] text-[#6DD3FF]/80 uppercase tracking-wider">
-            Connected {saving ? "· saving" : ""}
+            {t("connected")}{saving ? ` · ${t("saving")}` : ""}
           </div>
           <div className="text-sm font-medium font-mono text-white/90 truncate">
             {short}
           </div>
         </div>
-        <span className="text-[11px] text-white/40 shrink-0">Disconnect</span>
+        <span className="text-[11px] text-white/40 shrink-0">{t("disconnect")}</span>
       </button>
     );
   }
@@ -67,7 +69,7 @@ export function ConnectWalletButton({ className, onAddress }: Props) {
       <svg width="18" height="18" viewBox="0 0 56 56" fill="none">
         <path d="M28 12.2L43.6 22V34L28 43.8L12.4 34V22L28 12.2Z" fill="#0098EA" />
       </svg>
-      Connect TON Wallet
+      {t("connectWallet")}
     </button>
   );
 }

@@ -347,12 +347,12 @@ function WheelInner({
                   </svg>
                 </div>
                 <span className="text-[10px] font-semibold tracking-wider uppercase tabular-nums text-white/45">
-                  {!status || status === "Waiting" ? t("waiting") : status === "Spinning" ? t("spinning") : status}
+                  {!status || status === "Waiting" ? t("waiting") : status === "Spinning" ? t("spinning") : status === "Starting" ? t("starting") : status === "Starting" ? t("starting") : status}
                 </span>
               </>
             ) : (
               <span className="text-[11px] font-semibold tracking-wider uppercase text-white/50 px-1 text-center">
-                {!status || status === "Waiting" ? t("waiting") : status === "Spinning" ? t("spinning") : status}
+                {!status || status === "Waiting" ? t("waiting") : status === "Spinning" ? t("spinning") : status === "Starting" ? t("starting") : status === "Starting" ? t("starting") : status}
               </span>
             )}
           </div>

@@ -68,13 +68,13 @@ export async function POST(req: NextRequest) {
             inline_keyboard: [
               [
                 {
-                  text: "Play Gramelle",
+                  text: "Играть в Gramelle",
                   web_app: { url: webAppUrl },
                 },
               ],
               [
                 {
-                  text: "Channel / support",
+                  text: "Канал / поддержка",
                   url: process.env.NEXT_PUBLIC_SUPPORT_URL || "https://t.me/" + BOT_USERNAME,
                 },
               ],

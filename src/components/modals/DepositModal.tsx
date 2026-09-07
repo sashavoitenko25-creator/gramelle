@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/context";
 
 import { useMemo, useState } from "react";
 import {
@@ -60,6 +61,8 @@ export function DepositModal({
   serverMode = false,
   onBalanceRefresh,
 }: DepositModalProps) {
+  const { t } = useI18n();
+
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
 
@@ -98,7 +101,7 @@ export function DepositModal({
   const payStars = async (stars: number) => {
     if (loading) return;
     if (stars < MIN_DEPOSIT_STARS) {
-      showToast("Min " + MIN_DEPOSIT_STARS + " Stars");
+      showToast(t("minStars", { n: MIN_DEPOSIT_STARS }));
       hapticError();
       return;
     }
@@ -115,12 +118,12 @@ export function DepositModal({
         const gram = gramFromStars(stars);
         onCredit(gram);
         hapticSuccess();
-        showToast("+" + gram + " GRAM (demo)");
+        showToast(t("demoGram", { n: gram }));
         resetAndClose();
         return;
       }
       hapticError();
-      showToast(result.error || "Payment failed");
+      showToast(result.error || t("paymentFailed"));
       return;
     }
     const status = await openStarsInvoice(result.invoiceLink);
@@ -129,12 +132,12 @@ export function DepositModal({
       if (serverMode && onBalanceRefresh) await onBalanceRefresh();
       else if (!serverMode) onCredit(gramFromStars(stars));
       hapticSuccess();
-      showToast("Payment received");
+      showToast(t("paymentReceived"));
       resetAndClose();
     } else if (status === "cancelled") {
-      showToast("Cancelled");
+      showToast(t("paymentCancelled"));
     } else {
-      showToast("Pending — balance updates after confirmation");
+      showToast(t("paymentPending"));
       if (onBalanceRefresh) setTimeout(() => void onBalanceRefresh(), 2500);
     }
   };
@@ -142,7 +145,7 @@ export function DepositModal({
   const startTonDeposit = async (amt: number) => {
     if (loading) return;
     if (!Number.isFinite(amt) || amt < MIN_DEPOSIT_TON) {
-      showToast("Min " + MIN_DEPOSIT_TON + " TON");
+      showToast(t("minTon", { n: MIN_DEPOSIT_TON }));
       hapticError();
       return;
     }
@@ -175,7 +178,7 @@ export function DepositModal({
       }
     } catch (e) {
       hapticError();
-      showToast(e instanceof Error ? e.message : "Failed");
+      showToast(e instanceof Error ? e.message : t("paymentFailed"));
     } finally {
       setLoading(false);
     }
@@ -202,7 +205,7 @@ export function DepositModal({
         ],
       });
       // Comment/memo: TonConnect payload varies; also offer manual memo
-      showToast("Sent — checking payment…");
+      showToast(t("sentChecking"));
       for (let i = 0; i < 8; i++) {
         await new Promise((r) => setTimeout(r, 2500));
         if (!serverMode) break;
@@ -212,7 +215,7 @@ export function DepositModal({
             const total = res.credited.reduce((s, c) => s + c.gram, 0);
             if (onBalanceRefresh) await onBalanceRefresh();
             hapticSuccess();
-            showToast("+" + total + " GRAM");
+            showToast(t("plusGram", { n: total }));
             resetAndClose();
             setLoading(false);
             return;
@@ -221,7 +224,7 @@ export function DepositModal({
           /* continue */
         }
       }
-      showToast("Not confirmed yet — tap Check payment");
+      showToast(t("notConfirmedYet"));
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Cancelled";
       if (!/reject|cancel|abort/i.test(msg)) {
@@ -243,18 +246,18 @@ export function DepositModal({
           const total = res.credited.reduce((s, c) => s + c.gram, 0);
           if (onBalanceRefresh) await onBalanceRefresh();
           hapticSuccess();
-          showToast("+" + total + " GRAM");
+          showToast(t("plusGram", { n: total }));
           resetAndClose();
         } else {
           showToast(
-            res.message === "No pending deposits"
-              ? "Expired or not found — create a new deposit"
-              : res.error || "Not found yet — wait and retry"
+            res.message === "No pending deposits" /* mapped below */
+              ? t("expiredDeposit")
+              : res.error || t("notFoundRetry")
           );
         }
       } catch (e) {
         hapticError();
-        showToast(e instanceof Error ? e.message : "Check failed");
+        showToast(e instanceof Error ? e.message : t("checkFailed"));
       } finally {
         setLoading(false);
       }
@@ -262,7 +265,7 @@ export function DepositModal({
     }
     onCredit(gramFromTon(tonAmount));
     hapticSuccess();
-    showToast("+" + gramFromTon(tonAmount) + " GRAM (demo)");
+    showToast(t("demoGram", { n: gramFromTon(tonAmount) }));
     resetAndClose();
   };
 
@@ -290,7 +293,7 @@ export function DepositModal({
     >
       <div className="w-full max-w-md glass-strong rounded-t-3xl p-5 slide-up border-t border-white/10 safe-bottom max-h-[90dvh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold tracking-tight">Deposit</h3>
+          <h3 className="text-lg font-semibold tracking-tight">{t("depositTitle")}</h3>
           <button
             onClick={resetAndClose}
             className="w-8 h-8 rounded-xl bg-white/[0.05] flex items-center justify-center text-white/40 btn-press"
@@ -412,7 +415,7 @@ export function DepositModal({
                 onClick={() => void startTonDeposit(tonAmount)}
                 className="h-11 px-4 rounded-xl btn-primary text-sm font-medium btn-press disabled:opacity-40"
               >
-                Continue
+                {t("continue")}
               </button>
             </div>
           </div>
@@ -430,20 +433,20 @@ export function DepositModal({
                 → {gramFromTon(tonAmount)} GRAM
               </div>
               <div className="text-[11px] text-amber-300/80 mt-2">
-                Pending · ~{minsLeft} min left
+                {t("pendingMinLeft", { n: minsLeft })}
               </div>
             </div>
 
             <details className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3 py-2">
               <summary className="text-xs text-white/50 cursor-pointer py-1">
-                Payment details
+                {t("paymentDetails")}
               </summary>
               <div className="mt-2 space-y-2 pb-1">
                 <div>
-                  <div className="text-[10px] text-white/35 mb-0.5">Address</div>
+                  <div className="text-[10px] text-white/35 mb-0.5">{t("address")}</div>
                   <button
                     type="button"
-                    onClick={() => copy(TON_DEPOSIT_ADDRESS, "Address")}
+                    onClick={() => copy(TON_DEPOSIT_ADDRESS, t("address"))}
                     className="w-full text-left text-[11px] font-mono text-white/70 break-all"
                   >
                     {TON_DEPOSIT_ADDRESS}
@@ -455,7 +458,7 @@ export function DepositModal({
                   </div>
                   <button
                     type="button"
-                    onClick={() => copy(tonMemo, "Memo")}
+                    onClick={() => copy(tonMemo, t("memo"))}
                     className="w-full text-left text-[11px] font-mono text-cyan-300/90 break-all"
                   >
                     {tonMemo || "—"}
@@ -469,7 +472,7 @@ export function DepositModal({
               onClick={() => void payWithTonConnect()}
               className="w-full h-12 rounded-2xl btn-primary text-sm font-semibold btn-press disabled:opacity-50"
             >
-              {wallet ? "Pay with wallet" : "Connect wallet & pay"}
+              {wallet ? t("payWithWallet") : t("connectWalletPay")}
             </button>
             <button
               disabled={loading}
@@ -478,14 +481,14 @@ export function DepositModal({
               }}
               className="w-full h-11 rounded-2xl border border-white/10 bg-white/[0.04] text-sm text-white/70 btn-press"
             >
-              Open in TON wallet app
+              {t("openTonWallet")}
             </button>
             <button
               disabled={loading}
               onClick={() => void confirmTon()}
               className="w-full h-11 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 text-sm text-cyan-300 font-medium btn-press disabled:opacity-50"
             >
-              {loading ? "Checking…" : "I paid — check payment"}
+              {loading ? t("checking") : t("iPaidCheck")}
             </button>
             <button
               type="button"

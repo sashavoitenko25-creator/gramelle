@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/context";
 
 import { useEffect, useState } from "react";
 import { formatGram, cn } from "@/lib/utils";
@@ -76,7 +77,7 @@ function CopyBtn({ text, label }: { text: string; label?: string }) {
   return (
     <button
       type="button"
-      title={label || "Copy"}
+      title={label || t("copy")}
       onClick={(e) => {
         e.stopPropagation();
         copyText(text);
@@ -105,6 +106,8 @@ function CopyBtn({ text, label }: { text: string; label?: string }) {
 }
 
 export function RoundDetailModal({ open, rollId, onClose }: Props) {
+  const { t } = useI18n();
+
   const [data, setData] = useState<DetailData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,11 +130,11 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
     fetch(`/api/rounds/detail?rollId=${rollId}`)
       .then(async (r) => {
         const j = await r.json();
-        if (!r.ok) throw new Error(j.error || "Failed");
+        if (!r.ok) throw new Error(j.error || t("failed"));
         if (alive) setData(j);
       })
       .catch((e) => {
-        if (alive) setError(e instanceof Error ? e.message : "Failed");
+        if (alive) setError(e instanceof Error ? e.message : t("failed"));
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -186,13 +189,13 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
       const ok = Boolean(j.ok && j.hashMatches && j.winnerMatches);
       if (ok) {
         setLegit("ok");
-        setLegitMsg("Hash matches seed · winner recomputed correctly");
+        setLegitMsg(t("hashMatchesOk"));
       } else {
         setLegit("fail");
         const parts: string[] = [];
         if (!j.hashMatches) parts.push("hash ≠ seed");
         if (!j.winnerMatches) parts.push("winner mismatch");
-        setLegitMsg(parts.join(" · ") || "Verification failed");
+        setLegitMsg(parts.join(" · ") || t("verificationFailed"));
       }
     } catch (e) {
       setLegit("fail");
@@ -261,7 +264,7 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
                     <span className="text-[11px] font-mono text-white/60 truncate flex-1">
                       {hash.slice(0, 12)}…{hash.slice(-8)}
                     </span>
-                    <CopyBtn text={hash} label="Copy hash" />
+                    <CopyBtn text={hash} label={t("copyHash")} />
                   </div>
                 )}
                 {seed && (
@@ -272,7 +275,7 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
                     <span className="text-[11px] font-mono text-white/60 truncate flex-1">
                       {seed.slice(0, 10)}…{seed.slice(-8)}
                     </span>
-                    <CopyBtn text={seed} label="Copy seed" />
+                    <CopyBtn text={seed} label={t("copySeed")} />
                   </div>
                 )}
               </div>
@@ -303,7 +306,7 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
                   )}
                 >
                   {legit === "loading" ? (
-                    "Checking…"
+                    t("checking")
                   ) : legit === "ok" ? (
                     <>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -312,7 +315,7 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
                       Legit
                     </>
                   ) : legit === "fail" ? (
-                    "Failed"
+                    t("failed")
                   ) : (
                     <>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

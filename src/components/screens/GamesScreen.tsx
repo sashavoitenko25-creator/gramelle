@@ -15,7 +15,7 @@ interface GamesScreenProps {
   onlineRps?: number;
 }
 
-function OnlineBadge({ count }: { count: number }) {
+function OnlineBadge({ count, label }: { count: number; label: string }) {
   return (
     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/30 border border-white/[0.12] backdrop-blur-md">
       <span className="relative flex h-1.5 w-1.5">
@@ -23,7 +23,7 @@ function OnlineBadge({ count }: { count: number }) {
         <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
       </span>
       <span className="text-[11px] font-medium text-white/90 tabular-nums">
-        {count} online
+        {count} {label}
       </span>
     </div>
   );
@@ -100,7 +100,7 @@ export function GamesScreen({
           PvP Game
         </h1>
         <p className="text-center text-[13px] text-white/40 mt-2">
-          Choose a mode and challenge others
+          {t("chooseMode")}
         </p>
       </div>
 
@@ -134,7 +134,7 @@ export function GamesScreen({
                   className="relative text-cyan-200 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]"
                 />
               </div>
-              <OnlineBadge count={spin} />
+              <OnlineBadge count={spin} label={t("online")} />
             </div>
             <div className="mt-6">
               <div className="text-[24px] font-bold text-white tracking-tight leading-none">
@@ -180,7 +180,7 @@ export function GamesScreen({
                   <ChoiceIcon choice="scissors" className="w-5 h-5" />
                 </div>
               </div>
-              <OnlineBadge count={rps} />
+              <OnlineBadge count={rps} label={t("online")} />
             </div>
             <div className="mt-6">
               <div className="text-[22px] font-bold text-white tracking-tight leading-none">

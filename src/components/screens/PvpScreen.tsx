@@ -418,7 +418,7 @@ export function PvpScreen({
           <button
             onClick={onOpenDeposit}
             className="w-9 h-9 rounded-xl bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-white/65 hover:bg-white/10 transition btn-press"
-            aria-label="Deposit"
+            aria-label={t("deposit")}
           >
             <svg
               width="15"

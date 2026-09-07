@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n/context";
 import { REFERRAL_TIERS, REFERRAL_MIN_WITHDRAW } from "@/lib/constants";
 
 interface HowRefModalProps {
@@ -9,7 +10,28 @@ interface HowRefModalProps {
 }
 
 export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
+  const { t, lang } = useI18n();
+
   if (!open) return null;
+
+  const body =
+    lang === "ru"
+      ? {
+          title: "Реферальная программа",
+          p1: "Приглашайте друзей по своей ссылке. Когда они играют, вы получаете долю дохода платформы с их ставок — не с депозитов.",
+          p2a: "Начисления идут на ",
+          p2b: "реферальные накопления",
+          p2c: `. Вывод на основной баланс в любой момент (мин. ${REFERRAL_MIN_WITHDRAW} GRAM).`,
+          note: "С Silver+ нужен реферальный оборот (сумма ставок друзей). Активные = друзья с ≥1 игрой. Бонуса за регистрацию нет.",
+        }
+      : {
+          title: "Referral program",
+          p1: "Invite friends with your link. When they play, you earn a share of platform revenue from their bets — not from deposits.",
+          p2a: "Earnings go to your ",
+          p2b: "referral savings",
+          p2c: `. Withdraw to main balance anytime (min ${REFERRAL_MIN_WITHDRAW} GRAM).`,
+          note: "Silver+ also need referral turnover (sum of friends' bets). Active = friends with ≥1 game. No signup bonus.",
+        };
 
   return (
     <div
@@ -17,47 +39,40 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="w-full max-w-md glass-strong rounded-t-3xl p-5 slide-up border-t border-white/10 safe-bottom max-h-[85vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-3">Referral program</h3>
+        <h3 className="text-lg font-semibold mb-3">{body.title}</h3>
         <div className="space-y-3 text-sm text-white/65 leading-relaxed mb-4">
+          <p>{body.p1}</p>
           <p>
-            Invite friends with your link. When they play, you earn a{" "}
-            <span className="text-white/90">share of platform revenue</span>{" "}
-            from their bets — not from deposits.
-          </p>
-          <p>
-            Earnings go to your{" "}
-            <span className="text-cyan-300 font-medium">referral savings</span>.
-            Withdraw to main balance anytime (min {REFERRAL_MIN_WITHDRAW} GRAM).
+            {body.p2a}
+            <span className="text-cyan-300 font-medium">{body.p2b}</span>
+            {body.p2c}
           </p>
           <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-3 space-y-2">
-            {REFERRAL_TIERS.map((t) => (
-              <div key={t.id} className="flex justify-between text-xs">
+            {REFERRAL_TIERS.map((tier) => (
+              <div key={tier.id} className="flex justify-between text-xs">
                 <span>
-                  {t.emoji} {t.name}
+                  {tier.emoji} {tier.name}
                 </span>
                 <span className="text-cyan-300/90">
-                  {Math.round(t.shareOfHouseFee * 100)}%
+                  {Math.round(tier.shareOfHouseFee * 100)}%
                 </span>
               </div>
             ))}
           </div>
-          <p className="text-xs text-white/40">
-            Silver+ also need referral turnover (sum of friends&apos; bets).
-            Active = friends with ≥1 game. No signup bonus.
-          </p>
+          <p className="text-xs text-white/40">{body.note}</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={onCopy}
             className="flex-1 h-11 rounded-xl btn-primary text-sm btn-press"
           >
-            Copy link
+            {t("copyLink")}
           </button>
           <button
             onClick={onClose}
             className="px-4 h-11 rounded-xl btn-secondary text-sm border border-white/10"
           >
-            Close
+            {t("close")}
           </button>
         </div>
       </div>

@@ -33,15 +33,15 @@ function channelIdCandidates(channel: string): string[] {
 function friendlyChatError(desc: string): string {
   const d = (desc || "").toLowerCase();
   if (d.includes("chat not found") || d.includes("chat_id is empty")) {
-    return "Channel not found. Bot must be added as admin of the channel.";
+    return "Канал не найден. Бот должен быть админом канала.";
   }
   if (d.includes("bot is not a member") || d.includes("not enough rights")) {
-    return "Bot is not admin of the channel. Add the bot as administrator.";
+    return "Бот не админ канала. Добавьте бота администратором.";
   }
   if (d.includes("user not found")) {
     return "Open the app from Telegram and try again.";
   }
-  return desc || "Cannot verify subscription.";
+  return desc || "Не удалось проверить подписку.";
 }
 
 async function isChannelMember(
@@ -50,7 +50,7 @@ async function isChannelMember(
 ): Promise<{ ok: boolean; status?: string; error?: string }> {
   const token = getBotToken();
   const candidates = channelIdCandidates(channel);
-  let lastError = "Cannot verify subscription. Make sure the bot is admin of the channel.";
+  let lastError = "Не удалось проверить подписку. Make sure the bot is admin of the channel.";
 
   for (const chatId of candidates) {
     const url = `https://api.telegram.org/bot${token}/getChatMember?chat_id=${encodeURIComponent(chatId)}&user_id=${userId}`;
@@ -67,7 +67,7 @@ async function isChannelMember(
         return {
           ok: false,
           status,
-          error: "Not subscribed yet. Open the channel, join, then press Check again.",
+          error: "Вы ещё не подписаны. Откройте канал, подпишитесь и нажмите «Проверить».",
         };
       }
       const member =
@@ -79,7 +79,7 @@ async function isChannelMember(
       return {
         ok: false,
         status,
-        error: "Not subscribed yet. Open the channel, join, then press Check again.",
+        error: "Вы ещё не подписаны. Откройте канал, подпишитесь и нажмите «Проверить».",
       };
     } catch {
       continue;
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     if (existing) {
       return NextResponse.json(
-        { error: "Task already completed", completed: true },
+        { error: "Задание уже выполнено", completed: true },
         { status: 400 }
       );
     }
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
         {
           error:
             check.error ||
-            "Not subscribed yet. Open the channel, join, then press Check again.",
+            "Вы ещё не подписаны. Откройте канал, подпишитесь и нажмите «Проверить».",
           status: check.status || null,
         },
         { status: 400 }
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
     if (insErr) {
       if (/duplicate|unique/i.test(insErr.message || "")) {
         return NextResponse.json(
-          { error: "Task already completed", completed: true },
+          { error: "Задание уже выполнено", completed: true },
           { status: 400 }
         );
       }

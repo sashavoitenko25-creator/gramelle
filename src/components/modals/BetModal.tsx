@@ -40,7 +40,7 @@ export function BetModal({
     >
       <div className="w-full max-w-md glass-strong rounded-t-3xl p-5 slide-up border-t border-white/10 safe-bottom">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-semibold tracking-tight">Place bet</h3>
+          <h3 className="text-lg font-semibold tracking-tight">{t("placeBetTitle")}</h3>
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-xl bg-white/[0.05] flex items-center justify-center text-white/40 btn-press"
@@ -51,7 +51,7 @@ export function BetModal({
           </button>
         </div>
         <p className="text-xs text-white/35 mb-4">
-          Balance <span className="text-white/60 tabular-nums">{formatGram(balance)}</span> GRAM · min {minBet}
+          {t("balanceLabel")} <span className="text-white/60 tabular-nums">{formatGram(balance)}</span> GRAM · {t("minLabel")} {minBet}
         </p>
 
         <input
@@ -59,7 +59,7 @@ export function BetModal({
           inputMode="decimal"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder={`Amount (${minBet}–${maxBet})`}
+          placeholder={t("amountPlaceholder", { min: minBet, max: maxBet })}
           className="w-full h-12 rounded-2xl bg-black/35 border border-white/[0.08] px-4 text-base outline-none focus:border-cyan-500/35 tabular-nums mb-3"
         />
 
@@ -84,7 +84,7 @@ export function BetModal({
             }
             className="px-3 py-1.5 rounded-xl text-xs font-medium border bg-white/[0.03] border-white/[0.06] text-white/50 btn-press"
           >
-            Max
+            {t("max")}
           </button>
         </div>
 

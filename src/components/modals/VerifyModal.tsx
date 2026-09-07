@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/context";
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
@@ -37,6 +38,8 @@ interface VerifyResponse {
 }
 
 export function VerifyModal({ open, onClose, initialRollId }: VerifyModalProps) {
+  const { t } = useI18n();
+
   const [rollId, setRollId] = useState(
     initialRollId != null ? String(initialRollId) : ""
   );
@@ -57,7 +60,7 @@ export function VerifyModal({ open, onClose, initialRollId }: VerifyModalProps) 
   const run = async () => {
     const id = Number(rollId);
     if (!Number.isFinite(id)) {
-      setError("Enter a valid roll ID");
+      setError(t("enterRollId"));
       return;
     }
     setLoading(true);
@@ -70,7 +73,7 @@ export function VerifyModal({ open, onClose, initialRollId }: VerifyModalProps) 
       );
       setResult(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Verify failed");
+      setError(e instanceof Error ? e.message : t("verifyFailed"));
     } finally {
       setLoading(false);
     }
@@ -94,8 +97,7 @@ export function VerifyModal({ open, onClose, initialRollId }: VerifyModalProps) 
           </button>
         </div>
         <p className="text-xs text-white/40 mb-4">
-          Recompute the winner from published server seed + bets. Hash must
-          match the commitment shown before the spin.
+          {t("verifyDesc")}
         </p>
 
         <label className="text-[11px] text-white/40 uppercase tracking-wider">
@@ -114,7 +116,7 @@ export function VerifyModal({ open, onClose, initialRollId }: VerifyModalProps) 
             disabled={loading}
             className="h-11 px-4 rounded-2xl btn-primary text-sm btn-press disabled:opacity-40"
           >
-            {loading ? "…" : "Verify"}
+            {loading ? "…" : t("verify")}
           </button>
         </div>
 
@@ -138,23 +140,23 @@ export function VerifyModal({ open, onClose, initialRollId }: VerifyModalProps) 
                 : "✗ Verification failed"}
             </div>
 
-            <Row label="Hash match" value={result.hashMatches ? "yes" : "no"} />
+            <Row label={t("hashMatch")} value={result.hashMatches ? t("yes") : t("no")} />
             <Row
-              label="Winner match"
+              label={t("winnerMatch")}
               value={result.winnerMatches ? "yes" : "no"}
             />
             <Row
-              label="Winner"
+              label={t("winner")}
               value={
                 result.computedWinner
                   ? `@${result.computedWinner.username} (${result.computedWinner.amount} GRAM)`
                   : "—"
               }
             />
-            <Row label="Bank" value={`${result.total} GRAM`} />
+            <Row label={t("bank")} value={`${result.total} GRAM`} />
             
-            <Row label="Pot after fee" value={`${result.potAfterFee} GRAM`} />
-            <Row label="Roll (0–1)" value={result.roll.toFixed(8)} />
+            <Row label="Pot" value={`${result.potAfterFee} GRAM`} />
+            <Row label={t("roll01")} value={result.roll.toFixed(8)} />
 
             <div className="pt-1">
               <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1">

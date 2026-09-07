@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/context";
 
 import { useCallback, useEffect, useState } from "react";
 import { formatGram, cn } from "@/lib/utils";
@@ -23,13 +24,6 @@ interface Props {
   onBack: () => void;
 }
 
-const STATUS_LABEL: Record<TxStatus, string> = {
-  pending: "Processing",
-  processing: "Processing",
-  completed: "Completed",
-  rejected: "Rejected",
-  failed: "Failed",
-};
 
 function statusStyle(s: TxStatus) {
   if (s === "completed")
@@ -54,6 +48,8 @@ function formatWhen(iso: string) {
 }
 
 export function TransactionsScreen({ onBack }: Props) {
+  const { t } = useI18n();
+
   const [items, setItems] = useState<TxItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +62,7 @@ export function TransactionsScreen({ onBack }: Props) {
       const data = await apiFetch<{ items: TxItem[] }>("/api/transactions?limit=60");
       setItems(data.items || []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
+      setError(e instanceof Error ? e.message : t("failedToLoad"));
     } finally {
       setLoading(false);
     }
@@ -90,7 +86,7 @@ export function TransactionsScreen({ onBack }: Props) {
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        <h1 className="text-[15px] font-semibold">Transactions</h1>
+        <h1 className="text-[15px] font-semibold">{t("transactions")}</h1>
         <button
           type="button"
           onClick={() => void load()}
@@ -107,9 +103,9 @@ export function TransactionsScreen({ onBack }: Props) {
       <div className="mx-4 mb-4 flex gap-1.5 p-1 rounded-2xl bg-black/35 border border-white/[0.06]">
         {(
           [
-            ["all", "All"],
-            ["deposit", "Deposits"],
-            ["withdraw", "Withdrawals"],
+            ["all", t("allTx")],
+            ["deposit", t("deposits")],
+            ["withdraw", t("withdrawals")],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -140,9 +136,9 @@ export function TransactionsScreen({ onBack }: Props) {
         )}
         {!loading && !error && filtered.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-sm text-white/45 font-medium">No transactions yet</p>
+            <p className="text-sm text-white/45 font-medium">{t("noTransactions")} yet</p>
             <p className="text-xs text-white/25 mt-1.5">
-              Deposits and withdrawals will appear here
+              {t("txEmptyHint")}
             </p>
           </div>
         )}
@@ -189,7 +185,11 @@ export function TransactionsScreen({ onBack }: Props) {
                       statusStyle(tx.status)
                     )}
                   >
-                    {STATUS_LABEL[tx.status]}
+                    {tx.status === "completed"
+                      ? t("completed")
+                      : tx.status === "rejected" || tx.status === "failed"
+                        ? t(tx.status === "rejected" ? "rejected" : "failed")
+                        : t("processing")}
                   </span>
                   <span className="text-[10px] text-white/30">
                     {formatWhen(tx.createdAt)}

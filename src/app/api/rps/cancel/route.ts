@@ -8,13 +8,13 @@ import { captureException } from "@/lib/server/sentry";
 export async function POST(req: NextRequest) {
   try {
     if (!isSupabaseConfigured()) {
-      return NextResponse.json({ error: "Server not configured" }, { status: 503 });
+      return NextResponse.json({ error: "Сервер не настроен" }, { status: 503 });
     }
 
     const auth = await requireTelegramUser(req);
     const rl = rateLimit(`rps-cancel:${auth.user.id}`, 20, 60_000);
     if (!rl.ok) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+      return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
     }
 
     const body = await req.json();
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     }
     await captureException(e, { route: "rps/cancel" });
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Cancel failed" },
+      { error: e instanceof Error ? e.message : "Не удалось отменить" },
       { status: 400 }
     );
   }

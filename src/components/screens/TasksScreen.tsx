@@ -45,7 +45,7 @@ export function TasksScreen({
       const res = await fetchTasks();
       setTasks(res.tasks || []);
     } catch (e) {
-      showToast?.(e instanceof Error ? e.message : "Failed to load tasks");
+      showToast?.(e instanceof Error ? e.message : t("loading"));
     } finally {
       setLoading(false);
     }
@@ -75,7 +75,7 @@ export function TasksScreen({
       onRewarded?.(res.balance);
     } catch (e) {
       hapticError?.();
-      showToast?.(e instanceof Error ? e.message : "Check failed");
+      showToast?.(e instanceof Error ? e.message : t("taskCheckFailed"));
     } finally {
       setBusyId(null);
     }
