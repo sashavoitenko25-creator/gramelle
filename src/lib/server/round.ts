@@ -126,15 +126,25 @@ export async function ensureOpenRound(
     .maybeSingle();
   const rollId = (lastGlobal?.roll_id ?? -1) + 1;
 
-  // Per-room sequence for display (Classic #1, High #1, …)
+  // Per-room sequence for display (SPINC# / SPINH#)
+  // Ignore null room_seq (legacy rows) so we never stuck at #1
   const { data: lastRoom } = await db
     .from("rounds")
     .select("room_seq")
     .eq("mode", mode)
+    .not("room_seq", "is", null)
     .order("room_seq", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const roomSeq = (lastRoom?.room_seq != null ? Number(lastRoom.room_seq) : 0) + 1;
+  let roomSeq =
+    (lastRoom?.room_seq != null ? Number(lastRoom.room_seq) : 0) + 1;
+  if (!lastRoom) {
+    const { count } = await db
+      .from("rounds")
+      .select("id", { count: "exact", head: true })
+      .eq("mode", mode);
+    roomSeq = (count || 0) + 1;
+  }
 
   const insertPayload: Record<string, unknown> = {
     roll_id: rollId,

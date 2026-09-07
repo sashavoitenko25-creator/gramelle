@@ -18,7 +18,7 @@ import {
   CHOICE_LABEL,
 } from "@/components/rps/RpsIcons";
 import { RPS_MIN_BET, RPS_MAX_BET } from "@/lib/rpsConstants";
-import { playWinSound, playLoseSound } from "@/lib/sounds";
+import { playWinSound, playLoseSound, playBetSound } from "@/lib/sounds";
 
 interface RpsScreenProps {
   balance: number;
@@ -142,14 +142,14 @@ function clipHash(h: string, head = 6, tail = 4) {
   return `${h.slice(0, head)}…${h.slice(-tail)}`;
 }
 
-/** Stable RPS #N from chronological order (oldest = #0) */
+/** Stable RPS #N from chronological order (oldest = #1) */
 function numberHistory(items: HistItem[]): (HistItem & { no: number })[] {
   const asc = [...items].sort(
     (a, b) =>
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
-  const map = new Map(asc.map((h, i) => [h.id, i]));
-  return items.map((h) => ({ ...h, no: map.get(h.id) ?? 0 }));
+  const map = new Map(asc.map((h, i) => [h.id, i + 1]));
+  return items.map((h) => ({ ...h, no: map.get(h.id) ?? 1 }));
 }
 
 async function sha256Hex(text: string): Promise<string> {
@@ -508,11 +508,16 @@ function HistoryRow({
 }) {
   const isWin = h.result === "win";
   const isDraw = h.result === "draw";
+  const rowTone = isWin
+    ? "border-emerald-500/35 bg-emerald-500/[0.08] hover:border-emerald-400/50"
+    : isDraw
+      ? "border-white/[0.06] bg-white/[0.025] hover:border-white/12"
+      : "border-rose-500/35 bg-rose-500/[0.08] hover:border-rose-400/45";
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="w-full rounded-2xl bg-white/[0.025] border border-white/[0.06] hover:border-white/12 px-3.5 py-3 flex items-center gap-3 text-left transition btn-press"
+      className={`w-full rounded-2xl px-3.5 py-3 flex items-center gap-3 text-left transition btn-press border ${rowTone}`}
     >
       <div className="text-[11px] font-medium text-white/30 w-[58px] shrink-0">
         RPS #{h.no}
@@ -683,6 +688,7 @@ export function RpsScreen({
         return;
       }
       const res = await rpsCreate(choice, amount);
+      playBetSound();
       onBalanceUpdate(res.balance);
       setMine(res.room);
       setActive(res.room);
@@ -740,6 +746,7 @@ export function RpsScreen({
         }
       }
       const res = await rpsJoin(joinTarget.id, joinChoice);
+      playBetSound();
       onBalanceUpdate(res.balance);
       setActive(res.room);
       setJoinTarget(null);

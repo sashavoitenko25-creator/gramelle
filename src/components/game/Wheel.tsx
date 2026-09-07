@@ -157,10 +157,10 @@ function WheelInner({
     displaySec > 0 &&
     ringProgress != null;
 
-  // Cap avatars when idle to reduce paint; hide all during spin (biggest mobile win)
-  const showAvatars = !isSpinning && segments.length > 0;
+  // Keep avatars while spinning (user request); cap only if very crowded
+  const showAvatars = segments.length > 0;
   const avatarSegments =
-    segments.length > 12 ? segments.filter((_, i) => i % 2 === 0) : segments;
+    segments.length > 16 ? segments.filter((_, i) => i % 2 === 0) : segments;
 
   return (
     <div className="relative flex justify-center mb-4">
@@ -254,7 +254,6 @@ function WheelInner({
             />
           </svg>
 
-          {/* Avatars only when NOT spinning — images lag hard while rotating */}
           {showAvatars &&
             avatarSegments.map((s) => {
               const letter = (s.player.name || "?")
@@ -265,12 +264,14 @@ function WheelInner({
               return (
                 <div
                   key={String(s.player.id)}
-                  className="absolute z-20 rounded-full border-2 border-white/70 overflow-hidden bg-[#1a1a24] flex items-center justify-center text-[10px] font-bold text-white/90"
+                  className="absolute z-20 rounded-full overflow-hidden flex items-center justify-center text-[10px] font-bold text-white"
                   style={{
                     width: size,
                     height: size,
                     left: s.pos.x - size / 2,
                     top: s.pos.y - size / 2,
+                    boxShadow: `0 0 0 2px ${s.player.color || "#22d3ee"}`,
+                    background: s.player.photoUrl ? "transparent" : (s.player.color || "#333"),
                   }}
                 >
                   {s.player.photoUrl ? (

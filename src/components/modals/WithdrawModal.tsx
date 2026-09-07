@@ -5,7 +5,7 @@ import { useTonAddress, useTonConnectUI, useTonWallet } from "@tonconnect/ui-rea
 import { apiFetch } from "@/lib/api";
 import { MIN_WITHDRAW_TON } from "@/lib/constants";
 import { formatGram } from "@/lib/utils";
-import { TonIcon } from "@/components/ui/TonIcon";
+import { GramIcon } from "@/components/ui/GramIcon";
 
 interface WithdrawModalProps {
   open: boolean;
@@ -93,7 +93,7 @@ export function WithdrawModal({
     >
       <div className="w-full max-w-md glass-strong rounded-t-3xl p-5 slide-up border-t border-white/10 safe-bottom">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Withdraw TON</h3>
+          <h3 className="text-lg font-semibold">Withdraw</h3>
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-xl bg-white/[0.05] flex items-center justify-center text-white/40 btn-press"
@@ -110,7 +110,7 @@ export function WithdrawModal({
         </div>
 
         <label className="text-[11px] text-white/40 uppercase tracking-widest mb-1.5 block">
-          Amount (TON)
+          Amount (GRAM)
         </label>
         <input
           type="number"
@@ -122,9 +122,15 @@ export function WithdrawModal({
           onChange={(e) => setAmount(e.target.value)}
           className="w-full h-12 rounded-2xl bg-black/30 border border-white/10 px-4 text-base tabular-nums mb-1 outline-none focus:border-cyan-500/40"
         />
-        <p className="text-[11px] text-white/35 mb-4">
-          Minimum {MIN_WITHDRAW_TON} TON · 1 TON = 1 GRAM · no fee
+        <p className="text-[11px] text-white/35 mb-1">
+          Min {MIN_WITHDRAW_TON} GRAM · 1 GRAM = 1 TON · no fee
         </p>
+        {val > 0 && (
+          <p className="text-[12px] text-cyan-300/80 mb-4 tabular-nums">
+            You receive {formatGram(val)} TON
+          </p>
+        )}
+        {!(val > 0) && <div className="mb-3" />}
 
         <label className="text-[11px] text-white/40 uppercase tracking-widest mb-1.5 block">
           Wallet
@@ -159,7 +165,7 @@ export function WithdrawModal({
         )}
 
         {val > 0 && val < MIN_WITHDRAW_TON && (
-          <p className="text-[12px] text-amber-300/90 mb-3">Min {MIN_WITHDRAW_TON} TON</p>
+          <p className="text-[12px] text-amber-300/90 mb-3">Min {MIN_WITHDRAW_TON} GRAM</p>
         )}
         {val >= MIN_WITHDRAW_TON && val > balance && (
           <p className="text-[12px] text-amber-300/90 mb-3">Not enough balance</p>
@@ -170,8 +176,12 @@ export function WithdrawModal({
           disabled={!can || loading}
           className="w-full h-12 rounded-2xl btn-primary text-sm font-semibold btn-press disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          <TonIcon className="w-4 h-4" />
-          {loading ? "Submitting…" : `Withdraw ${val > 0 ? formatGram(val) + " TON" : ""}`}
+          <GramIcon size={16} />
+          {loading
+            ? "Submitting…"
+            : val > 0
+              ? `Withdraw ${formatGram(val)} GRAM → ${formatGram(val)} TON`
+              : "Withdraw"}
         </button>
         <p className="text-[10px] text-white/30 text-center mt-3">
           Requests are reviewed manually. Status appears in Transactions.

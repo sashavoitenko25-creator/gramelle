@@ -98,14 +98,34 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Fallback display numbers when room_seq missing: rank by roll_id within mode
+    const byModeRolls = new Map<string, number[]>();
+    for (const r of rounds) {
+      const m = String(r.mode || "classic");
+      const arr = byModeRolls.get(m) || [];
+      arr.push(Number(r.roll_id));
+      byModeRolls.set(m, arr);
+    }
+    const rankMap = new Map<string, number>();
+    for (const [m, ids] of byModeRolls) {
+      const sorted = [...new Set(ids)].sort((a, b) => a - b);
+      sorted.forEach((id, i) => rankMap.set(`${m}:${id}`, i + 1));
+    }
+
     const items = rounds.map((r) => {
       const meta = byRoll.get(Number(r.roll_id));
       const tg = r.winner_telegram_id != null ? Number(r.winner_telegram_id) : null;
+      const modeKey = String(r.mode || "classic");
+      const rid = Number(r.roll_id);
+      const roomSeq =
+        r.room_seq != null
+          ? Number(r.room_seq)
+          : rankMap.get(`${modeKey}:${rid}`) ?? rid + 1;
       return {
-        rollId: Number(r.roll_id),
-        roomSeq: r.room_seq != null ? Number(r.room_seq) : Number(r.roll_id),
+        rollId: rid,
+        roomSeq,
         mode: r.mode,
-        playerTelegramIds: playersByRoll.get(Number(r.roll_id)) || [],
+        playerTelegramIds: playersByRoll.get(rid) || [],
         bank: Number(r.total_bank || 0),
         pot: Number(r.pot_after_fee || r.total_bank || 0),
         houseFee: Number(r.house_fee || 0),
