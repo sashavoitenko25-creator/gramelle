@@ -19,6 +19,7 @@ import {
 } from "@/components/rps/RpsIcons";
 import { RPS_MIN_BET, RPS_MAX_BET } from "@/lib/rpsConstants";
 import { playWinSound, playLoseSound, playBetSound, startWheelSound, stopWheelSound } from "@/lib/sounds";
+import { useI18n } from "@/lib/i18n/context";
 
 interface RpsScreenProps {
   balance: number;
@@ -287,6 +288,8 @@ function ReelColumn({
  * and stop exactly on each player's real choice. No jumps / snaps.
  */
 function ReelReveal({
+  const { t } = useI18n();
+
   room,
   onDone,
 }: {
@@ -437,13 +440,13 @@ function ReelReveal({
             {count}
           </div>
           <div className="text-[12px] uppercase tracking-[0.25em] text-white/30 mt-4">
-            Get ready
+            {t("getReady")}
           </div>
         </div>
       ) : (
         <>
           <div className="text-[11px] uppercase tracking-[0.2em] text-white/35 mb-5">
-            {phase === "done" ? "Result" : "Throw"}
+            {phase === "done" ? t("result") : t("throwPhase")}
           </div>
 
           <div className="flex items-end justify-center gap-5 w-full max-w-sm">
@@ -463,7 +466,7 @@ function ReelReveal({
               </div>
               {leftSettled && room.creatorChoice && (
                 <div className="text-[12px] font-semibold text-fuchsia-200">
-                  {CHOICE_LABEL[room.creatorChoice]}
+                  {room.creatorChoice === "rock" ? t("rock") : room.creatorChoice === "paper" ? t("paper") : t("scissors")}
                 </div>
               )}
             </div>
@@ -488,7 +491,7 @@ function ReelReveal({
               </div>
               {rightSettled && room.joinerChoice && (
                 <div className="text-[12px] font-semibold text-cyan-200">
-                  {CHOICE_LABEL[room.joinerChoice]}
+                  {room.joinerChoice === "rock" ? t("rock") : room.joinerChoice === "paper" ? t("paper") : t("scissors")}
                 </div>
               )}
             </div>
@@ -576,6 +579,8 @@ export function RpsScreen({
   hapticSuccess,
   hapticError,
 }: RpsScreenProps) {
+  const { t } = useI18n();
+
   const [view, setView] = useState<View>("lobby");
   const [rooms, setRooms] = useState<RpsPublicRoom[]>([]);
   const [mine, setMine] = useState<RpsPublicRoom | null>(null);
@@ -605,7 +610,7 @@ export function RpsScreen({
       if (navigator.clipboard) {
         navigator.clipboard.writeText(v).then(() => {
           hapticSuccess();
-          showToast("Copied");
+          showToast(t("copied"));
         });
       } else showToast(v);
     },
@@ -679,13 +684,13 @@ export function RpsScreen({
       return;
     }
     if (amount > balance) {
-      showToast("Not enough balance");
+      showToast(t("notEnoughBalance"));
       return;
     }
     setBusy(true);
     try {
       if (!serverMode) {
-        showToast("Open in Telegram with server for real RPS");
+        showToast(t("openInTelegram"));
         return;
       }
       const res = await rpsCreate(choice, amount);
@@ -695,7 +700,7 @@ export function RpsScreen({
       setActive(res.room);
       setView("lobby");
       haptic("light");
-      showToast("Room created");
+      showToast(t("roomCreated"));
       refresh();
     } catch (e) {
       hapticError();
@@ -715,11 +720,11 @@ export function RpsScreen({
       setMine(null);
       if (active?.id === id) setActive(null);
       haptic("light");
-      showToast("Cancelled · refunded");
+      showToast(t("cancelledRefunded"));
       refresh();
     } catch (e) {
       hapticError();
-      showToast(e instanceof Error ? e.message : "Cancel failed");
+      showToast(e instanceof Error ? e.message : t("cancelFailed"));
     } finally {
       setBusy(false);
     }
@@ -728,13 +733,13 @@ export function RpsScreen({
   const handleJoin = async () => {
     if (!joinTarget || busy) return;
     if (joinTarget.amount > balance) {
-      showToast("Not enough balance");
+      showToast(t("notEnoughBalance"));
       return;
     }
     setBusy(true);
     try {
       if (!serverMode) {
-        showToast("Open in Telegram with server for real RPS");
+        showToast(t("openInTelegram"));
         return;
       }
       if (mine?.status === "open" && mine.id !== joinTarget.id) {
@@ -756,7 +761,7 @@ export function RpsScreen({
       refresh();
     } catch (e) {
       hapticError();
-      showToast(e instanceof Error ? e.message : "Join failed");
+      showToast(e instanceof Error ? e.message : t("joinFailed"));
     } finally {
       setBusy(false);
     }
@@ -879,20 +884,20 @@ export function RpsScreen({
 
   const headerTitle =
     view === "create"
-      ? "Create room"
+      ? t("createRoom")
       : view === "join"
-        ? "Join game"
+        ? t("joinGame")
         : view === "reveal"
           ? "Duel"
           : view === "result"
-            ? "Result"
+            ? t("result")
             : view === "history"
-              ? "History"
+              ? t("history")
               : view === "detail"
                 ? detail
                   ? `RPS #${detail.no}`
                   : "Game"
-                : "Rock Paper Scissors";
+                : t("rpsTitle");
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
@@ -981,10 +986,10 @@ export function RpsScreen({
               </div>
               <div className="flex-1 text-left">
                 <div className="text-[16px] font-bold text-white tracking-tight">
-                  Create room
+                  {t("createRoom")}
                 </div>
                 <div className="text-[12px] text-white/55 mt-0.5">
-                  Set stake · wait for opponent
+                  {t("createRoomDesc")}
                 </div>
               </div>
             </div>
@@ -1003,7 +1008,7 @@ export function RpsScreen({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[10px] uppercase tracking-wider text-fuchsia-300/70 mb-0.5">
-                    Your room · open
+                    {t("yourRoom")}
                   </div>
                   <div className="text-[15px] font-semibold tabular-nums">
                     {formatGram(mine.amount)}{" "}
@@ -1018,7 +1023,7 @@ export function RpsScreen({
                   onClick={() => handleCancel(mine.id)}
                   className="h-9 px-3 rounded-xl text-[12px] font-medium bg-white/5 border border-white/10 text-white/70 hover:text-white btn-press"
                 >
-                  Cancel
+                  {t("cancel")}
                 </button>
               </div>
               <div className="mt-2.5 flex items-center gap-2 text-[11px] text-white/35">
@@ -1026,14 +1031,14 @@ export function RpsScreen({
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
                 </span>
-                Waiting · you can still join other rooms
+                {t("waitingOpponent")}
               </div>
             </div>
           )}
 
           <div className="flex items-center justify-between mb-2.5">
             <div className="text-[11px] uppercase tracking-wider text-white/35">
-              Open rooms
+              {t("openRooms")}
             </div>
             <div className="text-[11px] text-white/25 tabular-nums">
               {openRooms.length}
@@ -1047,9 +1052,9 @@ export function RpsScreen({
             </div>
           ) : openRooms.length === 0 ? (
             <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] py-10 text-center">
-              <div className="text-[14px] text-white/45 mb-1">No open rooms</div>
+              <div className="text-[14px] text-white/45 mb-1">{t("noOpenRooms")}</div>
               <div className="text-[12px] text-white/28">
-                Create one or wait for players
+                {t("noOpenRoomsHint")}
               </div>
             </div>
           ) : (
@@ -1092,7 +1097,7 @@ export function RpsScreen({
 
           <div className="flex items-center justify-between mb-2.5 mt-7">
             <div className="text-[11px] uppercase tracking-wider text-white/35">
-              History
+              {t("history")}
             </div>
             <button
               type="button"
@@ -1102,7 +1107,7 @@ export function RpsScreen({
                 setView("history");
               }}
               className="w-8 h-8 rounded-xl glass border border-white/[0.08] flex items-center justify-center text-white/45 hover:text-white/80 transition btn-press"
-              aria-label="Full history"
+              aria-label={t("fullHistory")}
             >
               <svg
                 width="15"
@@ -1169,7 +1174,7 @@ export function RpsScreen({
                     className="w-7 h-7 text-white/85"
                   />
                 </div>
-                <div className="text-[11px] text-white/40">You</div>
+                <div className="text-[11px] text-white/40">{t("you")}</div>
               </div>
               <div className="text-white/20 text-xs font-bold">VS</div>
               <div className="flex flex-col items-center gap-1.5">
@@ -1204,20 +1209,20 @@ export function RpsScreen({
 
           <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 mb-4">
             <div className="text-[9px] uppercase tracking-wider text-white/25 mb-1">
-              Fairness (after game) · tap to copy
+              {t("fairnessAfter")}
             </div>
             <HashRow
-              label="commit"
+              label={t("commit")}
               value={detail.creator_choice_hash}
               onCopy={copyText}
             />
             <HashRow
-              label="seed"
+              label={t("seed")}
               value={detail.server_seed}
               onCopy={copyText}
             />
             <HashRow
-              label="hash"
+              label={t("hash")}
               value={detail.server_seed_hash}
               onCopy={copyText}
             />
@@ -1230,7 +1235,7 @@ export function RpsScreen({
       {view === "create" && (
         <div className="px-4 flex-1">
           <div className="text-[13px] text-white/40 mb-5 mt-1 text-center">
-            Your move stays hidden until someone joins
+            {t("yourMoveHidden")}
           </div>
           <div className="flex justify-center gap-3.5 mb-8">
             {CYCLE.map((c) => (
@@ -1280,7 +1285,7 @@ export function RpsScreen({
             className="w-full h-12 rounded-2xl bg-white/[0.04] border border-white/[0.1] px-4 text-[16px] font-semibold tabular-nums outline-none focus:border-fuchsia-400/40 transition"
           />
           <div className="text-[11px] text-white/28 mt-2 mb-6">
-            Opponent matches this stake · winner takes the pot
+            {t("opponentMatches")}
           </div>
           <button
             type="button"
@@ -1288,7 +1293,7 @@ export function RpsScreen({
             onClick={handleCreate}
             className="w-full h-12 rounded-2xl btn-primary text-sm font-semibold btn-press disabled:opacity-40"
           >
-            {busy ? "Creating…" : `Create · ${formatGram(amount)} GRAM`}
+            {busy ? t("creating") : t("createWithAmount", { n: formatGram(amount) })}
           </button>
         </div>
       )}
@@ -1319,11 +1324,11 @@ export function RpsScreen({
           </div>
           {mine?.status === "open" && (
             <div className="mb-4 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-200/80 text-center">
-              Joining cancels your open room and refunds the stake
+              {t("joiningCancels")}
             </div>
           )}
           <div className="text-[13px] text-white/40 mb-4 text-center">
-            Choose your move
+            {t("chooseMove")}
           </div>
           <div className="flex justify-center gap-3.5 mb-8">
             {CYCLE.map((c) => (
@@ -1346,8 +1351,8 @@ export function RpsScreen({
             className="w-full h-12 rounded-2xl btn-primary text-sm font-semibold btn-press disabled:opacity-40"
           >
             {busy
-              ? "Joining…"
-              : `Play · ${formatGram(joinTarget.amount)} GRAM`}
+              ? t("joining")
+              : t("playWithAmount", { n: formatGram(joinTarget.amount) })}
           </button>
         </div>
       )}
@@ -1364,7 +1369,7 @@ export function RpsScreen({
             const isDraw = active.winnerTelegramId == null;
             const iWon =
               !isDraw && active.winnerTelegramId === telegramId;
-            const title = isDraw ? "Draw" : iWon ? "You won!" : "You lost";
+            const title = isDraw ? t("draw") : iWon ? t("youWon") : t("youLost");
             const payout = isDraw
               ? active.amount
               : iWon
@@ -1439,17 +1444,17 @@ export function RpsScreen({
                     Provably fair · tap to copy
                   </div>
                   <HashRow
-                    label="commit"
+                    label={t("commit")}
                     value={active.creatorChoiceHash}
                     onCopy={copyText}
                   />
                   <HashRow
-                    label="seed"
+                    label={t("seed")}
                     value={active.serverSeed}
                     onCopy={copyText}
                   />
                   <HashRow
-                    label="nonce"
+                    label={t("nonce")}
                     value={active.creatorChoiceNonce}
                     onCopy={copyText}
                   />

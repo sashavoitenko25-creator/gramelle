@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n/context";
 import type { Player } from "@/lib/types";
 import { formatGram } from "@/lib/utils";
 
@@ -41,10 +42,11 @@ function Avatar({
 }
 
 export function PlayerList({ players, total }: PlayerListProps) {
+  const { t } = useI18n();
   if (!players.length) {
     return (
       <div className="mx-4 py-8 text-center">
-        <p className="text-sm text-white/35">Waiting for players</p>
+        <p className="text-sm text-white/35">{t("waitingPlayers")}</p>
       </div>
     );
   }
@@ -77,7 +79,7 @@ export function PlayerList({ players, total }: PlayerListProps) {
               />
               <div className="min-w-0">
                 <div className="text-sm font-medium text-white/90 truncate flex items-center gap-1.5">
-                  {p.isMe ? "You" : p.name}
+                  {p.isMe ? t("you") : p.name}
                   {p.isMe && (
                     <span className="text-[9px] font-semibold uppercase tracking-wider text-cyan-400/80 bg-cyan-400/10 px-1.5 py-0.5 rounded-md">
                       you
@@ -85,7 +87,7 @@ export function PlayerList({ players, total }: PlayerListProps) {
                   )}
                 </div>
                 <div className="text-[11px] text-white/35 mt-0.5">
-                  {chance}% chance
+                  {chance}% {t("chance")}
                 </div>
               </div>
             </div>

@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import type { RpsChoice } from "@/lib/rpsApi";
+import { useI18n } from "@/lib/i18n/context";
 
 /** Clear, filled icons — readable at small size */
 export function RockIcon({ className }: { className?: string }) {
@@ -101,6 +102,8 @@ export function ChoiceButton({
   disabled?: boolean;
   size?: "sm" | "md" | "lg";
 }) {
+  const { t } = useI18n();
+  const labels = { rock: t("rock"), paper: t("paper"), scissors: t("scissors") };
   const dim =
     size === "lg"
       ? "w-[92px] h-[92px]"
@@ -143,7 +146,7 @@ export function ChoiceButton({
       />
       {size !== "sm" && (
         <span className="relative text-[10px] font-medium text-white/55 tracking-wide">
-          {CHOICE_LABEL[choice]}
+          {labels[choice]}
         </span>
       )}
     </button>

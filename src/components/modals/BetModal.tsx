@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/context";
 
 import { useState } from "react";
 import { formatGram, cn } from "@/lib/utils";
@@ -9,7 +10,7 @@ interface BetModalProps {
   minBet: number;
   maxBet: number;
   onClose: () => void;
-  onConfirm: (amount: number) => void;
+  on{t("confirm")}: (amount: number) => void;
 }
 
 const PRESETS = [0.5, 1, 5, 10, 25, 50];
@@ -20,8 +21,10 @@ export function BetModal({
   minBet,
   maxBet,
   onClose,
-  onConfirm,
+  on{t("confirm")},
 }: BetModalProps) {
+  const { t } = useI18n();
+
   const [amount, setAmount] = useState("");
 
   if (!open) return null;
@@ -87,10 +90,10 @@ export function BetModal({
 
         <button
           disabled={!can}
-          onClick={() => onConfirm(val)}
+          onClick={() => on{t("confirm")}(val)}
           className="w-full h-12 rounded-2xl btn-primary text-sm btn-press disabled:opacity-40"
         >
-          Confirm · {val > 0 ? formatGram(val) + " GRAM" : "Enter amount"}
+          {`${t("confirm")} · ${val > 0 ? formatGram(val) + " GRAM" : ""}`}
         </button>
       </div>
     </div>

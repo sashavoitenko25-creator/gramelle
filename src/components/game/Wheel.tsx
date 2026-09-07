@@ -3,6 +3,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { Player } from "@/lib/types";
 import { SPIN_DURATION_MS } from "@/lib/constants";
+import { useI18n } from "@/lib/i18n/context";
 
 interface WheelProps {
   players: Player[];
@@ -61,6 +62,7 @@ function WheelInner({
   countdownEndsAt = null,
   countdownTotalSec = 20,
 }: WheelProps) {
+  const { t } = useI18n();
   const wheelRef = useRef<HTMLDivElement>(null);
   const frozenPlayers = useRef<Player[] | null>(null);
   const [smoothProgress, setSmoothProgress] = useState(0);
@@ -321,12 +323,12 @@ function WheelInner({
                   {displaySec}
                 </span>
                 <span className="text-[9px] text-white/35 uppercase tracking-wider mt-1">
-                  sec
+                  {t("sec")}
                 </span>
               </>
             ) : isSpinning ? (
               <span className="text-[11px] font-semibold tracking-wider uppercase text-cyan-300 px-1 text-center">
-                {status || "Spinning"}
+                {!status || status === "Spinning" ? t("spinning") : status === "Waiting" ? t("waiting") : status}
               </span>
             ) : players.length === 0 ? (
               <>
@@ -345,12 +347,12 @@ function WheelInner({
                   </svg>
                 </div>
                 <span className="text-[10px] font-semibold tracking-wider uppercase tabular-nums text-white/45">
-                  {status}
+                  {!status || status === "Waiting" ? t("waiting") : status === "Spinning" ? t("spinning") : status}
                 </span>
               </>
             ) : (
               <span className="text-[11px] font-semibold tracking-wider uppercase text-white/50 px-1 text-center">
-                {status || "Waiting"}
+                {!status || status === "Waiting" ? t("waiting") : status === "Spinning" ? t("spinning") : status}
               </span>
             )}
           </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n/context";
 import { useEffect, useMemo, useState } from "react";
 import { Wheel } from "@/components/game/Wheel";
 import { PlayerList } from "@/components/game/PlayerList";
@@ -115,6 +116,8 @@ export function PvpScreen({
   onOpenHistoryFilter,
   myPhotoUrl,
 }: PvpScreenProps) {
+  const { t } = useI18n();
+
   const total = players.reduce((s, p) => s + p.amount, 0);
   const room = ROOMS[mode];
 
@@ -219,7 +222,7 @@ export function PvpScreen({
             </div>
             <div className="text-[10px] text-white/40 flex items-center gap-1.5 mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
-              {online > 0 ? `${online} online` : "online"}
+              {online > 0 ? `${online} ${t("online")}` : t("online")}
             </div>
           </div>
         </div>
@@ -234,7 +237,7 @@ export function PvpScreen({
           className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-2 py-1.5 text-left hover:border-white/12 transition btn-press overflow-hidden"
         >
           <div className="text-[8px] uppercase tracking-wider text-white/30 mb-0.5">
-            Last game
+            {t("lastGame")}
           </div>
           {lastGame ? (
             <div className="flex items-center gap-1.5 min-w-0">
@@ -259,7 +262,7 @@ export function PvpScreen({
           className="rounded-2xl bg-white/[0.03] border border-white/[0.07] px-3 py-2.5 text-left hover:border-amber-500/25 transition btn-press"
         >
           <div className="text-[8px] uppercase tracking-wider text-white/30 mb-0.5">
-            Top game
+            {t("topGame")}
           </div>
           {topGame ? (
             <div className="flex items-center gap-1.5 min-w-0">
@@ -298,9 +301,9 @@ export function PvpScreen({
                   : "text-white/40 hover:text-white/60 border border-transparent"
               )}
             >
-              {r.name}
+              {r.id === "high" ? t("high") : t("classic")}
               <span className="block text-[9px] font-normal opacity-60 mt-0.5">
-                from {r.minBet} GRAM
+                {t("fromBet", { n: r.minBet })}
               </span>
             </button>
           );
@@ -312,7 +315,7 @@ export function PvpScreen({
         <button
           type="button"
           onClick={onOpenHistory}
-          aria-label="History"
+          aria-label={t("history")}
           className="w-10 h-10 rounded-full glass border border-white/[0.09] flex items-center justify-center text-white/50 hover:text-white/80 transition btn-press"
         >
           <svg
@@ -343,7 +346,7 @@ export function PvpScreen({
             ) : (
               <>
                 <span className="text-[10px] text-white/40 uppercase tracking-[0.14em] font-medium">
-                  Bank
+                  {t("bank")}
                 </span>
                 <span className="text-[17px] font-semibold text-gradient-cyan tabular-nums">
                   {formatGram(total)}
@@ -370,14 +373,14 @@ export function PvpScreen({
       {serverSeedHash && (
         <div className="mx-4 mb-2 flex items-center justify-center gap-1.5">
           <span className="text-[9px] text-white/40 uppercase tracking-wider font-medium">
-            Hash
+            {t("hash")}
           </span>
           <span className="text-[9px] text-white/30 font-mono tracking-tight">
             {serverSeedHash.slice(0, 8)}…{serverSeedHash.slice(-6)}
           </span>
           <button
             type="button"
-            aria-label="Copy hash"
+            aria-label={t("copyHash")}
             onClick={() => {
               try {
                 void navigator.clipboard.writeText(serverSeedHash);
@@ -402,7 +405,7 @@ export function PvpScreen({
             </div>
             <div>
               <div className="text-[10px] text-white/35 uppercase tracking-wider">
-                Balance
+                {t("balance")}
               </div>
               <div className="text-[15px] font-semibold tabular-nums flex items-baseline gap-1.5 mt-0.5">
                 {formatGram(balance)}
@@ -438,13 +441,13 @@ export function PvpScreen({
           disabled={isSpinning}
           className="w-full py-3.5 rounded-2xl btn-primary text-[14px] tracking-wide btn-press disabled:opacity-40"
         >
-          Place Bet · {room.minBet}–{room.maxBet}
+          {`${t("placeBet")} · ${room.minBet}–${room.maxBet}`}
         </button>
       </div>
 
       <div className="mx-4 mb-2 flex items-center justify-between">
         <span className="text-[11px] text-white/35 uppercase tracking-[0.12em] font-medium">
-          Players · {players.length}
+          {t("players")} · {players.length}
         </span>
         <span className="text-[11px] text-white/35 uppercase tracking-[0.12em] font-medium tabular-nums">
           {mode === "high" ? "SPINH" : "SPINC"}#{roomSeq ?? rollId}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n/context";
 import { useEffect, useMemo, useState } from "react";
 import type { HistoryItem } from "@/lib/types";
 import { formatGram, formatTime, cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ export function HistoryScreen({
   initialTab = "all",
   telegramId = null,
 }: HistoryScreenProps) {
+  const { t } = useI18n();
   const [tab, setTab] = useState<HistTab>(initialTab);
   const [detailRoll, setDetailRoll] = useState<number | null>(null);
   const [serverItems, setServerItems] = useState<ServerItem[]>([]);
@@ -103,27 +105,27 @@ export function HistoryScreen({
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        <h1 className="text-lg font-semibold">History</h1>
+        <h1 className="text-lg font-semibold">{t("history")}</h1>
       </div>
 
       <div className="mx-4 mb-3 flex gap-1.5 p-1 rounded-2xl bg-black/30 border border-white/[0.06]">
-        {(["all", "lucky", "top"] as HistTab[]).map((t) => (
+        {(["all", "lucky", "top"] as HistTab[]).map((tabKey) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={tabKey === "all" ? t("all") : tabKey === "lucky" ? t("lucky") : t("top")}
+            onClick={() => setTab(tabKey)}
             className={cn(
               "flex-1 h-9 rounded-xl text-xs font-medium capitalize transition btn-press",
-              tab === t ? "bg-white/10 text-white" : "text-white/40"
+              tab === tabKey ? "bg-white/10 text-white" : "text-white/40"
             )}
           >
-            {t}
+            {tabKey === "all" ? t("all") : tabKey === "lucky" ? t("lucky") : t("top")}
           </button>
         ))}
       </div>
 
       <div className="px-4 space-y-2">
         {filtered.length === 0 && (
-          <p className="text-center text-sm text-white/35 py-10">No rounds yet</p>
+          <p className="text-center text-sm text-white/35 py-10">{t("noRounds")}</p>
         )}
         {filtered.map((h, idx) => {
           const isServer = "rollId" in h && !("isMe" in h);
@@ -191,10 +193,10 @@ export function HistoryScreen({
                       </>
                     )}
                     {oc === "win" && (
-                      <span className="text-emerald-400/90 ml-1">Win</span>
+                      <span className="text-emerald-400/90 ml-1">{t("win")}</span>
                     )}
                     {oc === "lose" && (
-                      <span className="text-rose-300/90 ml-1">Lost</span>
+                      <span className="text-rose-300/90 ml-1">{t("lost")}</span>
                     )}
                   </div>
                 </div>
