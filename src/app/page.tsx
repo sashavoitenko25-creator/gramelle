@@ -816,6 +816,7 @@ export default function Home() {
       />
 
       <WithdrawModal
+          wagerRemaining={profile?.wager_remaining ?? 0}
         open={withdrawOpen}
         onClose={() => setWithdrawOpen(false)}
         balance={balance}

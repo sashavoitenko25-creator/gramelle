@@ -41,6 +41,7 @@ export async function fetchSession() {
       wins?: number;
       games?: number;
       ref_active?: number;
+      wager_remaining?: number;
       ref_turnover?: number;
     };
     user?: { telegramId: number; username: string };

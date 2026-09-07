@@ -10,7 +10,7 @@ interface BetModalProps {
   minBet: number;
   maxBet: number;
   onClose: () => void;
-  on{t("confirm")}: (amount: number) => void;
+  onConfirm: (amount: number) => void;
 }
 
 const PRESETS = [0.5, 1, 5, 10, 25, 50];
@@ -21,7 +21,7 @@ export function BetModal({
   minBet,
   maxBet,
   onClose,
-  on{t("confirm")},
+  onConfirm,
 }: BetModalProps) {
   const { t } = useI18n();
 
@@ -90,7 +90,7 @@ export function BetModal({
 
         <button
           disabled={!can}
-          onClick={() => on{t("confirm")}(val)}
+          onClick={() => onConfirm(val)}
           className="w-full h-12 rounded-2xl btn-primary text-sm btn-press disabled:opacity-40"
         >
           {`${t("confirm")} · ${val > 0 ? formatGram(val) + " GRAM" : ""}`}

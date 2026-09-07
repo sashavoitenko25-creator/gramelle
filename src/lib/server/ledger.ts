@@ -32,6 +32,7 @@ export interface ProfileRow {
   ref_turnover?: number | null;
   ref_active?: number | null;
   balance_version?: number | null;
+  wager_remaining?: number | null;
 }
 
 const MAX_RETRIES = 8;
@@ -45,7 +46,7 @@ export async function creditBalance(
   amount: number,
   reason: LedgerReason,
   meta: Record<string, unknown> = {}
-): Promise<{ balance: number; profileId: string }> {
+): Promise<{ balance: number; profileId: string; wagerRemaining: number }> {
   if (amount === 0) throw new Error("Amount must be non-zero");
   const db = getAdminClient();
 
@@ -59,7 +60,7 @@ export async function creditBalance(
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const { data: fresh, error: readErr } = await db
       .from("profiles")
-      .select("id, balance, balance_version")
+      .select("id, balance, balance_version, wager_remaining")
       .eq("id", profile.id)
       .single();
 
@@ -69,10 +70,19 @@ export async function creditBalance(
 
     const currentBal = Number(fresh.balance) || 0;
     const version = Number(fresh.balance_version) || 0;
+    let wagerRem = Number((fresh as { wager_remaining?: number }).wager_remaining) || 0;
     const newBalance = +(currentBal + amount).toFixed(4);
 
     if (newBalance < -0.0001) {
       throw new Error("Insufficient balance");
+    }
+
+    // Wager ×1: deposit increases requirement; bets reduce it
+    if ((reason === "deposit_stars" || reason === "deposit_ton") && amount > 0) {
+      wagerRem = +(wagerRem + amount).toFixed(4);
+    } else if (reason === "bet" && amount < 0) {
+      const played = Math.min(wagerRem, Math.abs(amount));
+      wagerRem = +Math.max(0, wagerRem - played).toFixed(4);
     }
 
     // Optimistic lock: only update if version matches
@@ -81,6 +91,7 @@ export async function creditBalance(
       .update({
         balance: newBalance,
         balance_version: version + 1,
+        wager_remaining: wagerRem,
       })
       .eq("id", profile.id)
       .eq("balance_version", version)
@@ -132,7 +143,7 @@ export async function creditBalance(
       // non-fatal
     }
 
-    return { balance: newBalance, profileId: profile.id };
+    return { balance: newBalance, profileId: profile.id, wagerRemaining: wagerRem };
   }
 
   throw lastErr || new Error("Balance update conflict — try again");

@@ -100,6 +100,7 @@ export function useProfile({
             games: session.profile.games,
             ref_active: session.profile.ref_active,
             ref_turnover: session.profile.ref_turnover,
+            wager_remaining: session.profile.wager_remaining ?? 0,
           };
           setProfile(p);
           setBalance(p.balance);

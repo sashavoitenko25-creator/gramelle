@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
         ref_turnover: Number((profile as { ref_turnover?: number }).ref_turnover || 0),
         ref_active: Number((profile as { ref_active?: number }).ref_active || 0),
         ton_wallet: (profile as { ton_wallet?: string }).ton_wallet || null,
+        wager_remaining: Number((profile as { wager_remaining?: number }).wager_remaining || 0),
         banned: Boolean((profile as { banned?: boolean }).banned),
         ban_reason: (profile as { ban_reason?: string }).ban_reason || null,
       },

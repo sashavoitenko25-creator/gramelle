@@ -24,6 +24,7 @@ export function WithdrawModal({
   open,
   onClose,
   balance,
+  wagerRemaining = 0,
   serverMode,
   onDone,
   showToast,
@@ -42,6 +43,7 @@ export function WithdrawModal({
 
   const val = Number(amount) || 0;
   const can =
+    wagerRemaining <= 0.0001 &&
     val >= MIN_WITHDRAW_TON &&
     val <= balance + 1e-9 &&
     wallet.trim().length >= 20;
@@ -104,10 +106,15 @@ export function WithdrawModal({
           </button>
         </div>
 
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 mb-4 flex justify-between text-sm">
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 mb-2 flex justify-between text-sm">
           <span className="text-white/40">Available</span>
           <span className="tabular-nums font-medium">{formatGram(balance)} GRAM</span>
         </div>
+        {wagerRemaining > 0.0001 && (
+          <div className="mb-4 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-3.5 py-2.5 text-[12px] text-amber-200/95 leading-snug">
+            Отыграйте ещё <span className="font-semibold tabular-nums">{formatGram(wagerRemaining)} GRAM</span> ставок, чтобы вывести средства (вейджер ×1 с депозита).
+          </div>
+        )}
 
         <label className="text-[11px] text-white/40 uppercase tracking-widest mb-1.5 block">
           Amount (GRAM)

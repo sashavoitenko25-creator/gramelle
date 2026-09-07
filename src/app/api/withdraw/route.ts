@@ -121,6 +121,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    
+    const wagerLeft = Number((profile as { wager_remaining?: number }).wager_remaining || 0);
+    if (wagerLeft > 0.0001) {
+      return NextResponse.json(
+        {
+          error: `Wager required: play ${wagerLeft.toFixed(2)} GRAM more before withdraw`,
+          wagerRemaining: wagerLeft,
+        },
+        { status: 400 }
+      );
+    }
+
     const { balance } = await creditBalance(auth.user.id, -totalDebit, "withdraw", {
       amount_ton: amountTon,
       amount_gram: amountGram,

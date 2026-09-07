@@ -34,12 +34,25 @@ export function ProfileScreen({
 }: ProfileScreenProps) {
   const { t, lang, setLang } = useI18n();
   const [langOpen, setLangOpen] = useState(false);
+  const [walletOpen, setWalletOpen] = useState(false);
   const initial = username.charAt(0).toUpperCase();
   const winrate = games > 0 ? Math.round((wins / games) * 100) : 0;
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      <div className="relative px-4 pt-3 flex justify-end">
+      <div className="relative px-4 pt-3 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setWalletOpen(true)}
+          className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-white/70 btn-press"
+          aria-label="Wallet"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 7.5A2.5 2.5 0 015.5 5h13A2.5 2.5 0 0121 7.5v9a2.5 2.5 0 01-2.5 2.5h-13A2.5 2.5 0 013 16.5v-9z" />
+            <path d="M16 12h.01" />
+            <path d="M3 10h18" />
+          </svg>
+        </button>
         <div className="relative">
           <button
             type="button"
@@ -135,7 +148,6 @@ export function ProfileScreen({
       </div>
 
       <div className="mx-4 mt-4">
-        <ConnectWalletButton />
       </div>
 
       <div className="mx-4 mt-4 space-y-2">
@@ -181,6 +193,29 @@ export function ProfileScreen({
           </svg>
         </button>
       </div>
+      {walletOpen && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/55"
+            aria-label="Close"
+            onClick={() => setWalletOpen(false)}
+          />
+          <div className="relative w-full max-w-lg rounded-t-3xl border border-white/10 bg-[#0c0c14] p-4 pb-8 safe-bottom">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold">TON Connect</div>
+              <button
+                type="button"
+                onClick={() => setWalletOpen(false)}
+                className="w-8 h-8 rounded-xl bg-white/[0.05] flex items-center justify-center text-white/45"
+              >
+                ✕
+              </button>
+            </div>
+            <ConnectWalletButton />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

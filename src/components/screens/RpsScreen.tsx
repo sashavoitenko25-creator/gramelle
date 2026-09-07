@@ -288,14 +288,13 @@ function ReelColumn({
  * and stop exactly on each player's real choice. No jumps / snaps.
  */
 function ReelReveal({
-  const { t } = useI18n();
-
   room,
   onDone,
 }: {
   room: RpsPublicRoom;
   onDone: () => void;
 }) {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<"countdown" | "spin" | "done">(
     "countdown"
   );
