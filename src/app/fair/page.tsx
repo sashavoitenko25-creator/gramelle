@@ -107,7 +107,7 @@ export default function FairPage() {
               disabled={loading}
               className="h-11 px-4 rounded-2xl btn-primary text-sm disabled:opacity-40"
             >
-              {loading ? "…" : "Check"}
+              {loading ? "…" : lang === "ru" ? "Проверить" : "Check"}
             </button>
           </div>
           {result && (
@@ -121,8 +121,12 @@ export default function FairPage() {
               {result.error
                 ? result.error
                 : result.ok
-                  ? `✓ Fair — @${result.computedWinner?.username || "?"} won`
-                  : "{lang === "ru" ? "✗ Проверка не удалась" : "✗ Verification failed"}"}
+                  ? lang === "ru"
+                    ? `✓ Честно — @${result.computedWinner?.username || "?"} выиграл`
+                    : `✓ Fair — @${result.computedWinner?.username || "?"} won`
+                  : lang === "ru"
+                    ? "✗ Проверка не удалась"
+                    : "✗ Verification failed"}
             </div>
           )}
         </div>
