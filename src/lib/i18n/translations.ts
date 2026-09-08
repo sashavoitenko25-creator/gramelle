@@ -526,3 +526,25 @@ export const translations = {
     seedLabel: "Seed",
   },
 } as const;
+
+export type Lang = "ru" | "en";
+
+export type TranslationKey = keyof typeof translations.en;
+
+export function translate(
+  lang: Lang,
+  key: TranslationKey,
+  vars?: Record<string, string | number>
+): string {
+  const table = translations[lang] || translations.en;
+  let s: string =
+    (table as Record<string, string>)[key] ||
+    translations.en[key] ||
+    String(key);
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) {
+      s = s.replace(`{${k}}`, String(v));
+    }
+  }
+  return s;
+}
