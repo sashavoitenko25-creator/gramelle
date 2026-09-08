@@ -20,7 +20,7 @@ import {
   gramFromTon,
 } from "@/lib/payments";
 import { createTonPending, checkTonDeposits } from "@/lib/api";
-import { tonAmountToNano, tonCommentPayload } from "@/lib/tonPayload";
+import { tonAmountToNano } from "@/lib/tonPayload";
 import { cn } from "@/lib/utils";
 import type { DepositMethod } from "@/lib/types";
 import { TonIcon } from "@/components/ui/TonIcon";
@@ -226,37 +226,51 @@ export function DepositModal({
       tonConnectUI.openModal();
       return;
     }
+    // Placeholder / empty deposit address → wallet will error
+    if (
+      !TON_DEPOSIT_ADDRESS ||
+      TON_DEPOSIT_ADDRESS.includes("UQAAAA") ||
+      TON_DEPOSIT_ADDRESS.length < 20
+    ) {
+      showToast("Не задан TON-адрес депозита (NEXT_PUBLIC_TON_WALLET)");
+      hapticError();
+      return;
+    }
     setLoading(true);
     haptic("light");
     try {
+      // Copy memo first — payload often breaks TonConnect SDK / wallets
+      try {
+        await navigator.clipboard.writeText(tonMemo);
+      } catch {
+        /* ignore */
+      }
+
       const nano = tonAmountToNano(tonAmount);
-      const payload = tonCommentPayload(tonMemo);
+      // NO payload: most stable. User pastes memo into comment in wallet.
       await tonConnectUI.sendTransaction({
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
           {
             address: TON_DEPOSIT_ADDRESS,
             amount: nano,
-            payload,
           },
         ],
       });
-      showToast(t("sentChecking"));
+      showToast("Memo скопирован. Вставьте его в комментарий перевода в кошельке!");
     } catch (e) {
-      const msg = e instanceof Error ? e.message : t("paymentCancelled");
-      // User rejected in wallet — silent
-      if (/reject|cancel|abort|user.?reject/i.test(msg)) {
+      const raw = e instanceof Error ? e.message : String(e);
+      if (/reject|cancel|abort|user.?reject/i.test(raw)) {
         return;
       }
       hapticError();
-      // Common TonConnect payload/network errors — short hint
-      if (/payload|boc|cell|manifest|chain|network/i.test(msg)) {
-        showToast(
-          "Ошибка кошелька. Скопируйте адрес и memo вручную и отправьте перевод."
-        );
-      } else {
-        showToast(msg.slice(0, 120));
-      }
+      // Surface short readable error (SDK often wraps as "TonConnect SDK error")
+      const short =
+        raw.replace(/TonConnectSDKError[:\s]*/i, "").trim() || raw;
+      showToast(
+        short.slice(0, 100) ||
+          "Ошибка TonConnect. Скопируйте адрес и memo, отправьте вручную."
+      );
     } finally {
       setLoading(false);
     }
@@ -500,9 +514,13 @@ export function DepositModal({
             >
               {wallet ? t("payWithWallet") : t("connectWalletPay")}
             </button>
+            <p className="text-[11px] text-amber-300/90 text-center leading-snug px-1">
+              Важно: в кошельке вставьте <span className="font-semibold">memo</span> в
+              комментарий перевода — без него баланс не зачислится.
+            </p>
             <p className="text-[11px] text-white/40 text-center leading-snug px-1">
               {serverMode
-                ? "Ожидаем перевод… баланс обновится автоматически"
+                ? "После оплаты баланс обновится автоматически (1–2 мин)."
                 : ""}
             </p>
             <button
