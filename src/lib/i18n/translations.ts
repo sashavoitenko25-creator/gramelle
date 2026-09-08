@@ -261,6 +261,7 @@ export const translations = {
     withdrawTon: "Withdraw TON",
     hashLabel: "Hash",
     seedLabel: "Seed",
+    gotIt: "Got it",
   },
   ru: {
     play: "Играть",
@@ -524,6 +525,7 @@ export const translations = {
     withdrawTon: "Вывод TON",
     hashLabel: "Хеш",
     seedLabel: "Seed",
+    gotIt: "Понятно",
   },
 } as const;
 

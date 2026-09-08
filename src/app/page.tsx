@@ -38,7 +38,7 @@ import { placeBetApi, withdrawReferralSavings, fetchRoundState } from "@/lib/api
 import { useI18n } from "@/lib/i18n/context";
 
 export default function Home() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const {
     username: tgUsername,
     telegramId,
@@ -851,24 +851,46 @@ export default function Home() {
         <div className="fixed inset-0 z-[70] flex items-end justify-center modal-backdrop">
           <div className="w-full max-w-md glass-strong rounded-t-3xl p-6 slide-up border-t border-white/10 safe-bottom">
             <h3 className="text-xl font-semibold tracking-tight mb-2">
-              How it works
+              {t("howItWorks")}
             </h3>
             <div className="space-y-3 mb-5 text-sm text-white/70">
-              <p>
-                <span className="text-cyan-300 font-medium">1. Bet</span> — put
-                GRAM into the round bank
-              </p>
-              <p>
-                <span className="text-cyan-300 font-medium">2. Chance</span> —
-                your share of the bank is your win chance
-              </p>
-              <p>
-                <span className="text-cyan-300 font-medium">3. Spin</span> —
-                winner takes the pot
-              </p>
-              <p className="text-[11px] text-white/35 pt-1">
-                18+ · Entertainment only · Play responsibly
-              </p>
+              {lang === "ru" ? (
+                <>
+                  <p>
+                    <span className="text-cyan-300 font-medium">1. Ставка</span> — положите
+                    GRAM в банк раунда
+                  </p>
+                  <p>
+                    <span className="text-cyan-300 font-medium">2. Шанс</span> —
+                    ваша доля банка = шанс победы
+                  </p>
+                  <p>
+                    <span className="text-cyan-300 font-medium">3. Спин</span> —
+                    победитель забирает банк
+                  </p>
+                  <p className="text-[11px] text-white/35 pt-1">
+                    18+ · Только развлечение · Играйте ответственно
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    <span className="text-cyan-300 font-medium">1. Bet</span> — put
+                    GRAM into the round bank
+                  </p>
+                  <p>
+                    <span className="text-cyan-300 font-medium">2. Chance</span> —
+                    your share of the bank is your win chance
+                  </p>
+                  <p>
+                    <span className="text-cyan-300 font-medium">3. Spin</span> —
+                    winner takes the pot
+                  </p>
+                  <p className="text-[11px] text-white/35 pt-1">
+                    18+ · Entertainment only · Play responsibly
+                  </p>
+                </>
+              )}
             </div>
             <button
               className="w-full h-12 rounded-2xl btn-primary text-sm btn-press"
@@ -878,7 +900,7 @@ export default function Home() {
                 haptic("light");
               }}
             >
-              Got it
+              {t("gotIt")}
             </button>
           </div>
         </div>

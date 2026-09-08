@@ -97,7 +97,7 @@ export function WinOverlay({
             onClick={onClose}
             className="w-full h-12 rounded-2xl btn-primary text-sm font-semibold btn-press"
           >
-            Continue
+            {t("continue")}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/context";
 
 import Link from "next/link";
 
@@ -15,6 +16,8 @@ interface RecentItem {
 }
 
 export default function FairPage() {
+  const { t, lang } = useI18n();
+
   const [items, setItems] = useState<RecentItem[]>([]);
   const [rollId, setRollId] = useState("");
   const [result, setResult] = useState<{
@@ -61,34 +64,36 @@ export default function FairPage() {
             Gramelle
           </p>
           <h1 className="text-2xl font-semibold tracking-tight mb-2">
-            Provably Fair
+            {t("provablyFair")}
           </h1>
           <p className="text-sm text-white/50 leading-relaxed">
-            Every round commits a server seed hash before bets close. After the
-            spin, the seed is revealed — anyone can recompute the winner.
+            {lang === "ru"
+              ? "Каждый раунд фиксирует хеш server seed до закрытия ставок. После спина seed раскрывается — любой может пересчитать победителя."
+              : "Every round commits a server seed hash before bets close. After the spin, the seed is revealed — anyone can recompute the winner."}
           </p>
         </div>
 
         <div className="rounded-3xl border border-white/[0.08] bg-white/[0.03] p-5 mb-5 space-y-3 text-sm text-white/65">
-          <p>
-            <span className="text-white/90 font-medium">1. Commit</span> — hash
-            of the secret seed is shown while the round is open.
-          </p>
-          <p>
-            <span className="text-white/90 font-medium">2. Spin</span> — winner
-            is chosen with HMAC-SHA256 from seed + roll id, weighted by bets.
-          </p>
-          <p>
-            <span className="text-white/90 font-medium">3. Reveal</span> — seed
-            is published; SHA256(seed) must match the hash.
-          </p>
+          {lang === "ru" ? (
+            <>
+              <p><span className="text-white/90 font-medium">1. Commit</span> — хеш секретного seed показывается, пока раунд открыт.</p>
+              <p><span className="text-white/90 font-medium">2. Spin</span> — победитель выбирается через HMAC-SHA256 от seed + roll id с учётом ставок.</p>
+              <p><span className="text-white/90 font-medium">3. Reveal</span> — seed публикуется; SHA256(seed) должен совпасть с хешем.</p>
+            </>
+          ) : (
+            <>
+              <p><span className="text-white/90 font-medium">1. Commit</span> — hash of the secret seed is shown while the round is open.</p>
+              <p><span className="text-white/90 font-medium">2. Spin</span> — winner is chosen with HMAC-SHA256 from seed + roll id, weighted by bets.</p>
+              <p><span className="text-white/90 font-medium">3. Reveal</span> — seed is published; SHA256(seed) must match the hash.</p>
+            </>
+          )}
           <p className="text-xs text-white/35 pt-1">
             Classic from {MIN_BET} GRAM · High from {ROOMS.high.minBet} GRAM
           </p>
         </div>
 
         <div className="rounded-3xl border border-white/[0.08] bg-black/30 p-5 mb-5">
-          <h2 className="text-sm font-semibold mb-3">Verify a roll</h2>
+          <h2 className="text-sm font-semibold mb-3">{lang === "ru" ? "Проверить раунд" : "Verify a roll"}</h2>
           <div className="flex gap-2">
             <input
               type="number"
@@ -117,7 +122,7 @@ export default function FairPage() {
                 ? result.error
                 : result.ok
                   ? `✓ Fair — @${result.computedWinner?.username || "?"} won`
-                  : "✗ Verification failed"}
+                  : "{lang === "ru" ? "✗ Проверка не удалась" : "✗ Verification failed"}"}
             </div>
           )}
         </div>
@@ -125,7 +130,7 @@ export default function FairPage() {
         {items.length > 0 && (
           <div className="mb-8">
             <h2 className="text-[11px] text-white/35 uppercase tracking-[0.12em] mb-3">
-              Recent finished
+              {lang === "ru" ? "Недавние завершённые" : "Recent finished"}
             </h2>
             <div className="space-y-2">
               {items.map((r) => (
@@ -156,9 +161,7 @@ export default function FairPage() {
         )}
 
         <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-[11px] text-white/35 leading-relaxed">
-          Entertainment only. 18+. Not available where restricted. Play
-          responsibly. Gramelle does not offer financial advice.
-        </div>
+          {lang === "ru" ? "Только развлечение. 18+. Недоступно в запрещённых юрисдикциях." : "Entertainment only. 18+. Not available where restricted."}</div>
 
         <p className="text-center text-[11px] text-white/25 mt-6">
           <Link href="/">

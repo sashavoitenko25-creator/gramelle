@@ -87,7 +87,7 @@ export function VerifyModal({ open, onClose, initialRollId }: VerifyModalProps) 
       <div className="w-full max-w-md glass-strong rounded-t-3xl p-5 slide-up border-t border-white/10 safe-bottom max-h-[85dvh] overflow-y-auto">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-lg font-semibold tracking-tight">
-            Provably Fair
+            {t("provablyFair")}
           </h3>
           <button
             onClick={onClose}
@@ -160,7 +160,7 @@ export function VerifyModal({ open, onClose, initialRollId }: VerifyModalProps) 
 
             <div className="pt-1">
               <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
-                Server seed
+                {t("serverSeed")}
               </div>
               <code className="block text-[10px] text-white/50 break-all font-mono bg-black/30 rounded-lg p-2">
                 {result.serverSeed}
@@ -168,7 +168,7 @@ export function VerifyModal({ open, onClose, initialRollId }: VerifyModalProps) 
             </div>
             <div>
               <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
-                Committed hash
+                {t("committedHash")}
               </div>
               <code className="block text-[10px] text-white/50 break-all font-mono bg-black/30 rounded-lg p-2">
                 {result.serverSeedHash}
@@ -186,7 +186,7 @@ export function VerifyModal({ open, onClose, initialRollId }: VerifyModalProps) 
             {result.bets?.length > 0 && (
               <div>
                 <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1.5">
-                  Bets
+                  {t("bets")}
                 </div>
                 <div className="space-y-1">
                   {result.bets.map((b) => (

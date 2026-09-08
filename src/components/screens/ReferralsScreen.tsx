@@ -111,7 +111,7 @@ export function ReferralsScreen({
         }}
       >
         <div className="text-[11px] text-white/40 uppercase tracking-widest mb-1">
-          Your tier
+          {t("yourTier")}
         </div>
         <div className="text-2xl font-semibold flex items-center gap-2">
           <span>{tier?.emoji || "🌱"}</span>
@@ -150,7 +150,7 @@ export function ReferralsScreen({
       {/* Tiers list */}
       <div className="mx-4 mt-5 space-y-2">
         <div className="text-[11px] text-white/35 uppercase tracking-widest mb-1 px-1">
-          Levels
+          {t("levels")}
         </div>
         {REFERRAL_TIERS.map((t) => {
           const unlocked = !!tier && tier.shareOfHouseFee >= t.shareOfHouseFee;
@@ -194,7 +194,7 @@ export function ReferralsScreen({
           onClick={onCopy}
           className="w-full mt-3 h-11 rounded-xl btn-primary text-sm btn-press"
         >
-          Copy link
+          {t("copyLink")}
         </button>
       </div>
     </div>

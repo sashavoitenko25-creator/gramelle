@@ -1141,7 +1141,7 @@ export function RpsScreen({
         <div className="px-4 flex-1 overflow-y-auto">
           <div className="flex gap-1.5 p-1 rounded-2xl bg-black/35 border border-white/[0.06] mb-4">
             <div className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-center bg-white/10 text-white border border-white/12">
-              All
+              {t("all")}
             </div>
           </div>
           {numberedHistory.length === 0 ? (
@@ -1251,7 +1251,7 @@ export function RpsScreen({
             ))}
           </div>
           <div className="text-[11px] uppercase tracking-wider text-white/35 mb-2">
-            Stake
+            {t("stake")}
           </div>
           <div className="flex flex-wrap gap-2 mb-3">
             {QUICK_AMOUNTS.map((a) => (

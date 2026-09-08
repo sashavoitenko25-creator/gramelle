@@ -260,7 +260,7 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
                 {hash && (
                   <div className="w-full flex items-center gap-2 rounded-2xl bg-white/[0.04] border border-white/[0.07] px-3 py-2">
                     <span className="text-[10px] text-white/35 uppercase tracking-wider shrink-0 w-10">
-                      Hash
+                      {t("hashLabel")}
                     </span>
                     <span className="text-[11px] font-mono text-white/60 truncate flex-1">
                       {hash.slice(0, 12)}…{hash.slice(-8)}
@@ -271,7 +271,7 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
                 {seed && (
                   <div className="w-full flex items-center gap-2 rounded-2xl bg-white/[0.04] border border-white/[0.07] px-3 py-2">
                     <span className="text-[10px] text-white/35 uppercase tracking-wider shrink-0 w-10">
-                      Seed
+                      {t("seedLabel")}
                     </span>
                     <span className="text-[11px] font-mono text-white/60 truncate flex-1">
                       {seed.slice(0, 10)}…{seed.slice(-8)}
@@ -291,7 +291,7 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 3v12M7 10l5 5 5-5M5 19h14" />
                   </svg>
-                  Roll info
+                  {t("rollInfo")}
                 </button>
                 <button
                   type="button"
@@ -313,7 +313,7 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M5 13l4 4L19 7" />
                       </svg>
-                      Legit
+                      {t("legit")}
                     </>
                   ) : legit === "fail" ? (
                     t("failed")
@@ -322,7 +322,7 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M12 3l8 4v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7l8-4z" />
                       </svg>
-                      Legit Check
+                      {t("legitCheck")}
                     </>
                   )}
                 </button>
@@ -344,7 +344,7 @@ export function RoundDetailModal({ open, rollId, onClose }: Props) {
               {/* Winner */}
               <div className="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-violet-500/5 p-4">
                 <div className="text-[10px] uppercase tracking-[0.14em] text-cyan-300/60 mb-2.5">
-                  Winner
+                  {t("winner")}
                 </div>
                 <div className="flex items-center gap-3">
                   <Avatar

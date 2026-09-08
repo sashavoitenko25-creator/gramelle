@@ -198,7 +198,7 @@ export function ProfileScreen({
           <button
             type="button"
             className="absolute inset-0 bg-black/55"
-            aria-label="Close"
+            aria-label={t("close")}
             onClick={() => setWalletOpen(false)}
           />
           <div className="relative w-full max-w-lg rounded-t-3xl border border-white/10 bg-[#0c0c14] p-4 pb-8 safe-bottom">

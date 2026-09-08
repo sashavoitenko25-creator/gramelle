@@ -143,7 +143,7 @@ export function WithdrawModal({
         {!(val > 0) && <div className="mb-3" />}
 
         <label className="text-[11px] text-white/40 uppercase tracking-widest mb-1.5 block">
-          Wallet
+          {t("wallet")}
         </label>
         {walletConnected && tonAddress && !wallet ? null : null}
         <div className="flex gap-2 mb-2">
@@ -160,7 +160,7 @@ export function WithdrawModal({
               onClick={() => tonConnectUI.openModal()}
               className="h-12 px-3 rounded-2xl border border-white/10 bg-white/[0.04] text-xs text-cyan-300 btn-press whitespace-nowrap"
             >
-              Connect
+              {t("connect")}
             </button>
           )}
         </div>

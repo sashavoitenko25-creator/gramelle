@@ -97,7 +97,7 @@ export function GamesScreen({
           <span className="tabular-nums">{total} {t("online")}</span>
         </div>
         <h1 className="text-center text-[30px] font-bold tracking-tight text-white leading-none">
-          PvP Game
+          {t("pvpGame")}
         </h1>
         <p className="text-center text-[13px] text-white/40 mt-2">
           {t("chooseMode")}

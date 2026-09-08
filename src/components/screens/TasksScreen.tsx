@@ -138,7 +138,7 @@ export function TasksScreen({
 
               {task.completed ? (
                 <div className="h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-300 text-sm font-medium flex items-center justify-center">
-                  Completed
+                  {t("completed")}
                 </div>
               ) : (
                 <div className="flex gap-2">
@@ -147,7 +147,7 @@ export function TasksScreen({
                     onClick={() => openChannel(task)}
                     className="flex-1 h-10 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-white/75 btn-press"
                   >
-                    Open channel
+                    {t("openChannel")}
                   </button>
                   <button
                     type="button"
