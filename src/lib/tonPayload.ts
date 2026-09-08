@@ -1,10 +1,19 @@
 /**
- * TON transfer comment as base64 BOC (text_comment op=0).
- * Pure implementation — no @ton/core.
- *
- * Cell data layout: 32 zero bits + UTF-8 bytes (aligned).
- * BOC: magic + flags(no idx, no crc) + 1 cell + 1 root.
+ * TON transfer comment as base64 BOC (op=0 text comment).
+ * TonConnect-compatible.
  */
+
+/** CRC-32C (Castagnoli) */
+function crc32c(buf: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) {
+    crc ^= buf[i];
+    for (let j = 0; j < 8; j++) {
+      crc = (crc >>> 1) ^ (0x82f63b78 & -(crc & 1));
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
 
 function toBase64(bytes: Uint8Array): string {
   let s = "";
@@ -12,39 +21,48 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(s);
 }
 
-/** Base64 BOC payload for transfer memo/comment. */
+/**
+ * Build BOC for text comment (TL-B: text_comment$0000 data:Text = SnakeData).
+ * Simple path: 32-bit 0 + raw UTF-8 (fits in one cell if ≤120 bytes).
+ */
 export function tonCommentPayload(comment: string): string {
   const text = new TextEncoder().encode(comment);
-  if (text.length > 120) {
-    throw new Error("Comment too long");
-  }
+  if (text.length === 0) throw new Error("Empty comment");
+  if (text.length > 120) throw new Error("Comment too long");
 
-  // data bits = 32 (op) + 8 * text.length  — always byte-aligned
   const dataLen = 4 + text.length;
   const data = new Uint8Array(dataLen);
-  data.set(text, 4); // op stays 0
+  data.set(text, 4);
 
-  // Cell: refs_descriptor=0, bits_descriptor=2*(bitLen/8)=2*dataLen
   const cell = new Uint8Array(2 + dataLen);
-  cell[0] = 0; // no refs
-  cell[1] = 2 * dataLen;
+  cell[0] = 0; // no refs, level 0
+  cell[1] = 2 * dataLen; // byte-aligned bits
   cell.set(data, 2);
 
-  // BOC without CRC32C (more compatible for small payloads)
-  // flags: has_idx=0, has_crc32c=0, has_cache_bits=0, flags=0, size_bytes=1 → 0x01
-  const out = new Uint8Array(4 + 1 + 1 + 1 + 1 + 1 + 1 + cell.length);
+  // BOC with CRC32C
+  const bodyLen = 4 + 1 + 1 + 1 + 1 + 1 + 1 + cell.length;
+  const body = new Uint8Array(bodyLen);
   let o = 0;
-  out[o++] = 0xb5;
-  out[o++] = 0xee;
-  out[o++] = 0x9c;
-  out[o++] = 0x72;
-  out[o++] = 0x01; // size_bytes = 1, no crc
-  out[o++] = 1; // cells
-  out[o++] = 1; // roots
-  out[o++] = 0; // absent
-  out[o++] = cell.length; // total cells size
-  out[o++] = 0; // root index
-  out.set(cell, o);
+  body[o++] = 0xb5;
+  body[o++] = 0xee;
+  body[o++] = 0x9c;
+  body[o++] = 0x72;
+  body[o++] = 0x05; // has_crc32c, size_bytes=1
+  body[o++] = 1;
+  body[o++] = 1;
+  body[o++] = 0;
+  body[o++] = cell.length;
+  body[o++] = 0;
+  body.set(cell, o);
+
+  const crc = crc32c(body);
+  const out = new Uint8Array(body.length + 4);
+  out.set(body);
+  // little-endian CRC
+  out[body.length] = crc & 0xff;
+  out[body.length + 1] = (crc >>> 8) & 0xff;
+  out[body.length + 2] = (crc >>> 16) & 0xff;
+  out[body.length + 3] = (crc >>> 24) & 0xff;
 
   return toBase64(out);
 }

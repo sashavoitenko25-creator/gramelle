@@ -16,7 +16,6 @@ import {
 } from "@/lib/constants";
 import {
   requestStarsInvoice,
-  buildTonTransferLink,
   gramFromStars,
   gramFromTon,
 } from "@/lib/payments";
@@ -231,29 +230,32 @@ export function DepositModal({
     haptic("light");
     try {
       const nano = tonAmountToNano(tonAmount);
-      let payload: string | undefined;
-      try {
-        payload = tonCommentPayload(tonMemo);
-      } catch {
-        payload = undefined;
-      }
+      const payload = tonCommentPayload(tonMemo);
       await tonConnectUI.sendTransaction({
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
           {
             address: TON_DEPOSIT_ADDRESS,
-            amount: String(nano),
-            ...(payload ? { payload } : {}),
+            amount: nano,
+            payload,
           },
         ],
       });
       showToast(t("sentChecking"));
-      // Auto-poll effect handles credit — no manual check needed
     } catch (e) {
       const msg = e instanceof Error ? e.message : t("paymentCancelled");
-      if (!/reject|cancel|abort/i.test(msg)) {
-        hapticError();
-        showToast(msg);
+      // User rejected in wallet — silent
+      if (/reject|cancel|abort|user.?reject/i.test(msg)) {
+        return;
+      }
+      hapticError();
+      // Common TonConnect payload/network errors — short hint
+      if (/payload|boc|cell|manifest|chain|network/i.test(msg)) {
+        showToast(
+          "Ошибка кошелька. Скопируйте адрес и memo вручную и отправьте перевод."
+        );
+      } else {
+        showToast(msg.slice(0, 120));
       }
     } finally {
       setLoading(false);
@@ -497,15 +499,6 @@ export function DepositModal({
               className="w-full h-12 rounded-2xl btn-primary text-sm font-semibold btn-press disabled:opacity-50"
             >
               {wallet ? t("payWithWallet") : t("connectWalletPay")}
-            </button>
-            <button
-              disabled={loading}
-              onClick={() => {
-                openLink(buildTonTransferLink(tonAmount, tonMemo));
-              }}
-              className="w-full h-11 rounded-2xl border border-white/10 bg-white/[0.04] text-sm text-white/70 btn-press"
-            >
-              {t("openTonWallet")}
             </button>
             <p className="text-[11px] text-white/40 text-center leading-snug px-1">
               {serverMode
