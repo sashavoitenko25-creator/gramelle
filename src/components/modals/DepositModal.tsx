@@ -1,7 +1,7 @@
 "use client";
 import { useI18n } from "@/lib/i18n/context";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useTonConnectUI,
   useTonWallet,
@@ -21,7 +21,7 @@ import {
   gramFromTon,
 } from "@/lib/payments";
 import { createTonPending, checkTonDeposits } from "@/lib/api";
-import { tonAmountToNano } from "@/lib/tonPayload";
+import { tonAmountToNano, tonCommentPayload } from "@/lib/tonPayload";
 import { cn } from "@/lib/utils";
 import type { DepositMethod } from "@/lib/types";
 import { TonIcon } from "@/components/ui/TonIcon";
@@ -88,8 +88,6 @@ export function DepositModal({
   const starsOk = starsAmount >= MIN_DEPOSIT_STARS;
   const tonOk = Number.isFinite(tonAmount) && tonAmount >= MIN_DEPOSIT_TON;
 
-  if (!open) return null;
-
   const resetAndClose = () => {
     setLoading(false);
     setTonStep("pick");
@@ -97,6 +95,44 @@ export function DepositModal({
     setExpiresAt(null);
     onClose();
   };
+
+  // Auto-detect TON deposit while on pay step (Connect + manual)
+  const creditedRef = useRef(false);
+  useEffect(() => {
+    if (!open || tonStep !== "pay" || !serverMode || !tonMemo) {
+      creditedRef.current = false;
+      return;
+    }
+    creditedRef.current = false;
+    let stopped = false;
+    const tick = async () => {
+      if (stopped || creditedRef.current) return;
+      try {
+        const res = await checkTonDeposits();
+        if (stopped) return;
+        if (res.credited?.length) {
+          creditedRef.current = true;
+          const total = res.credited.reduce((s, x) => s + x.gram, 0);
+          if (onBalanceRefresh) await onBalanceRefresh();
+          hapticSuccess();
+          showToast(t("plusGram", { n: total }));
+          resetAndClose();
+        }
+      } catch {
+        /* keep polling */
+      }
+    };
+    void tick();
+    const id = setInterval(() => void tick(), 4000);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, tonStep, serverMode, tonMemo]);
+
+
+  if (!open) return null;
 
   const payStars = async (stars: number) => {
     if (loading) return;
@@ -184,6 +220,7 @@ export function DepositModal({
     }
   };
 
+
   const payWithTonConnect = async () => {
     if (loading || !tonMemo) return;
     if (!wallet) {
@@ -194,39 +231,26 @@ export function DepositModal({
     haptic("light");
     try {
       const nano = tonAmountToNano(tonAmount);
+      let payload: string | undefined;
+      try {
+        payload = tonCommentPayload(tonMemo);
+      } catch {
+        payload = undefined;
+      }
       await tonConnectUI.sendTransaction({
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
           {
             address: TON_DEPOSIT_ADDRESS,
             amount: String(nano),
-            payload: undefined,
+            ...(payload ? { payload } : {}),
           },
         ],
       });
-      // Comment/memo: TonConnect payload varies; also offer manual memo
       showToast(t("sentChecking"));
-      for (let i = 0; i < 8; i++) {
-        await new Promise((r) => setTimeout(r, 2500));
-        if (!serverMode) break;
-        try {
-          const res = await checkTonDeposits();
-          if (res.credited?.length) {
-            const total = res.credited.reduce((s, c) => s + c.gram, 0);
-            if (onBalanceRefresh) await onBalanceRefresh();
-            hapticSuccess();
-            showToast(t("plusGram", { n: total }));
-            resetAndClose();
-            setLoading(false);
-            return;
-          }
-        } catch {
-          /* continue */
-        }
-      }
-      showToast(t("notConfirmedYet"));
+      // Auto-poll effect handles credit — no manual check needed
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Cancelled";
+      const msg = e instanceof Error ? e.message : t("paymentCancelled");
       if (!/reject|cancel|abort/i.test(msg)) {
         hapticError();
         showToast(msg);
@@ -454,7 +478,7 @@ export function DepositModal({
                 </div>
                 <div>
                   <div className="text-[10px] text-white/35 mb-0.5">
-                    Memo (required)
+                    {t("memo")} (обязательно)
                   </div>
                   <button
                     type="button"
@@ -483,13 +507,11 @@ export function DepositModal({
             >
               {t("openTonWallet")}
             </button>
-            <button
-              disabled={loading}
-              onClick={() => void confirmTon()}
-              className="w-full h-11 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 text-sm text-cyan-300 font-medium btn-press disabled:opacity-50"
-            >
-              {loading ? t("checking") : t("iPaidCheck")}
-            </button>
+            <p className="text-[11px] text-white/40 text-center leading-snug px-1">
+              {serverMode
+                ? "Ожидаем перевод… баланс обновится автоматически"
+                : ""}
+            </p>
             <button
               type="button"
               onClick={() => {
@@ -498,7 +520,7 @@ export function DepositModal({
               }}
               className="w-full text-center text-[12px] text-white/40 py-1"
             >
-              ← Change amount
+              ← Изменить сумму
             </button>
           </div>
         )}

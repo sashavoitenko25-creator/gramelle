@@ -34,7 +34,7 @@ import { SPIN_DURATION_MS,
 } from "@/lib/constants";
 import { randomColor } from "@/lib/utils";
 import type { Player, Screen } from "@/lib/types";
-import { placeBetApi, withdrawReferralSavings, fetchRoundState } from "@/lib/api";
+import { placeBetApi, withdrawReferralSavings, fetchRoundState, checkTonDeposits } from "@/lib/api";
 import { useI18n } from "@/lib/i18n/context";
 
 export default function Home() {
@@ -404,6 +404,36 @@ export default function Home() {
 
     setTimeout(() => finishRoundLocal(winner, total, rid), SPIN_FINISH_DELAY_MS);
   }, [finishRoundLocal, haptic, clearCountdown]);
+
+
+  // Background TON deposit check (app open / resume) — works even if pay modal closed
+  useEffect(() => {
+    if (!serverMode || !isReady) return;
+    let stopped = false;
+    const run = async () => {
+      if (stopped) return;
+      try {
+        const res = await checkTonDeposits();
+        if (stopped) return;
+        if (res.credited?.length) {
+          await reloadProfile();
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    void run();
+    const id = setInterval(() => void run(), 20_000);
+    const onVis = () => {
+      if (document.visibilityState === "visible") void run();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [serverMode, isReady, reloadProfile]);
 
   useEffect(() => {
     if (serverMode) return;
