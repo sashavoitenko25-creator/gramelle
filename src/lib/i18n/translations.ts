@@ -1,5 +1,3 @@
-export type Lang = "ru" | "en";
-
 export const translations = {
   en: {
     play: "Play",
@@ -206,7 +204,6 @@ export const translations = {
     shareOfFee: "Share of house fee from friends' bets",
     depositsWithdrawals: "Deposits & withdrawals status",
     amountPlaceholder: "Amount ({min}–{max})",
-    useConnected: "Use connected",
     requestsManual: "Requests are reviewed manually. Status appears in Transactions.",
     starter: "Starter",
     payStars: "Pay with Stars",
@@ -214,7 +211,6 @@ export const translations = {
     orChoosePackage: "Or choose a package",
     sendExactly: "Send exactly",
     paymentWindow: "Payment window",
-    recent: "Recent",
     max: "Max",
     continue: "Continue",
     pendingMinLeft: "Pending · ~{n} min left",
@@ -471,7 +467,6 @@ export const translations = {
     shareOfFee: "Доля комиссии с ставок друзей",
     depositsWithdrawals: "Статусы депозитов и выводов",
     amountPlaceholder: "Сумма ({min}–{max})",
-    useConnected: "Использовать подключённый",
     requestsManual: "Заявки проверяются вручную. Статус — в «Транзакции».",
     starter: "Старт",
     payStars: "Оплатить Stars",
@@ -479,7 +474,6 @@ export const translations = {
     orChoosePackage: "Или выберите пакет",
     sendExactly: "Отправьте точно",
     paymentWindow: "Окно оплаты",
-    recent: "Недавние",
     max: "Макс",
     continue: "Продолжить",
     pendingMinLeft: "Ожидание · ~{n} мин",
@@ -532,19 +526,3 @@ export const translations = {
     seedLabel: "Seed",
   },
 } as const;
-
-export type TranslationKey = keyof typeof translations.en;
-
-export function translate(
-  lang: Lang,
-  key: TranslationKey,
-  vars?: Record<string, string | number>
-): string {
-  let s: string = translations[lang][key] || translations.en[key] || key;
-  if (vars) {
-    for (const [k, v] of Object.entries(vars)) {
-      s = s.replace(`{${k}}`, String(v));
-    }
-  }
-  return s;
-}

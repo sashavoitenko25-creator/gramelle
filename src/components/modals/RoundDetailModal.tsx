@@ -73,6 +73,7 @@ function copyText(text: string) {
 }
 
 function CopyBtn({ text, label }: { text: string; label?: string }) {
+  const { t } = useI18n();
   const [done, setDone] = useState(false);
   return (
     <button
