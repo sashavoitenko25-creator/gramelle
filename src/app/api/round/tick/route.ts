@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { tickRoom } from "@/lib/server/round";
 import { isSupabaseConfigured } from "@/lib/server/supabase";
 import { DEFAULT_ROOM, ROOMS, type RoomMode } from "@/lib/constants";
+import { processPendingTonDeposits } from "@/lib/server/tonDeposits";
 
 /**
  * Authority tick — Vercel Cron every minute + client fallback.
@@ -56,7 +57,16 @@ async function handleTick(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ ok: true, results, isCron });
+    // Same cron as wheel: also credit pending TON deposits
+    let ton = { credited: 0 as number };
+    try {
+      const r = await processPendingTonDeposits();
+      ton = { credited: r.credited.length };
+    } catch {
+      /* don't fail the whole tick if TonAPI blips */
+    }
+
+    return NextResponse.json({ ok: true, results, ton, isCron });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Tick failed" },

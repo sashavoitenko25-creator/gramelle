@@ -1,12 +1,3 @@
 {
-  "crons": [
-    {
-      "path": "/api/ton/process",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/round/tick",
-      "schedule": "* * * * *"
-    }
-  ]
+  "crons": []
 }

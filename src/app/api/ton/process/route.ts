@@ -3,9 +3,9 @@ import { isSupabaseConfigured } from "@/lib/server/supabase";
 import { processPendingTonDeposits } from "@/lib/server/tonDeposits";
 
 /**
- * Background processor for ALL pending TON deposits.
- * - Vercel Cron: GET /api/ton/process (x-vercel-cron header)
- * - External cron (cron-job.org): GET with Authorization: Bearer $CRON_SECRET
+ * Same model as /api/round/tick:
+ * - cron-job.org can call freely (or with Bearer CRON_SECRET)
+ * - CRON_STRICT=1 → only Bearer / Vercel cron
  */
 export async function GET(req: NextRequest) {
   return handle(req);
@@ -18,11 +18,17 @@ async function handle(req: NextRequest) {
   try {
     const cronSecret = process.env.CRON_SECRET;
     const auth = req.headers.get("authorization");
-    const isVercelCron = req.headers.get("x-vercel-cron") === "1";
-    const isBearer =
-      !!cronSecret && auth === `Bearer ${cronSecret}`;
+    const isCron =
+      !!cronSecret &&
+      (auth === `Bearer ${cronSecret}` ||
+        req.headers.get("x-vercel-cron") === "1");
 
-    if (cronSecret && !isVercelCron && !isBearer) {
+    if (
+      process.env.CRON_STRICT === "1" &&
+      cronSecret &&
+      !isCron &&
+      auth !== `Bearer ${cronSecret}`
+    ) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -35,6 +41,7 @@ async function handle(req: NextRequest) {
       ok: true,
       credited: credited.length,
       items: credited,
+      isCron,
     });
   } catch (e) {
     return NextResponse.json(
