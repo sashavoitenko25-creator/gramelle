@@ -1,5 +1,7 @@
 "use client";
 
+import { TonIcon } from "@/components/ui/TonIcon";
+
 import { useI18n } from "@/lib/i18n/context";
 import { useEffect, useState } from "react";
 import {
@@ -66,9 +68,7 @@ export function ConnectWalletButton({ className, onAddress }: Props) {
         className
       )}
     >
-      <svg width="18" height="18" viewBox="0 0 56 56" fill="none">
-        <path d="M28 12.2L43.6 22V34L28 43.8L12.4 34V22L28 12.2Z" fill="#0098EA" />
-      </svg>
+      <TonIcon size={18} />
       {t("connectWallet")}
     </button>
   );

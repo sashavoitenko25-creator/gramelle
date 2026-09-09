@@ -120,14 +120,14 @@ export function WithdrawModal({
         )}
 
         <label className="text-[11px] text-white/40 uppercase tracking-widest mb-1.5 block">
-          Amount (GRAM)
+          Сумма (GRAM)
         </label>
         <input
           type="number"
           inputMode="decimal"
           min={MIN_WITHDRAW_TON}
           step="0.1"
-          placeholder={`Min ${MIN_WITHDRAW_TON}`}
+          placeholder={`Мин. ${MIN_WITHDRAW_TON}`}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           className="w-full h-12 rounded-2xl bg-black/30 border border-white/10 px-4 text-base tabular-nums mb-1 outline-none focus:border-cyan-500/40"
@@ -137,7 +137,7 @@ export function WithdrawModal({
         </p>
         {val > 0 && (
           <p className="text-[12px] text-cyan-300/80 mb-4 tabular-nums">
-            You receive {formatGram(val)} TON
+            Вы получите {formatGram(val)} TON
           </p>
         )}
         {!(val > 0) && <div className="mb-3" />}
@@ -175,7 +175,7 @@ export function WithdrawModal({
         )}
 
         {val > 0 && val < MIN_WITHDRAW_TON && (
-          <p className="text-[12px] text-amber-300/90 mb-3">Min {MIN_WITHDRAW_TON} GRAM</p>
+          <p className="text-[12px] text-amber-300/90 mb-3">Мин. {MIN_WITHDRAW_TON} GRAM</p>
         )}
         {val >= MIN_WITHDRAW_TON && val > balance && (
           <p className="text-[12px] text-amber-300/90 mb-3">{t("notEnoughBalance")}</p>
@@ -194,7 +194,7 @@ export function WithdrawModal({
               : t("withdrawBtn")}
         </button>
         <p className="text-[10px] text-white/30 text-center mt-3">
-          {t("requestsManual")}
+          Статус — в разделе «Транзакции».
         </p>
       </div>
     </div>

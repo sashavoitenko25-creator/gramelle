@@ -7,25 +7,19 @@ import {
   useTonWallet,
 } from "@tonconnect/ui-react";
 import {
-  STAR_PACKAGES,
   TON_PACKAGES,
   TON_DEPOSIT_ADDRESS,
-  MIN_DEPOSIT_STARS,
   MIN_DEPOSIT_TON,
   TON_PENDING_TTL_SEC,
 } from "@/lib/constants";
 import {
-  requestStarsInvoice,
-  gramFromStars,
   gramFromTon,
 } from "@/lib/payments";
 import { createTonPending, checkTonDeposits } from "@/lib/api";
 import { tonAmountToNano } from "@/lib/tonPayload";
 import { cn } from "@/lib/utils";
-import type { DepositMethod } from "@/lib/types";
 import { TonIcon } from "@/components/ui/TonIcon";
 import { GramIcon } from "@/components/ui/GramIcon";
-import { StarsIcon } from "@/components/ui/StarsIcon";
 
 interface DepositModalProps {
   open: boolean;
@@ -33,9 +27,6 @@ interface DepositModalProps {
   onCredit: (gram: number) => void;
   telegramId: number | null;
   username: string;
-  openStarsInvoice: (
-    link: string
-  ) => Promise<"paid" | "cancelled" | "failed" | "pending">;
   openLink: (url: string) => void;
   haptic: (s?: "light" | "medium" | "heavy") => void;
   hapticSuccess: () => void;
@@ -51,7 +42,6 @@ export function DepositModal({
   onCredit,
   telegramId,
   username,
-  openStarsInvoice,
   openLink,
   haptic,
   hapticSuccess,
@@ -64,27 +54,12 @@ export function DepositModal({
 
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
-
-  const [method, setMethod] = useState<DepositMethod>("stars");
   const [loading, setLoading] = useState(false);
   const [tonStep, setTonStep] = useState<"pick" | "pay">("pick");
   const [tonAmount, setTonAmount] = useState(1);
   const [tonInput, setTonInput] = useState("1");
   const [tonMemo, setTonMemo] = useState("");
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [starsInput, setStarsInput] = useState(
-    String(STAR_PACKAGES[0]?.stars || 100)
-  );
-
-  const starsAmount = useMemo(
-    () => Math.floor(Number(starsInput) || 0),
-    [starsInput]
-  );
-  const starsGram = useMemo(
-    () => gramFromStars(Math.max(0, starsAmount)),
-    [starsAmount]
-  );
-  const starsOk = starsAmount >= MIN_DEPOSIT_STARS;
   const tonOk = Number.isFinite(tonAmount) && tonAmount >= MIN_DEPOSIT_TON;
 
   const resetAndClose = () => {
@@ -132,50 +107,6 @@ export function DepositModal({
 
 
   if (!open) return null;
-
-  const payStars = async (stars: number) => {
-    if (loading) return;
-    if (stars < MIN_DEPOSIT_STARS) {
-      showToast(t("minStars", { n: MIN_DEPOSIT_STARS }));
-      hapticError();
-      return;
-    }
-    setLoading(true);
-    haptic("light");
-    const result = await requestStarsInvoice(stars, telegramId, username);
-    if (!result.ok || !result.invoiceLink) {
-      setLoading(false);
-      if (
-        (result.error?.includes("TELEGRAM_BOT_TOKEN") ||
-          result.error?.includes("not configured")) &&
-        !serverMode
-      ) {
-        const gram = gramFromStars(stars);
-        onCredit(gram);
-        hapticSuccess();
-        showToast(t("demoGram", { n: gram }));
-        resetAndClose();
-        return;
-      }
-      hapticError();
-      showToast(result.error || t("paymentFailed"));
-      return;
-    }
-    const status = await openStarsInvoice(result.invoiceLink);
-    setLoading(false);
-    if (status === "paid") {
-      if (serverMode && onBalanceRefresh) await onBalanceRefresh();
-      else if (!serverMode) onCredit(gramFromStars(stars));
-      hapticSuccess();
-      showToast(t("paymentReceived"));
-      resetAndClose();
-    } else if (status === "cancelled") {
-      showToast(t("paymentCancelled"));
-    } else {
-      showToast(t("paymentPending"));
-      if (onBalanceRefresh) setTimeout(() => void onBalanceRefresh(), 2500);
-    }
-  };
 
   const startTonDeposit = async (amt: number) => {
     if (loading) return;
@@ -343,81 +274,8 @@ export function DepositModal({
             </svg>
           </button>
         </div>
-
-        {/* Tabs */}
-        <div className="flex gap-2 p-1 rounded-2xl bg-black/40 border border-white/[0.06] mb-4">
-          {(
-            [
-              ["stars", "Stars"],
-              ["ton", "TON"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => {
-                setMethod(id);
-                setTonStep("pick");
-              }}
-              className={cn(
-                "flex-1 h-10 rounded-xl text-sm font-medium transition btn-press",
-                method === id
-                  ? "bg-white/10 text-white"
-                  : "text-white/40 hover:text-white/60"
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* STARS */}
-        {method === "stars" && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              {STAR_PACKAGES.map((p) => (
-                <button
-                  key={p.stars}
-                  disabled={loading}
-                  onClick={() => void payStars(p.stars)}
-                  className="rounded-2xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] px-3 py-3.5 text-left btn-press disabled:opacity-50"
-                >
-                  <div className="flex items-center gap-1.5 text-sm font-semibold">
-                    <StarsIcon className="w-4 h-4" />
-                    {p.stars}
-                    {p.popular && (
-                      <span className="text-[9px] text-cyan-300/80 ml-1">
-                        POPULAR
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[11px] text-white/40 mt-1 flex items-center gap-1">
-                    → {p.gram} GRAM
-                  </div>
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                inputMode="numeric"
-                value={starsInput}
-                onChange={(e) => setStarsInput(e.target.value)}
-                className="flex-1 h-11 rounded-xl bg-black/30 border border-white/10 px-3 text-sm tabular-nums outline-none focus:border-cyan-500/40"
-                placeholder={`Min ${MIN_DEPOSIT_STARS}`}
-              />
-              <button
-                disabled={loading || !starsOk}
-                onClick={() => void payStars(starsAmount)}
-                className="h-11 px-4 rounded-xl btn-primary text-sm font-medium btn-press disabled:opacity-40"
-              >
-                Pay · {starsGram} GRAM
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* TON pick */}
-        {method === "ton" && tonStep === "pick" && (
+        {tonStep === "pick" && (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
               {TON_PACKAGES.map((p) => (
@@ -428,11 +286,11 @@ export function DepositModal({
                   className="rounded-2xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] px-3 py-3.5 text-left btn-press disabled:opacity-50"
                 >
                   <div className="flex items-center gap-1.5 text-sm font-semibold">
-                    <TonIcon className="w-4 h-4" />
                     {p.ton} TON
+                    <TonIcon className="w-4 h-4" />
                   </div>
                   <div className="text-[11px] text-white/40 mt-1 flex items-center gap-1">
-                    → {p.gram} <GramIcon size={12} /> GRAM
+                    → {p.gram} GRAM <GramIcon size={12} />
                   </div>
                 </button>
               ))}
@@ -448,7 +306,7 @@ export function DepositModal({
                   if (Number.isFinite(n)) setTonAmount(+n.toFixed(4));
                 }}
                 className="flex-1 h-11 rounded-xl bg-black/30 border border-white/10 px-3 text-sm tabular-nums outline-none focus:border-cyan-500/40"
-                placeholder={`Min ${MIN_DEPOSIT_TON}`}
+                placeholder={`Мин. ${MIN_DEPOSIT_TON}`}
               />
               <button
                 disabled={loading || !tonOk}
@@ -462,15 +320,15 @@ export function DepositModal({
         )}
 
         {/* TON pay */}
-        {method === "ton" && tonStep === "pay" && (
+        {tonStep === "pay" && (
           <div className="space-y-3">
             <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
               <div className="text-2xl font-semibold tabular-nums flex items-center gap-2">
-                <TonIcon className="w-6 h-6" />
                 {tonAmount} TON
+                <TonIcon className="w-6 h-6" />
               </div>
-              <div className="text-sm text-white/50 mt-1">
-                → {gramFromTon(tonAmount)} GRAM
+              <div className="text-sm text-white/50 mt-1 flex items-center gap-1">
+                → {gramFromTon(tonAmount)} GRAM <GramIcon size={14} />
               </div>
               <div className="text-[11px] text-amber-300/80 mt-2">
                 {t("pendingMinLeft", { n: minsLeft })}
@@ -494,7 +352,7 @@ export function DepositModal({
                 </div>
                 <div>
                   <div className="text-[10px] text-white/35 mb-0.5">
-                    {t("memo")} (обязательно)
+                    {t("memo")}
                   </div>
                   <button
                     type="button"
@@ -514,13 +372,9 @@ export function DepositModal({
             >
               {wallet ? t("payWithWallet") : t("connectWalletPay")}
             </button>
-            <p className="text-[11px] text-amber-300/90 text-center leading-snug px-1">
-              Важно: в кошельке вставьте <span className="font-semibold">memo</span> в
-              комментарий перевода — без него баланс не зачислится.
-            </p>
-            <p className="text-[11px] text-white/40 text-center leading-snug px-1">
+            <p className="text-[11px] text-white/45 text-center leading-snug px-1">
               {serverMode
-                ? "После оплаты баланс обновится автоматически (1–2 мин)."
+                ? "Нажмите «Оплатить» и подтвердите в кошельке — баланс обновится автоматически."
                 : ""}
             </p>
             <button

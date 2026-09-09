@@ -47,7 +47,6 @@ export default function Home() {
     haptic,
     hapticSuccess,
     hapticError,
-    openStarsInvoice,
     openLink,
   } = useTelegram();
 
@@ -826,7 +825,6 @@ export default function Home() {
         onCredit={doCredit}
         telegramId={telegramId}
         username={username}
-        openStarsInvoice={openStarsInvoice}
         openLink={openLink}
         haptic={haptic}
         hapticSuccess={hapticSuccess}

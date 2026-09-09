@@ -80,7 +80,7 @@ export function ReferralsScreen({
           <span className="text-base text-white/40 font-normal">GRAM</span>
         </div>
         <p className="text-[11px] text-white/35 mt-2 leading-relaxed">
-          from friends&apos; play. Withdraw to main balance (min{" "}
+          С игр друзей. Вывод на основной баланс (мин.{" "}
           {REFERRAL_MIN_WITHDRAW} GRAM).
         </p>
         <button
@@ -96,8 +96,8 @@ export function ReferralsScreen({
           {withdrawing
             ? t("withdrawing")
             : canWithdraw
-              ? `Withdraw ${formatGram(earned)} GRAM`
-              : `Min ${REFERRAL_MIN_WITHDRAW} GRAM to withdraw`}
+              ? `Вывести ${formatGram(earned)} GRAM`
+              : `Мин. ${REFERRAL_MIN_WITHDRAW} GRAM для вывода`}
         </button>
       </div>
 
@@ -171,8 +171,8 @@ export function ReferralsScreen({
                 </div>
                 <div className="text-[10px] text-white/35">
                   {t.minActive}
-                  {t.maxActive ? `–${t.maxActive}` : "+"} active
-                  {t.minTurnover > 0 ? ` · ${t.minTurnover}+ turnover` : ""}
+                  {t.maxActive ? `–${t.maxActive}` : "+"} акт.
+                  {t.minTurnover > 0 ? ` · ${t.minTurnover}+ оборот` : ""}
                 </div>
               </div>
               <div className="text-sm font-semibold tabular-nums text-cyan-300/90">
