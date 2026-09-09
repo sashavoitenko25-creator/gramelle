@@ -5,126 +5,103 @@ import type { RpsChoice } from "@/lib/rpsApi";
 import { useI18n } from "@/lib/i18n/context";
 
 /**
- * Hand-gesture icons for Rock / Paper / Scissors.
- * Filled, readable at small sizes, use currentColor.
+ * Clear hand-gesture icons (emoji-style silhouettes).
+ * Rock = fist, Paper = open palm, Scissors = V-sign.
  */
 
-/** Fist — rock */
 export function RockIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 64" fill="none" className={className} aria-hidden>
-      {/* wrist */}
+    <svg viewBox="0 0 64 64" className={className} fill="none" aria-hidden>
+      {/* raised fist */}
       <path
-        d="M22 48c0 4 3.5 8 10 8s10-4 10-8v-6H22v6z"
         fill="currentColor"
-        opacity="0.9"
+        d="M32 8c-2.2 0-4 1.6-4.2 3.7-.8-.5-1.8-.8-2.8-.8-2.8 0-5 2.2-5 5v1.1c-.7-.4-1.5-.6-2.4-.6-2.6 0-4.7 2-4.7 4.6V34c0 8.3 6.7 15 15 15h4c8.3 0 15-6.7 15-15V21.5c0-2.5-2-4.5-4.5-4.5-.7 0-1.4.2-2 .5V16c0-2.8-2.2-5-5-5-.9 0-1.8.3-2.5.7C33.9 9.5 33 8 32 8z"
       />
-      {/* palm / fist body */}
+      {/* knuckle lines */}
       <path
-        d="M18 28c-2 0-4 2-4 5v9c0 3 2 5 5 5h26c3 0 5-2 5-5v-9c0-3-2-5-4-5h-2.5c0-3.5-2.5-6-5.5-6h-1c-.3-3-2.5-5-5.5-5s-5.2 2-5.5 5h-1c-3 0-5.5 2.5-5.5 6H18z"
-        fill="currentColor"
-      />
-      {/* knuckle highlights */}
-      <circle cx="24" cy="30" r="3.2" fill="currentColor" opacity="0.35" />
-      <circle cx="32" cy="28.5" r="3.2" fill="currentColor" opacity="0.35" />
-      <circle cx="40" cy="30" r="3.2" fill="currentColor" opacity="0.35" />
-      {/* thumb */}
-      <path
-        d="M16 34c-3 0-5 2.2-5 5s2 5 5 5h6v-6c0-2.2-1.5-4-3.5-4H16z"
-        fill="currentColor"
-      />
-      <path
-        d="M20 26c1.5-4 5-7 10-7 3 0 5.5 1.2 7 3"
         stroke="#000"
-        strokeOpacity="0.12"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-/** Open hand — paper */
-export function PaperIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 64 64" fill="none" className={className} aria-hidden>
-      {/* wrist */}
-      <path
-        d="M24 50c0 3.5 3 6.5 8 6.5s8-3 8-6.5V44H24v6z"
-        fill="currentColor"
-        opacity="0.9"
-      />
-      {/* palm */}
-      <path
-        d="M22 42c-3 0-5-2.2-5-5V28c0-2.5 2-4.5 4.5-4.5h1V16.5c0-2.2 1.6-4 3.8-4s3.8 1.8 3.8 4V22h1.2V13.5c0-2.3 1.7-4.2 4-4.2s4 1.9 4 4.2V22h1.2V15c0-2.2 1.6-4 3.8-4s3.8 1.8 3.8 4v8.5h1c2.6 0 4.7 2.1 4.7 4.7V37c0 2.8-2.2 5-5 5H22z"
-        fill="currentColor"
-      />
-      {/* finger gaps */}
-      <path
-        d="M27.5 18v16M34 15v19M40.5 17v17"
-        stroke="#000"
-        strokeOpacity="0.15"
+        strokeOpacity="0.18"
         strokeWidth="1.6"
         strokeLinecap="round"
+        d="M22 24h6M29 22h6M36 24h5"
       />
-      {/* thumb */}
+      {/* wrist */}
       <path
-        d="M17 32c-3.2 0-5.5 2.3-5.5 5.2S13.8 42 17 42h7v-5.5c0-2.5-2-4.5-4.5-4.5H17z"
         fill="currentColor"
+        d="M25 47h14c2 0 3.5 1.6 3.5 3.5S41 54 39 54H25c-2 0-3.5-1.6-3.5-3.5S23 47 25 47z"
+        opacity="0.92"
       />
     </svg>
   );
 }
 
-/** Victory hand — scissors */
-export function ScissorsIcon({ className }: { className?: string }) {
+export function PaperIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 64" fill="none" className={className} aria-hidden>
-      {/* wrist */}
+    <svg viewBox="0 0 64 64" className={className} fill="none" aria-hidden>
+      {/* open hand facing viewer */}
       <path
-        d="M24 52c0 3 3 5.5 8 5.5s8-2.5 8-5.5v-6H24v6z"
         fill="currentColor"
-        opacity="0.9"
+        d="M20 28V16.5c0-2.2 1.7-4 3.9-4 2.1 0 3.9 1.8 3.9 4V26h1.2V13.2c0-2.3 1.8-4.2 4.1-4.2 2.2 0 4 1.9 4 4.2V26h1.2V14.5c0-2.2 1.7-4 3.9-4s3.9 1.8 3.9 4V26h1V17.8c0-2.1 1.6-3.8 3.7-3.8 2 0 3.7 1.7 3.7 3.8V34c0 9.4-7.6 17-17 17h-2C23.6 51 17 44.4 17 36.2V32c0-2.2 1.8-4 4-4h1.5V28z"
       />
-      {/* palm / folded fingers base */}
+      {/* finger separators */}
       <path
-        d="M20 44c-2.5 0-4.5-2-4.5-4.5V34c0-2.5 2-4.5 4.5-4.5h3.5l2-6.5c.5-1.5 2-2.5 3.6-2.5h2.2c1.5 0 2.8.9 3.3 2.3L36 29.5H42c2.5 0 4.5 2 4.5 4.5v5c0 2.5-2 4.5-4.5 4.5H20z"
-        fill="currentColor"
-      />
-      {/* index finger up */}
-      <path
-        d="M26 30V14.5c0-2.4 1.7-4.3 4-4.3s4 1.9 4 4.3V30"
-        fill="currentColor"
-      />
-      <path
-        d="M28.2 14.5c0-1.2.9-2.1 2-2.1s2 .9 2 2.1"
         stroke="#000"
-        strokeOpacity="0.12"
-        strokeWidth="1.2"
-      />
-      {/* middle finger up */}
-      <path
-        d="M35 30V12.5c0-2.5 1.8-4.5 4.2-4.5 2.3 0 4.2 2 4.2 4.5V30"
-        fill="currentColor"
-      />
-      <path
-        d="M37.3 12.5c0-1.3 1-2.3 2.1-2.3s2.1 1 2.1 2.3"
-        stroke="#000"
-        strokeOpacity="0.12"
-        strokeWidth="1.2"
-      />
-      {/* V gap shadow */}
-      <path
-        d="M34 18v10"
-        stroke="#000"
-        strokeOpacity="0.12"
+        strokeOpacity="0.16"
         strokeWidth="1.5"
         strokeLinecap="round"
+        d="M27.8 16v18M35.2 14v20M42.5 16v18"
       />
       {/* thumb */}
       <path
-        d="M16 35c-2.8 0-5 2.1-5 4.8S13.2 44 16 44h7v-5c0-2.2-1.8-4-4-4h-3z"
         fill="currentColor"
+        d="M14 33.5c0-2.5 2-4.5 4.5-4.5H21v9h-2.5C16 38 14 36 14 33.5z"
+      />
+      {/* wrist */}
+      <path
+        fill="currentColor"
+        opacity="0.92"
+        d="M26 49h14c2 0 3.5 1.5 3.5 3.4S42 56 40 56H26c-2 0-3.5-1.6-3.5-3.6S24 49 26 49z"
+      />
+    </svg>
+  );
+}
+
+export function ScissorsIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 64" className={className} fill="none" aria-hidden>
+      {/* palm + folded ring/pinky */}
+      <path
+        fill="currentColor"
+        d="M18 36.5c0-2.5 2-4.5 4.5-4.5H28l1.5-5.2c.4-1.4 1.7-2.3 3.1-2.3h3.2c1.3 0 2.5.8 3 2l1.4 3.5h6.3c2.5 0 4.5 2 4.5 4.5V41c0 2.5-2 4.5-4.5 4.5H22.5C20 45.5 18 43.5 18 41v-4.5z"
+      />
+      {/* index finger */}
+      <path
+        fill="currentColor"
+        d="M27.5 30V13.5c0-2.5 1.9-4.5 4.3-4.5 2.3 0 4.2 2 4.2 4.5V30"
+      />
+      {/* middle finger */}
+      <path
+        fill="currentColor"
+        d="M36.5 30V11.5c0-2.6 2-4.7 4.5-4.7s4.5 2.1 4.5 4.7V30"
+      />
+      {/* V gap */}
+      <path
+        stroke="#000"
+        strokeOpacity="0.14"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        d="M35.8 16v12"
+      />
+      {/* thumb */}
+      <path
+        fill="currentColor"
+        d="M13 37c0-2.4 1.9-4.4 4.3-4.4H21v8h-3.7C15 40.6 13 38.6 13 37z"
+      />
+      {/* wrist */}
+      <path
+        fill="currentColor"
+        opacity="0.92"
+        d="M25 44h15c2 0 3.5 1.5 3.5 3.4S42 51 40 51H25c-2 0-3.5-1.5-3.5-3.6S23 44 25 44z"
       />
     </svg>
   );
@@ -178,11 +155,7 @@ export function ChoiceButton({
 }) {
   const labels = useChoiceLabel();
   const dim =
-    size === "lg"
-      ? "w-20 h-20"
-      : size === "sm"
-        ? "w-12 h-12"
-        : "w-16 h-16";
+    size === "lg" ? "w-20 h-20" : size === "sm" ? "w-12 h-12" : "w-16 h-16";
   const icon =
     size === "lg" ? "w-11 h-11" : size === "sm" ? "w-7 h-7" : "w-9 h-9";
 
@@ -195,8 +168,8 @@ export function ChoiceButton({
         "flex flex-col items-center justify-center gap-1 rounded-2xl border transition btn-press",
         dim,
         selected
-          ? "border-cyan-400/50 bg-cyan-500/15 text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.15)]"
-          : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.07]",
+          ? "border-cyan-400/50 bg-cyan-500/15 text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.15)]"
+          : "border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.07]",
         disabled && "opacity-40 pointer-events-none"
       )}
     >

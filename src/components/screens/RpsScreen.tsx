@@ -1211,11 +1211,6 @@ export function RpsScreen({
               {t("fairnessAfter")}
             </div>
             <HashRow
-              label={t("commit")}
-              value={detail.creator_choice_hash}
-              onCopy={copyText}
-            />
-            <HashRow
               label={t("seed")}
               value={detail.server_seed}
               onCopy={copyText}
@@ -1442,11 +1437,6 @@ export function RpsScreen({
                   <div className="text-[9px] uppercase tracking-wider text-white/25 mb-1">
                     {t("fairnessAfter")}
                   </div>
-                  <HashRow
-                    label={t("commit")}
-                    value={active.creatorChoiceHash}
-                    onCopy={copyText}
-                  />
                   <HashRow
                     label={t("seed")}
                     value={active.serverSeed}
