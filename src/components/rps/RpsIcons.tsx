@@ -1,157 +1,159 @@
 "use client";
 
-import { useId } from "react";
 import { cn } from "@/lib/utils";
 import type { RpsChoice } from "@/lib/rpsApi";
 import { useI18n } from "@/lib/i18n/context";
 
 /**
- * Premium hand-gesture icons for RPS.
- * Soft gradients + clear silhouettes (fist / open palm / victory).
+ * Flat isometric-style hands (white fill, bold dark outline) — like classic RPS illustrations.
  */
 
-function SkinGrad({ id }: { id: string }) {
-  return (
-    <defs>
-      <linearGradient id={`${id}-skin`} x1="16" y1="8" x2="48" y2="56" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#FFE0B8" />
-        <stop offset="0.45" stopColor="#F5C18A" />
-        <stop offset="1" stopColor="#E0A06E" />
-      </linearGradient>
-      <linearGradient id={`${id}-skinDeep`} x1="20" y1="20" x2="44" y2="52" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#F0B87A" />
-        <stop offset="1" stopColor="#C98A55" />
-      </linearGradient>
-      <linearGradient id={`${id}-shine`} x1="24" y1="10" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#fff" stopOpacity="0.55" />
-        <stop offset="1" stopColor="#fff" stopOpacity="0" />
-      </linearGradient>
-    </defs>
-  );
-}
+const STROKE = "#1a1a1a";
+const FILL = "#FFFFFF";
+const SHADOW = "rgba(0,0,0,0.12)";
 
-/** ✊ Fist */
+/** Rock — fist */
 export function RockIcon({ className }: { className?: string }) {
-  const uid = useId().replace(/:/g, "");
   return (
-    <svg viewBox="0 0 64 64" className={className} fill="none" aria-hidden>
-      <SkinGrad id={uid} />
-      {/* soft glow */}
-      <ellipse cx="32" cy="36" rx="22" ry="20" fill={`url(#${uid}-skin)`} opacity="0.15" />
+    <svg viewBox="0 0 80 80" className={className} fill="none" aria-hidden>
+      {/* shadow */}
+      <ellipse cx="40" cy="70" rx="18" ry="4" fill={SHADOW} />
       {/* wrist */}
       <path
-        d="M22 46h20c3.2 0 5.5 2.2 5.5 5.2 0 2.4-1.8 4.3-4.2 4.3H20.7c-2.4 0-4.2-1.9-4.2-4.3 0-3 2.3-5.2 5.5-5.2z"
-        fill={`url(#${uid}-skinDeep)`}
+        d="M28 48h22l4 14H26l2-14z"
+        fill={FILL}
+        stroke={STROKE}
+        strokeWidth="2.8"
+        strokeLinejoin="round"
       />
       {/* fist body */}
       <path
-        d="M17.5 30.5c-2.8 0-5 2.3-5 5.2v6.8c0 4.6 3.6 8.3 8.1 8.3h23.8c4.5 0 8.1-3.7 8.1-8.3v-6.5c0-2.9-2.3-5.2-5.1-5.2h-1.2c.1-.6.2-1.2.2-1.8 0-3.8-3-6.8-6.7-6.8h-.8c-.4-3.2-3.1-5.7-6.4-5.7-2.2 0-4.1 1.1-5.3 2.7-.9-1.9-2.9-3.2-5.2-3.2-3.2 0-5.8 2.5-5.8 5.6 0 .5 0 1 .1 1.4h-.8c-1.9 0-3.5 1-4.5 2.5-.6-.3-1.3-.5-2-.5z"
-        fill={`url(#${uid}-skin)`}
+        d="M22 28c-2 0-4 2-4 5v12c0 4 3 7 7 7h28c4 0 7-3 7-7V32c0-3-2-5-5-5h-3c0-4-3-7-7-7h-2c-1-3-4-5-7-5s-6 2-7 5h-2c-3 0-5 2-5 5h-2z"
+        fill={FILL}
+        stroke={STROKE}
+        strokeWidth="2.8"
+        strokeLinejoin="round"
       />
       {/* thumb */}
       <path
-        d="M12.8 33.2c-3.4 0-6.1 2.7-6.1 6.1 0 3.3 2.6 6 5.9 6.1h7.2v-7.4c0-2.6-2.1-4.8-4.7-4.8h-2.3z"
-        fill={`url(#${uid}-skin)`}
+        d="M16 34c-3 0-5 2.5-5 5.5S13 45 16 45h8v-8c0-2-1.5-3-3.5-3H16z"
+        fill={FILL}
+        stroke={STROKE}
+        strokeWidth="2.6"
+        strokeLinejoin="round"
       />
-      {/* knuckles */}
-      <circle cx="23.5" cy="29.5" r="3.6" fill={`url(#${uid}-shine)`} />
-      <circle cx="32" cy="27.8" r="3.8" fill={`url(#${uid}-shine)`} />
-      <circle cx="40.5" cy="29.5" r="3.6" fill={`url(#${uid}-shine)`} />
-      {/* knuckle outline */}
+      {/* knuckle lines */}
       <path
-        d="M20 30.2c1.2-2.2 3.3-3.6 5.7-3.6 1.4 0 2.7.4 3.8 1.2 1.2-1.6 3.1-2.6 5.3-2.6 2.4 0 4.5 1.3 5.6 3.2"
-        stroke="#B87A4A"
-        strokeOpacity="0.35"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-/** ✋ Open palm */
-export function PaperIcon({ className }: { className?: string }) {
-  const uid = useId().replace(/:/g, "");
-  return (
-    <svg viewBox="0 0 64 64" className={className} fill="none" aria-hidden>
-      <SkinGrad id={uid} />
-      <ellipse cx="32" cy="36" rx="22" ry="22" fill={`url(#${uid}-skin)`} opacity="0.12" />
-      {/* wrist */}
-      <path
-        d="M23.5 48h17c3 0 5.2 2 5.2 4.8 0 2.2-1.7 4-4 4H22.3c-2.3 0-4-1.8-4-4 0-2.8 2.2-4.8 5.2-4.8z"
-        fill={`url(#${uid}-skinDeep)`}
-      />
-      {/* palm + fingers (one solid readable shape) */}
-      <path
-        d="M19.5 30.5V17.2c0-2.6 2-4.7 4.5-4.7s4.5 2.1 4.5 4.7V28.5h1.4V13.5c0-2.8 2.1-5 4.8-5 2.6 0 4.7 2.2 4.7 5V28.5h1.4V15.2c0-2.6 2-4.7 4.5-4.7s4.5 2.1 4.5 4.7V28.5h1.2V18.8c0-2.4 1.8-4.3 4.2-4.3 2.3 0 4.1 1.9 4.1 4.3V36c0 9.9-7.6 18-17.5 18h-3.2C22.3 54 15 46.7 15 37.8v-3.5c0-2.1 1.7-3.8 3.8-3.8h.7z"
-        fill={`url(#${uid}-skin)`}
-      />
-      {/* thumb */}
-      <path
-        d="M12.2 32.5c0-2.9 2.3-5.2 5.2-5.2H21v10.5h-3.6c-2.9 0-5.2-2.3-5.2-5.3z"
-        fill={`url(#${uid}-skin)`}
-      />
-      {/* finger gaps */}
-      <path
-        d="M28.4 15.5v20M36.1 12.5v23M43.6 16v20"
-        stroke="#B87A4A"
-        strokeOpacity="0.28"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      {/* highlight */}
-      <path
-        d="M26 18c2-4 7-7 13-6"
-        stroke={`url(#${uid}-shine)`}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-/** ✌️ Victory / scissors */
-export function ScissorsIcon({ className }: { className?: string }) {
-  const uid = useId().replace(/:/g, "");
-  return (
-    <svg viewBox="0 0 64 64" className={className} fill="none" aria-hidden>
-      <SkinGrad id={uid} />
-      <ellipse cx="32" cy="38" rx="20" ry="18" fill={`url(#${uid}-skin)`} opacity="0.12" />
-      {/* wrist */}
-      <path
-        d="M23 47h18c2.8 0 4.8 1.9 4.8 4.5S43.8 56 41 56H23c-2.8 0-4.8-1.9-4.8-4.5S20.2 47 23 47z"
-        fill={`url(#${uid}-skinDeep)`}
-      />
-      {/* palm + tucked fingers */}
-      <path
-        d="M17.5 35.5c0-2.9 2.3-5.2 5.2-5.2h6.2l1.8-6.2c.5-1.7 2-2.9 3.8-2.9h3.6c1.6 0 3.1 1 3.7 2.5l1.6 4.1h7.1c2.9 0 5.2 2.3 5.2 5.2v5.8c0 2.9-2.3 5.2-5.2 5.2H22.7c-2.9 0-5.2-2.3-5.2-5.2v-3.5z"
-        fill={`url(#${uid}-skin)`}
-      />
-      {/* index */}
-      <path
-        d="M27.2 28.5V12.2c0-3 2.3-5.4 5.2-5.4 2.8 0 5.1 2.4 5.1 5.4v16.3"
-        fill={`url(#${uid}-skin)`}
-      />
-      {/* middle */}
-      <path
-        d="M37.2 28.5V10.5c0-3.1 2.4-5.6 5.4-5.6 2.9 0 5.3 2.5 5.3 5.6v18"
-        fill={`url(#${uid}-skin)`}
-      />
-      {/* fingertip shine */}
-      <circle cx="32.5" cy="11" r="2.2" fill={`url(#${uid}-shine)`} />
-      <circle cx="42.6" cy="9.5" r="2.2" fill={`url(#${uid}-shine)`} />
-      {/* V gap */}
-      <path
-        d="M36.8 15v11"
-        stroke="#B87A4A"
-        strokeOpacity="0.3"
+        d="M26 32h8M36 30h8M46 32h6"
+        stroke={STROKE}
         strokeWidth="2"
         strokeLinecap="round"
       />
+      {/* finger creases */}
+      <path
+        d="M28 40h20M30 46h16"
+        stroke={STROKE}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        opacity="0.7"
+      />
+    </svg>
+  );
+}
+
+/** Scissors — two fingers */
+export function ScissorsIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 80 80" className={className} fill="none" aria-hidden>
+      <ellipse cx="42" cy="70" rx="18" ry="4" fill={SHADOW} />
+      {/* wrist */}
+      <path
+        d="M32 50h20l3 12H30l2-12z"
+        fill={FILL}
+        stroke={STROKE}
+        strokeWidth="2.8"
+        strokeLinejoin="round"
+      />
+      {/* palm */}
+      <path
+        d="M24 36c-2.5 0-4.5 2-4.5 4.5V48c0 3 2.5 5.5 5.5 5.5h26c3 0 5.5-2.5 5.5-5.5v-7c0-2.5-2-4.5-4.5-4.5H50l-2-5c-.8-1.5-2-2.5-3.5-2.5h-4c-1.4 0-2.6.8-3.2 2l-1.5 3.5H24z"
+        fill={FILL}
+        stroke={STROKE}
+        strokeWidth="2.8"
+        strokeLinejoin="round"
+      />
+      {/* index finger */}
+      <path
+        d="M30 36V14c0-3 2.2-5.5 5-5.5s5 2.5 5 5.5v22"
+        fill={FILL}
+        stroke={STROKE}
+        strokeWidth="2.8"
+        strokeLinejoin="round"
+      />
+      {/* middle finger */}
+      <path
+        d="M42 36V12c0-3.2 2.4-5.8 5.5-5.8S53 8.8 53 12v24"
+        fill={FILL}
+        stroke={STROKE}
+        strokeWidth="2.8"
+        strokeLinejoin="round"
+      />
+      {/* finger joints */}
+      <path
+        d="M32 20h6M44 18h7"
+        stroke={STROKE}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        opacity="0.75"
+      />
       {/* thumb */}
       <path
-        d="M11.8 36.2c0-2.8 2.2-5 5-5H20v9.2h-3.2c-2.8 0-5-2.2-5-5z"
-        fill={`url(#${uid}-skin)`}
+        d="M18 40c-2.8 0-5 2.2-5 5s2.2 5 5 5h8v-6c0-2.2-1.8-4-4-4h-4z"
+        fill={FILL}
+        stroke={STROKE}
+        strokeWidth="2.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Paper — open hand */
+export function PaperIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 80 80" className={className} fill="none" aria-hidden>
+      <ellipse cx="40" cy="70" rx="20" ry="4" fill={SHADOW} />
+      {/* wrist */}
+      <path
+        d="M30 52h20l3 11H28l2-11z"
+        fill={FILL}
+        stroke={STROKE}
+        strokeWidth="2.8"
+        strokeLinejoin="round"
+      />
+      {/* palm + four fingers */}
+      <path
+        d="M22 34V18c0-2.8 2-5 4.6-5s4.6 2.2 4.6 5v14h1.5V14c0-3 2.2-5.4 5-5.4s5 2.4 5 5.4v16h1.5V16c0-2.8 2-5 4.6-5s4.6 2.2 4.6 5v16h1.3V20c0-2.6 1.9-4.7 4.4-4.7 2.4 0 4.3 2.1 4.3 4.7V40c0 8.5-6.5 15.5-15 15.5h-4C26.5 55.5 20 49 20 41v-3c0-2.2 1.8-4 4-4h1.5V34z"
+        fill={FILL}
+        stroke={STROKE}
+        strokeWidth="2.8"
+        strokeLinejoin="round"
+      />
+      {/* finger lines */}
+      <path
+        d="M31.5 16v22M41 13v25M50.5 16v22"
+        stroke={STROKE}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        opacity="0.7"
+      />
+      {/* thumb */}
+      <path
+        d="M15 36c-3 0-5.5 2.4-5.5 5.4S12 47 15 47h9v-7c0-2.4-2-4.4-4.5-4.4H15z"
+        fill={FILL}
+        stroke={STROKE}
+        strokeWidth="2.6"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -205,7 +207,7 @@ export function ChoiceButton({
 }) {
   const labels = useChoiceLabel();
   const dim =
-    size === "lg" ? "w-[5.25rem] h-[5.25rem]" : size === "sm" ? "w-12 h-12" : "w-16 h-16";
+    size === "lg" ? "w-[5.5rem] h-[5.5rem]" : size === "sm" ? "w-12 h-12" : "w-[4.25rem] h-[4.25rem]";
   const icon =
     size === "lg" ? "w-12 h-12" : size === "sm" ? "w-7 h-7" : "w-9 h-9";
 
@@ -215,16 +217,16 @@ export function ChoiceButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center justify-center gap-1.5 rounded-2xl border transition btn-press",
+        "flex flex-col items-center justify-center gap-1 rounded-2xl border transition btn-press",
         dim,
         selected
-          ? "border-cyan-400/55 bg-gradient-to-b from-cyan-400/20 to-cyan-500/5 text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,0.2)]"
-          : "border-white/12 bg-gradient-to-b from-white/[0.08] to-white/[0.02] text-white hover:from-white/[0.12]",
+          ? "border-amber-300/50 bg-amber-400/15 shadow-[0_0_24px_rgba(251,191,36,0.2)]"
+          : "border-white/12 bg-white/[0.06] hover:bg-white/[0.1]",
         disabled && "opacity-40 pointer-events-none"
       )}
     >
       <ChoiceIcon choice={choice} className={icon} />
-      <span className="text-[10px] font-semibold tracking-wide leading-none opacity-90">
+      <span className="text-[10px] font-semibold tracking-wide text-white/85 leading-none">
         {labels[choice]}
       </span>
     </button>

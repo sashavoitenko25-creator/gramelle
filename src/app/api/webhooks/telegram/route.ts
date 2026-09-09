@@ -5,22 +5,24 @@ import { notifyUser, fmtAmount } from "@/lib/server/notify";
 import { BOT_USERNAME, GRAM_PER_STAR } from "@/lib/constants";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 
-const START_TEXT = `Welcome to Gramelle — PvP roulette on TON.
+const START_TEXT = `🎮 <b>Gramelle</b> — PvP-игры на TON
 
-How it works:
-1. Deposit Stars or TON → get GRAM
-2. Place a bet into the round bank
-3. Your share of the bank = your win chance
-4. Spin — winner takes the pot
+Как играть:
+1. Пополни баланс TON → получи GRAM
+2. Выбери игру: <b>Spin</b> или <b>Камень-Ножницы-Бумага</b>
+3. Сделай ставку и выигрывай
 
-Provably fair: each round commits a seed hash before the spin. Verify any finished roll in the app.
+Честная игра: у каждого раунда есть Hash и Seed — можно проверить в приложении.
 
-Rules:
-• Classic from 0.25 GRAM · High from 10 GRAM
-• Min withdraw 5 TON · Entertainment only · 18+
-• Play responsibly
+Правила:
+• Classic от 0.25 GRAM · High от 10 GRAM
+• Вывод без комиссии · Только 18+
+• Играйте ответственно
 
-Open the Mini App to play.`;
+Канал: @GramellePlay
+Бот: @Gramelle_bot
+
+Нажми кнопку ниже, чтобы открыть игру.`;
 
 async function tgApi(method: string, body: Record<string, unknown>) {
   const token = getBotToken();
@@ -55,27 +57,33 @@ export async function POST(req: NextRequest) {
     if (msg?.text && typeof msg.text === "string" && msg.chat?.id) {
       const text = msg.text.trim();
       if (text === "/start" || text.startsWith("/start ")) {
-        const webAppUrl =
+                const webAppUrl =
           process.env.NEXT_PUBLIC_APP_URL ||
           (process.env.VERCEL_URL
             ? `https://${process.env.VERCEL_URL}`
-            : "https://t.me/Gramelle_bot");
+            : "https://gramelle-gamma.vercel.app");
 
         await tgApi("sendMessage", {
           chat_id: msg.chat.id,
           text: START_TEXT,
+          parse_mode: "HTML",
+          disable_web_page_preview: true,
           reply_markup: {
             inline_keyboard: [
               [
                 {
-                  text: "Играть в Gramelle",
+                  text: "🎮 Играть",
                   web_app: { url: webAppUrl },
                 },
               ],
               [
                 {
-                  text: "Канал / поддержка",
-                  url: process.env.NEXT_PUBLIC_SUPPORT_URL || "https://t.me/" + BOT_USERNAME,
+                  text: "📢 Канал",
+                  url: "https://t.me/GramellePlay",
+                },
+                {
+                  text: "🤖 Бот",
+                  url: "https://t.me/Gramelle_bot",
                 },
               ],
             ],
