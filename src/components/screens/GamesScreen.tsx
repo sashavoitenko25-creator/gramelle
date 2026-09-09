@@ -171,13 +171,13 @@ export function GamesScreen({
             <div className="flex items-start justify-between">
               <div className="flex items-center -space-x-2.5">
                 <div className="w-11 h-11 rounded-full bg-white/[0.14] border-2 border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.3)] z-30 text-white">
-                  <ChoiceIcon choice="rock" className="w-5 h-5" />
+                  <ChoiceIcon choice="rock" className="w-6 h-6" />
                 </div>
                 <div className="w-11 h-11 rounded-full bg-white/[0.14] border-2 border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.3)] z-20 text-white">
-                  <ChoiceIcon choice="paper" className="w-5 h-5" />
+                  <ChoiceIcon choice="paper" className="w-6 h-6" />
                 </div>
                 <div className="w-11 h-11 rounded-full bg-white/[0.14] border-2 border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.3)] z-10 text-white">
-                  <ChoiceIcon choice="scissors" className="w-5 h-5" />
+                  <ChoiceIcon choice="scissors" className="w-6 h-6" />
                 </div>
               </div>
               <OnlineBadge count={rps} label={t("online")} />
