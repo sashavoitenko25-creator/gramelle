@@ -17,6 +17,7 @@ import { WithdrawModal } from "@/components/modals/WithdrawModal";
 import { BOT_USERNAME } from "@/lib/constants";
 import type { Screen } from "@/lib/types";
 import { withdrawReferralSavings, checkTonDeposits } from "@/lib/api";
+import { rpsList } from "@/lib/rpsApi";
 import { useI18n } from "@/lib/i18n/context";
 
 export default function Home() {
@@ -51,6 +52,7 @@ export default function Home() {
   const [screen, setScreen] = useState<Screen>("games");
   const [refWithdrawing, setRefWithdrawing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [onlineCount, setOnlineCount] = useState(0);
   const [depositOpen, setDepositOpen] = useState(false);
   const [howRefOpen, setHowRefOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
@@ -63,6 +65,30 @@ export default function Home() {
   balanceRef.current = balance;
 
   const showToast = useCallback((msg: string) => setToast(msg), []);
+
+
+  // Global online (RPS open rooms) — top bar all screens
+  useEffect(() => {
+    if (!isReady) return;
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const rps = await rpsList();
+        if (stopped) return;
+        const open = (rps.rooms || []).length;
+        const playing = rps.mine?.status === "playing" ? 2 : 0;
+        setOnlineCount(Math.max(0, open + playing));
+      } catch {
+        /* keep */
+      }
+    };
+    void tick();
+    const id = setInterval(() => void tick(), 8000);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+    };
+  }, [isReady]);
 
   // Background TON deposit check
   useEffect(() => {
@@ -171,6 +197,17 @@ export default function Home() {
 
   return (
     <div className="relative min-h-[100dvh] w-full">
+      <div className="app-top-online">
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/45 border border-white/15 backdrop-blur-md shadow-[0_2px_12px_rgba(0,0,0,0.35)]">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+          </span>
+          <span className="text-[11px] font-medium text-white/90 tabular-nums">
+            {onlineCount} {t("online")}
+          </span>
+        </div>
+      </div>
       {!serverMode && (
         <div className="mx-4 mt-2 mb-1 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-200/90 text-center">
           {t("demoMode")} configured for real play.

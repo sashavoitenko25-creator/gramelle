@@ -142,11 +142,14 @@ body {
 }
 
 .safe-top {
-  padding-top: max(
-    env(safe-area-inset-top, 0px),
-    var(--tg-content-safe-area-inset-top, 0px),
-    var(--tg-safe-area-inset-top, 0px),
-    10px
+  /* Extra offset: content sits below TG controls in fullscreen */
+  padding-top: calc(
+    max(
+      env(safe-area-inset-top, 0px),
+      var(--tg-content-safe-area-inset-top, 0px),
+      var(--tg-safe-area-inset-top, 0px),
+      12px
+    ) + 28px
   );
 }
 
@@ -311,4 +314,26 @@ html.tg-light {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Centered online pill under Telegram chrome (all screens) */
+.app-top-online {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: max(
+    env(safe-area-inset-top, 0px),
+    var(--tg-content-safe-area-inset-top, 0px),
+    var(--tg-safe-area-inset-top, 0px),
+    6px
+  );
+  pointer-events: none;
+}
+.app-top-online > * {
+  pointer-events: auto;
 }

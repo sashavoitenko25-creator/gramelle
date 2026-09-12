@@ -1043,6 +1043,22 @@ export function RpsScreen({
                 </span>
                 {t("waitingOpponent")}
               </div>
+              {(mine.serverSeedHash || mine.creatorChoiceHash) && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    copyText(mine.serverSeedHash || mine.creatorChoiceHash)
+                  }
+                  className="mt-2.5 w-full text-left rounded-xl bg-black/25 border border-white/10 px-2.5 py-2 btn-press"
+                >
+                  <div className="text-[9px] uppercase tracking-wider text-white/35 mb-0.5">
+                    {t("hash")} · tap to copy
+                  </div>
+                  <div className="text-[10px] font-mono text-cyan-300/90 break-all leading-snug">
+                    {mine.serverSeedHash || mine.creatorChoiceHash}
+                  </div>
+                </button>
+              )}
             </div>
           )}
 
@@ -1359,6 +1375,24 @@ export function RpsScreen({
               ? t("joining")
               : t("playWithAmount", { n: formatGram(joinTarget.amount) })}
           </button>
+          {(joinTarget.serverSeedHash || joinTarget.creatorChoiceHash) && (
+            <button
+              type="button"
+              onClick={() =>
+                copyText(
+                  joinTarget.serverSeedHash || joinTarget.creatorChoiceHash
+                )
+              }
+              className="mt-3 w-full text-left rounded-xl bg-black/25 border border-white/10 px-3 py-2.5 btn-press"
+            >
+              <div className="text-[9px] uppercase tracking-wider text-white/35 mb-0.5">
+                {t("hash")} · tap to copy
+              </div>
+              <div className="text-[10px] font-mono text-cyan-300/90 break-all leading-snug">
+                {joinTarget.serverSeedHash || joinTarget.creatorChoiceHash}
+              </div>
+            </button>
+          )}
         </div>
       )}
 
