@@ -48,118 +48,6 @@ export async function fetchSession() {
   }>("/api/auth/session", { method: "POST", body: "{}" });
 }
 
-export async function placeBetApi(
-  amount: number,
-  color?: string,
-  mode?: string
-) {
-  return apiFetch<{
-    ok: boolean;
-    balance: number;
-    round: {
-      id: string;
-      rollId: number;
-      roomSeq?: number;
-      mode: string;
-      status: string;
-      totalBank: number;
-      countdownEndsAt?: string;
-      serverSeedHash: string;
-    };
-    bets: Array<{
-      telegramId: number;
-      username: string;
-      amount: number;
-      color: string;
-      isMe: boolean;
-    }>;
-  }>("/api/bet", {
-    method: "POST",
-    body: JSON.stringify({ amount, color, mode }),
-  });
-}
-
-export async function fetchRoundState(mode: string = "classic") {
-  return apiFetch<{
-    round: {
-      id: string;
-      rollId: number;
-      roomSeq?: number;
-      mode: string;
-      status: string;
-      totalBank: number;
-      countdownEndsAt?: string;
-      serverSeedHash?: string;
-      spinDegrees?: number;
-      winnerTelegramId?: number;
-      houseFee?: number;
-      potAfterFee?: number;
-    } | null;
-    bets: Array<{
-      telegramId: number;
-      username: string;
-      amount: number;
-      color: string;
-    }>;
-    spinResult?: {
-      rollId: number;
-      spinDegrees: number;
-      winnerTelegramId: number;
-      winnerUsername: string;
-      mult: number;
-      total: number;
-      potAfterFee: number;
-      houseFee: number;
-      serverSeed: string;
-      serverSeedHash: string;
-    };
-    demo?: boolean;
-  }>(`/api/round/state?mode=${encodeURIComponent(mode)}`);
-}
-
-export async function requestSpin(mode: string = "classic") {
-  return apiFetch<{
-    ok: boolean;
-    spinDegrees: number;
-    mult: number;
-    houseFee: number;
-    potAfterFee: number;
-    winner: { telegramId: number; username: string; amount: number };
-    total: number;
-    rollId: number;
-    serverSeed?: string;
-    serverSeedHash?: string;
-    bets?: Array<{
-      telegramId: number;
-      username: string;
-      amount: number;
-      color: string;
-    }>;
-  }>("/api/round/spin", {
-    method: "POST",
-    body: JSON.stringify({ mode }),
-  });
-}
-
-export async function fetchRooms() {
-  return apiFetch<{
-    rooms: Array<{
-      id: string;
-      name: string;
-      description: string;
-      minBet: number;
-      maxBet: number;
-      houseEdge: number;
-      maxPlayers: number;
-      countdownSec: number;
-      players: number;
-      bank: number;
-      status: string;
-      rollId: number | null;
-    }>;
-  }>("/api/rooms");
-}
-
 export async function createTonPending(ton: number) {
   return apiFetch<{
     ok: boolean;
@@ -181,7 +69,6 @@ export async function checkTonDeposits() {
     error?: string;
   }>("/api/ton/check", { method: "POST", body: "{}" });
 }
-
 
 export async function requestWithdraw(amountTon: number, wallet: string) {
   return apiFetch<{
@@ -234,7 +121,6 @@ export async function withdrawReferralSavings(amount?: number) {
     body: JSON.stringify(amount != null ? { amount } : {}),
   });
 }
-
 
 export async function fetchTasks() {
   return apiFetch<{

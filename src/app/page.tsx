@@ -4,8 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTelegram } from "@/hooks/useTelegram";
 import { useProfile } from "@/hooks/useProfile";
 import { useHistory } from "@/hooks/useHistory";
-import { useRound } from "@/hooks/useRound";
-import { PvpScreen } from "@/components/screens/PvpScreen";
 import { HistoryScreen } from "@/components/screens/HistoryScreen";
 import { ProfileScreen } from "@/components/screens/ProfileScreen";
 import { ReferralsScreen } from "@/components/screens/ReferralsScreen";
@@ -14,27 +12,13 @@ import { TasksScreen } from "@/components/screens/TasksScreen";
 import { GamesScreen } from "@/components/screens/GamesScreen";
 import { RpsScreen } from "@/components/screens/RpsScreen";
 import { BottomNav } from "@/components/game/BottomNav";
-import { BetModal } from "@/components/modals/BetModal";
 import { DepositModal } from "@/components/modals/DepositModal";
 import { HowRefModal } from "@/components/modals/HowRefModal";
 import { Toast } from "@/components/ui/Toast";
-import { WinOverlay } from "@/components/ui/WinOverlay";
-import { Confetti } from "@/components/ui/Confetti";
 import { WithdrawModal } from "@/components/modals/WithdrawModal";
-import { VerifyModal } from "@/components/modals/VerifyModal";
-import { playSpinSound, playWinSound, playLoseSound, playBetSound, startWheelSound, stopWheelSound } from "@/lib/sounds";
-import { SPIN_DURATION_MS,
-  SPIN_FINISH_DELAY_MS,
-  MAX_PLAYERS,
-  BOT_USERNAME,
-  ROUND_COUNTDOWN_SEC,
-  ROOMS,
-  DEFAULT_ROOM,
-  type RoomMode,
-} from "@/lib/constants";
-import { randomColor } from "@/lib/utils";
-import type { Player, Screen } from "@/lib/types";
-import { placeBetApi, withdrawReferralSavings, fetchRoundState, checkTonDeposits } from "@/lib/api";
+import { BOT_USERNAME } from "@/lib/constants";
+import type { Screen } from "@/lib/types";
+import { withdrawReferralSavings, checkTonDeposits } from "@/lib/api";
 import { useI18n } from "@/lib/i18n/context";
 
 export default function Home() {
@@ -66,346 +50,26 @@ export default function Home() {
     startParam,
   });
 
-  const { history, saveItem } = useHistory(telegramId);
-
-  const [mode, setMode] = useState<RoomMode>(DEFAULT_ROOM);
-
-  const {
-    players,
-    setPlayers,
-    rollId, roomSeq,
-    setRollId,
-    countdownEndsAt,
-    pendingSpin,
-    clearPendingSpin,
-    applyServerBets,
-    triggerSpin,
-    clearRound,
-    refresh: refreshRound,
-    serverSeedHash,
-    setAnimating,
-  } = useRound(telegramId, username, mode);
+  const { history } = useHistory(telegramId);
 
   const [screen, setScreen] = useState<Screen>("games");
   const [refWithdrawing, setRefWithdrawing] = useState(false);
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [spinDegrees, setSpinDegrees] = useState(0);
-  const [status, setStatus] = useState("Waiting");
-  const [countdown, setCountdown] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [betOpen, setBetOpen] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
   const [howRefOpen, setHowRefOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
-  const [verifyOpen, setVerifyOpen] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<"all" | "lucky" | "top">("all");
-  const [verifyRollId, setVerifyRollId] = useState<number | null>(null);
-  const [confetti, setConfetti] = useState(false);
-  const [winOverlay, setWinOverlay] = useState<{
-    open: boolean;
-    isWin: boolean;
-    title: string;
-    subtitle: string;
-    winnerName?: string;
-    photoUrl?: string | null;
-  }>({ open: false, isWin: false, title: "", subtitle: "" });
   const [onboarded, setOnboarded] = useState(() => {
     if (typeof window === "undefined") return true;
     return localStorage.getItem("gramelle_onboarded") === "1";
   });
 
-  const playersRef = useRef(players);
-  const spinningRef = useRef(isSpinning);
   const balanceRef = useRef(balance);
-  const rollIdRef = useRef(rollId);
-  const modeRef = useRef(mode);
-  const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const spinStartedFor = useRef<number | null>(null);
-
-  playersRef.current = players;
-  spinningRef.current = isSpinning;
   balanceRef.current = balance;
-  rollIdRef.current = rollId;
-  modeRef.current = mode;
 
   const showToast = useCallback((msg: string) => setToast(msg), []);
-  // Shared SPIN online across Classic + High
-  const [spinOnline, setSpinOnline] = useState(0);
-  useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      try {
-        const [classic, high] = await Promise.all([
-          fetchRoundState("classic").catch(() => null),
-          fetchRoundState("high").catch(() => null),
-        ]);
-        if (!alive) return;
-        const ids = new Set<number>();
-        for (const st of [classic, high]) {
-          if (!st?.bets) continue;
-          for (const b of st.bets) {
-            if (b.telegramId) ids.add(Number(b.telegramId));
-          }
-        }
-        setSpinOnline(ids.size);
-      } catch {
-        /* keep */
-      }
-    };
-    load();
-    const id = setInterval(load, 5000);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, [players, mode]);
-  const online = Math.max(spinOnline, players.length);
 
-  const clearCountdown = useCallback(() => {
-    if (countdownTimer.current) {
-      clearInterval(countdownTimer.current);
-      countdownTimer.current = null;
-    }
-    setCountdown(null);
-  }, []);
-
-  useEffect(() => {
-    if (!countdownEndsAt || isSpinning) return;
-    const totalSec = ROOMS[mode]?.countdownSec ?? 20;
-    const tick = () => {
-      const raw = Math.ceil(
-        (new Date(countdownEndsAt).getTime() - Date.now()) / 1000
-      );
-      const left = Math.min(totalSec, Math.max(0, raw));
-      if (left <= 0) {
-        setCountdown(0);
-        setStatus("Spinning");
-      } else {
-        setCountdown(left);
-        setStatus("Starting");
-      }
-    };
-    tick();
-    const id = setInterval(tick, 250);
-    return () => clearInterval(id);
-  }, [countdownEndsAt, isSpinning, mode]);
-
-  useEffect(() => {
-    if (!pendingSpin || spinningRef.current) return;
-    const {
-      spinDegrees: deg,
-      winnerTelegramId,
-      winnerUsername,
-      mult,
-      total,
-      potAfterFee,
-    } = pendingSpin;
-
-    setIsSpinning(true);
-    setAnimating(true);
-    setStatus("Spinning");
-    setSpinDegrees(deg);
-    haptic("medium");
-    playSpinSound();
-    startWheelSound(SPIN_DURATION_MS);
-    clearCountdown();
-
-    const list = playersRef.current;
-    const winner =
-      list.find((p) => p.telegramId === winnerTelegramId) ||
-      list.find((p) => p.isMe && winnerTelegramId === telegramId);
-
-    const modeAtSpin = modeRef.current;
-    setTimeout(async () => {
-      if (modeRef.current !== modeAtSpin) {
-        setIsSpinning(false);
-        setSpinDegrees(0);
-        setStatus("Waiting");
-        setAnimating(false);
-        clearPendingSpin();
-        return;
-      }
-      setIsSpinning(false);
-      setStatus("Waiting");
-      const isMe = winnerTelegramId === telegramId;
-
-      if (isMe) {
-        hapticSuccess();
-        stopWheelSound();
-        playWinSound();
-        setConfetti(true);
-        setTimeout(() => setConfetti(false), 2400);
-        showToast(t("youWonAmount", { n: (potAfterFee ?? total).toFixed(2), mult }));
-        setWinOverlay({
-          open: true,
-          isWin: true,
-          title: t("youWonTitle"),
-          subtitle: (potAfterFee ?? total).toFixed(2) + " GRAM · x" + mult,
-          winnerName: winnerUsername,
-          photoUrl:
-            list.find((p) => p.telegramId === winnerTelegramId)?.photoUrl ||
-            profile?.photo_url ||
-            null,
-        });
-        await reloadProfile();
-      } else {
-        haptic("medium");
-        stopWheelSound();
-        playLoseSound();
-        showToast(
-          t("playerWon", {
-            name: winnerUsername,
-            n: (potAfterFee ?? total).toFixed(2),
-          })
-        );
-        setWinOverlay({
-          open: true,
-          isWin: false,
-          title: t("playerWonTitle", { name: winnerUsername }),
-          subtitle: (potAfterFee ?? total).toFixed(2) + " GRAM",
-          winnerName: winnerUsername,
-          photoUrl:
-            list.find((p) => p.telegramId === winnerTelegramId)?.photoUrl ||
-            null,
-        });
-        await reloadProfile();
-      }
-      setAnimating(false);
-
-      await saveItem({
-        id: rollIdRef.current,
-        winner: isMe ? "You" : winnerUsername,
-        chance: winner ? +((winner.amount / total) * 100).toFixed(2) : 0,
-        win: potAfterFee ?? total,
-        mult,
-        bet: winner?.amount || 0,
-        time: new Date(),
-        type: "PvP",
-        isMe,
-      });
-
-      clearPendingSpin();
-      clearRound(rollIdRef.current + 1);
-      setSpinDegrees(0);
-      setIsSpinning(false);
-      setStatus("Waiting");
-      setTimeout(() => {
-        setIsSpinning(false);
-        setStatus("Waiting");
-        refreshRound();
-      }, 500);
-    }, SPIN_FINISH_DELAY_MS);
-  }, [
-    pendingSpin,
-    telegramId,
-    haptic,
-    hapticSuccess,
-    showToast,
-    reloadProfile,
-    saveItem,
-    clearPendingSpin,
-    clearRound,
-    refreshRound,
-    clearCountdown,
-    setAnimating,
-    profile?.photo_url,
-  ]);
-
-  const finishRoundLocal = useCallback(
-    async (winner: Player, total: number, currentRollId: number) => {
-      setIsSpinning(false);
-      setStatus("Waiting");
-      clearCountdown();
-      spinStartedFor.current = null;
-
-      const mult = +(total / winner.amount).toFixed(2);
-      const winAmount = +total.toFixed(2);
-
-      if (winner.isMe) {
-        const newBal = +(balanceRef.current + winAmount).toFixed(2);
-        await saveBalance(newBal);
-        hapticSuccess();
-        showToast(t("youWonAmount", { n: winAmount.toFixed(2), mult }));
-      } else {
-        haptic("medium");
-        showToast(t("playerWon", { name: winner.name, n: winAmount.toFixed(2) }));
-      }
-
-      await saveItem({
-        id: currentRollId,
-        winner: winner.isMe ? "You" : winner.name,
-        chance: +((winner.amount / total) * 100).toFixed(2),
-        win: winAmount,
-        mult,
-        bet: winner.amount,
-        time: new Date(),
-        type: "Classic",
-        isMe: winner.isMe,
-      });
-
-      setPlayers([]);
-      setRollId(currentRollId + 1);
-      setSpinDegrees(0);
-    },
-    [
-      saveBalance,
-      saveItem,
-      showToast,
-      haptic,
-      hapticSuccess,
-      clearCountdown,
-      setPlayers,
-      setRollId,
-    ]
-  );
-
-  const startSpinLocal = useCallback(() => {
-    const list = playersRef.current;
-    const rid = rollIdRef.current;
-    if (spinningRef.current || list.length < 2) return;
-    if (spinStartedFor.current === rid) return;
-    spinStartedFor.current = rid;
-
-    clearCountdown();
-    setIsSpinning(true);
-    setStatus("Spinning");
-    haptic("medium");
-    playSpinSound();
-    startWheelSound(SPIN_DURATION_MS);
-
-    const total = list.reduce((s, p) => s + p.amount, 0);
-    let r = Math.random() * total;
-    let winner = list[0];
-    for (const p of list) {
-      r -= p.amount;
-      if (r <= 0) {
-        winner = p;
-        break;
-      }
-    }
-
-    let acc = 0;
-    let winnerStart = 0;
-    let winnerSize = 0;
-    for (const p of list) {
-      const size = (p.amount / total) * 360;
-      if (p.id === winner.id) {
-        winnerStart = acc;
-        winnerSize = size;
-        break;
-      }
-      acc += size;
-    }
-    const mid = winnerStart + winnerSize / 2;
-    const extraSpins = 5 + Math.floor(Math.random() * 3);
-    const finalDeg = extraSpins * 360 + (360 - mid) + (Math.random() * 8 - 4);
-    setSpinDegrees(finalDeg);
-
-    setTimeout(() => finishRoundLocal(winner, total, rid), SPIN_FINISH_DELAY_MS);
-  }, [finishRoundLocal, haptic, clearCountdown]);
-
-
-  // Background TON deposit check (app open / resume) — works even if pay modal closed
+  // Background TON deposit check
   useEffect(() => {
     if (!serverMode || !isReady) return;
     let stopped = false;
@@ -434,130 +98,6 @@ export default function Home() {
     };
   }, [serverMode, isReady, reloadProfile]);
 
-  useEffect(() => {
-    if (serverMode) return;
-    if (players.length >= 2 && !isSpinning) {
-      if (countdownTimer.current) return;
-      setStatus("Starting");
-      setCountdown(ROUND_COUNTDOWN_SEC);
-      let left = ROUND_COUNTDOWN_SEC;
-      countdownTimer.current = setInterval(() => {
-        left -= 1;
-        setCountdown(left);
-        if (left <= 0) {
-          clearCountdown();
-          startSpinLocal();
-        }
-      }, 1000);
-    } else if (players.length < 2) {
-      clearCountdown();
-      if (!isSpinning) setStatus("Waiting");
-    }
-  }, [players.length, isSpinning, serverMode, clearCountdown, startSpinLocal]);
-
-  useEffect(() => {
-    if (!serverMode || !countdownEndsAt || isSpinning) return;
-    const left = new Date(countdownEndsAt).getTime() - Date.now();
-    if (left > 0) {
-      const t = setTimeout(() => {
-        triggerSpin().catch(() => refreshRound());
-      }, left + 200);
-      return () => clearTimeout(t);
-    }
-  }, [serverMode, countdownEndsAt, isSpinning, triggerSpin, refreshRound]);
-
-  useEffect(() => () => clearCountdown(), [clearCountdown]);
-
-  const confirmBet = useCallback(
-    async (amount: number) => {
-      const roomMin = ROOMS[mode].minBet;
-      const roomMax = ROOMS[mode].maxBet;
-      if (isNaN(amount) || amount < roomMin) {
-        showToast(t("minBet", { n: roomMin }));
-        return;
-      }
-      if (amount > roomMax) {
-        showToast(t("maxBet", { n: roomMax }));
-        return;
-      }
-      if (amount > balanceRef.current) {
-        showToast(t("notEnoughBalance"));
-        return;
-      }
-      if (spinningRef.current) {
-        showToast(t("waitRoundFinish"));
-        return;
-      }
-
-      if (serverMode) {
-        try {
-          const color = randomColor(playersRef.current.map((p) => p.color));
-          const res = await placeBetApi(amount, color, mode);
-          playBetSound();
-          setBalanceFromServer(res.balance);
-          applyServerBets(
-            res.bets,
-            res.round.rollId,
-            res.round.status,
-            res.round.countdownEndsAt
-          );
-          setBetOpen(false);
-          haptic("light");
-          showToast(t("betPlaced"));
-        } catch (e) {
-          hapticError();
-          showToast(e instanceof Error ? e.message : t("betFailed"));
-        }
-        return;
-      }
-
-      if (
-        playersRef.current.length >= MAX_PLAYERS &&
-        !playersRef.current.some((p) => p.isMe)
-      ) {
-        showToast(t("roundFull"));
-        return;
-      }
-      const newBal = +(balanceRef.current - amount).toFixed(2);
-      await saveBalance(newBal);
-      haptic("light");
-      setPlayers((prev) => {
-        const me = prev.find((p) => p.isMe);
-        if (me) {
-          return prev.map((p) =>
-            p.isMe ? { ...p, amount: +(p.amount + amount).toFixed(2) } : p
-          );
-        }
-        return [
-          ...prev,
-          {
-            id: telegramId || Date.now(),
-            name: username,
-            amount,
-            color: randomColor(prev.map((p) => p.color)),
-            isMe: true,
-            telegramId,
-          },
-        ];
-      });
-      setBetOpen(false);
-      showToast(t("betPlaced"));
-    },
-    [
-      serverMode,
-      mode,
-      saveBalance,
-      setBalanceFromServer,
-      applyServerBets,
-      setPlayers,
-      username,
-      telegramId,
-      showToast,
-      haptic,
-      hapticError,
-    ]
-  );
-
   const doCredit = useCallback(
     async (gram: number) => {
       if (serverMode) {
@@ -571,7 +111,6 @@ export default function Home() {
   );
 
   const copyRefLink = useCallback(() => {
-    // Must use server referral_code (includes telegram suffix) — not username alone
     const code =
       profile?.referral_code ||
       ("ref_" + username.toLowerCase().replace(/\s+/g, ""));
@@ -588,7 +127,7 @@ export default function Home() {
     } else {
       showToast(link);
     }
-  }, [profile?.referral_code, username, showToast, hapticSuccess]);
+  }, [profile?.referral_code, username, showToast, hapticSuccess, t]);
 
   const doReferralWithdraw = useCallback(async () => {
     if (!serverMode) {
@@ -610,17 +149,15 @@ export default function Home() {
     } finally {
       setRefWithdrawing(false);
     }
-  }, [serverMode, showToast, hapticSuccess, hapticError, reloadProfile, setBalanceFromServer]);
-
-
-  const displayStatus =
-    countdown !== null && countdown > 0
-      ? String(countdown)
-      : isSpinning
-        ? "Spinning"
-        : status === "Spinning" || status === "spinning" || status === "finished"
-          ? "Waiting"
-          : status;
+  }, [
+    serverMode,
+    showToast,
+    hapticSuccess,
+    hapticError,
+    reloadProfile,
+    setBalanceFromServer,
+    t,
+  ]);
 
   if (profileLoading) {
     return (
@@ -630,7 +167,7 @@ export default function Home() {
           <div className="skeleton h-7 w-16 rounded-full" />
         </div>
         <div className="skeleton h-10 w-full rounded-2xl mb-4" />
-        <div className="skeleton h-[260px] w-[260px] mx-auto rounded-full mb-6" />
+        <div className="skeleton h-[260px] w-full rounded-2xl mb-6" />
         <div className="skeleton h-14 w-full rounded-2xl mb-3" />
         <div className="skeleton h-12 w-full rounded-2xl" />
       </div>
@@ -641,75 +178,15 @@ export default function Home() {
     <div className="relative min-h-[100dvh] w-full">
       {!serverMode && (
         <div className="mx-4 mt-2 mb-1 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-200/90 text-center">
-          {t("demoMode")}
-          configured for real play.
+          {t("demoMode")} configured for real play.
         </div>
       )}
 
       {screen === "games" && (
         <GamesScreen
-          onSelectSpin={() => {
-            haptic("light");
-            setScreen("pvp");
-          }}
           onSelectRps={() => {
             haptic("light");
             setScreen("rps");
-          }}
-        />
-      )}
-
-      {screen === "pvp" && (
-        <PvpScreen
-          players={players}
-          balance={balance}
-          online={online}
-          rollId={rollId}
-          roomSeq={roomSeq}
-          isSpinning={isSpinning}
-          spinDegrees={spinDegrees}
-          status={displayStatus}
-          mode={mode}
-          countdown={countdown}
-          countdownTotalSec={ROOMS[mode].countdownSec}
-          countdownEndsAt={countdownEndsAt}
-          myPhotoUrl={profile?.photo_url ?? null}
-          onModeChange={(m) => {
-            if (m === mode) return;
-            haptic("light");
-            setIsSpinning(false);
-            setSpinDegrees(0);
-            setCountdown(null);
-            setStatus("Waiting");
-            setWinOverlay((s) => ({ ...s, open: false }));
-            setConfetti(false);
-            setMode(m);
-          }}
-          serverSeedHash={serverSeedHash}
-          onOpenBet={() => {
-            haptic("light");
-            setBetOpen(true);
-          }}
-          onOpenDeposit={() => {
-            haptic("light");
-            setDepositOpen(true);
-          }}
-          onOpenHistory={() => {
-            setHistoryFilter("all");
-            setScreen("history");
-          }}
-          onOpenHistoryFilter={(f) => {
-            setHistoryFilter(f);
-            setScreen("history");
-          }}
-          onOpenVerify={() => {
-            haptic("light");
-            setVerifyRollId(rollId > 0 ? rollId - 1 : null);
-            setVerifyOpen(true);
-          }}
-          onVerifyRoll={(id) => {
-            setVerifyRollId(id);
-            setVerifyOpen(true);
           }}
         />
       )}
@@ -742,11 +219,7 @@ export default function Home() {
           history={history}
           initialTab={historyFilter}
           telegramId={telegramId}
-          onBack={() => setScreen("pvp")}
-          onVerify={(id) => {
-            setVerifyRollId(id);
-            setVerifyOpen(true);
-          }}
+          onBack={() => setScreen("games")}
         />
       )}
 
@@ -810,15 +283,6 @@ export default function Home() {
         }}
       />
 
-      <BetModal
-        open={betOpen}
-        balance={balance}
-        minBet={ROOMS[mode].minBet}
-        maxBet={ROOMS[mode].maxBet}
-        onClose={() => setBetOpen(false)}
-        onConfirm={confirmBet}
-      />
-
       <DepositModal
         open={depositOpen}
         onClose={() => setDepositOpen(false)}
@@ -841,7 +305,7 @@ export default function Home() {
       />
 
       <WithdrawModal
-          wagerRemaining={profile?.wager_remaining ?? 0}
+        wagerRemaining={profile?.wager_remaining ?? 0}
         open={withdrawOpen}
         onClose={() => setWithdrawOpen(false)}
         balance={balance}
@@ -857,24 +321,6 @@ export default function Home() {
         hapticError={hapticError}
       />
 
-      <VerifyModal
-        open={verifyOpen}
-        onClose={() => setVerifyOpen(false)}
-        initialRollId={verifyRollId ?? (rollId > 0 ? rollId - 1 : null)}
-      />
-
-      <WinOverlay
-        open={winOverlay.open}
-        isWin={winOverlay.isWin}
-        title={winOverlay.title}
-        subtitle={winOverlay.subtitle}
-        winnerName={winOverlay.winnerName}
-        photoUrl={winOverlay.photoUrl}
-        onClose={() => setWinOverlay((s) => ({ ...s, open: false }))}
-      />
-
-      <Confetti active={confetti} />
-
       {!onboarded && (
         <div className="fixed inset-0 z-[70] flex items-end justify-center modal-backdrop">
           <div className="w-full max-w-md glass-strong rounded-t-3xl p-6 slide-up border-t border-white/10 safe-bottom">
@@ -885,16 +331,16 @@ export default function Home() {
               {lang === "ru" ? (
                 <>
                   <p>
-                    <span className="text-cyan-300 font-medium">1. Ставка</span> — положите
-                    GRAM в банк раунда
+                    <span className="text-cyan-300 font-medium">1. RPS</span> — создайте
+                    комнату или присоединитесь к ставке
                   </p>
                   <p>
-                    <span className="text-cyan-300 font-medium">2. Шанс</span> —
-                    ваша доля банка = шанс победы
+                    <span className="text-cyan-300 font-medium">2. Выбор</span> —
+                    камень / ножницы / бумага
                   </p>
                   <p>
-                    <span className="text-cyan-300 font-medium">3. Спин</span> —
-                    победитель забирает банк
+                    <span className="text-cyan-300 font-medium">3. Победа</span> —
+                    выигрыш зачисляется на баланс
                   </p>
                   <p className="text-[11px] text-white/35 pt-1">
                     18+ · Только развлечение · Играйте ответственно
@@ -903,16 +349,16 @@ export default function Home() {
               ) : (
                 <>
                   <p>
-                    <span className="text-cyan-300 font-medium">1. Bet</span> — put
-                    GRAM into the round bank
+                    <span className="text-cyan-300 font-medium">1. RPS</span> — create
+                    a room or join a bet
                   </p>
                   <p>
-                    <span className="text-cyan-300 font-medium">2. Chance</span> —
-                    your share of the bank is your win chance
+                    <span className="text-cyan-300 font-medium">2. Choice</span> —
+                    rock / paper / scissors
                   </p>
                   <p>
-                    <span className="text-cyan-300 font-medium">3. Spin</span> —
-                    winner takes the pot
+                    <span className="text-cyan-300 font-medium">3. Win</span> —
+                    payout credited to your balance
                   </p>
                   <p className="text-[11px] text-white/35 pt-1">
                     18+ · Entertainment only · Play responsibly

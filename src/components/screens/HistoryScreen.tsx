@@ -4,7 +4,6 @@ import { useI18n } from "@/lib/i18n/context";
 import { useEffect, useMemo, useState } from "react";
 import type { HistoryItem } from "@/lib/types";
 import { formatGram, formatTime, cn } from "@/lib/utils";
-import { RoundDetailModal } from "@/components/modals/RoundDetailModal";
 
 interface HistoryScreenProps {
   history: HistoryItem[];
@@ -36,7 +35,6 @@ export function HistoryScreen({
 }: HistoryScreenProps) {
   const { t } = useI18n();
   const [tab, setTab] = useState<HistTab>(initialTab);
-  const [detailRoll, setDetailRoll] = useState<number | null>(null);
   const [serverItems, setServerItems] = useState<ServerItem[]>([]);
 
   useEffect(() => {
@@ -165,7 +163,7 @@ export function HistoryScreen({
           return (
             <div
               key={`${id}-${idx}`}
-              onClick={() => isServer && setDetailRoll(id)}
+              onClick={undefined}
               className={cn(
                 "rounded-2xl border px-3.5 py-3 transition",
                 rowCls,
@@ -210,12 +208,6 @@ export function HistoryScreen({
           );
         })}
       </div>
-
-      <RoundDetailModal
-        open={detailRoll != null}
-        rollId={detailRoll}
-        onClose={() => setDetailRoll(null)}
-      />
-    </div>
+</div>
   );
 }

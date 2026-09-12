@@ -13,42 +13,38 @@ export const COLORS = [
   "#4ade80",
 ];
 
-export const MIN_BET = 0.25;
 export const START_BALANCE = 0;
-export const SPIN_DURATION_MS = 20_000;
-export const SPIN_FINISH_DELAY_MS = 20_500;
-export const MAX_PLAYERS = 10;
-export const BOT_USERNAME = "Gramelle_bot";
-export const ROUND_COUNTDOWN_SEC = 20;
-/**
- * Economy
- * - 1 TON = 1 GRAM
- * - 500 Stars = 4.25 GRAM
- * - Internal fee applied server-side; not shown in player-facing copy
- */
-export const STARS_PER_GRAM_RATE = 500 / 4.25;
+export const MIN_BET = 0.25;
+export const HOUSE_EDGE = 0.05;
+
+/** Kept for webhook compile; Stars deposits disabled (no stars-invoice route) */
 export const GRAM_PER_STAR = (() => {
   const env = Number(process.env.NEXT_PUBLIC_GRAM_PER_STAR);
   if (Number.isFinite(env) && env > 0 && env < 0.1) return env;
   return 4.25 / 500;
 })();
+
+export const BOT_USERNAME = "Gramelle_bot";
+
+/**
+ * Economy
+ * - 1 TON = 1 GRAM
+ * - Internal fee applied server-side where applicable
+ */
 export const GRAM_PER_TON = (() => {
   const env = Number(process.env.NEXT_PUBLIC_GRAM_PER_TON);
   if (Number.isFinite(env) && env > 0) return env;
   return 1;
 })();
-export const HOUSE_EDGE = 0.05;
 
 export const MIN_DEPOSIT_GRAM = 0.5;
-export const MIN_DEPOSIT_STARS = Math.ceil(0.5 / (4.25 / 500));
-export const MAX_DEPOSIT_STARS = 10_000_000;
 export const MIN_DEPOSIT_TON = 0.5;
 export const MAX_DEPOSIT_TON = 1_000_000;
-export const TON_PENDING_TTL_SEC = 10 * 60; // pending deposit auto-expires
+export const TON_PENDING_TTL_SEC = 10 * 60;
 
 export const MIN_WITHDRAW_TON = 5;
 export const MAX_WITHDRAW_TON = 1_000_000;
-export const WITHDRAW_FEE_GRAM = 0; // no withdraw fee
+export const WITHDRAW_FEE_GRAM = 0;
 /** @deprecated join bonus disabled — only % of house fee */
 export const REFERRAL_JOIN_BONUS = 0;
 export const REFERRAL_MIN_WITHDRAW = 0.25;
@@ -77,13 +73,7 @@ export function getReferralTier(activeRefs: number, turnover: number): ReferralT
   }
   return null;
 }
-export type StarPackage = { stars: number; gram: number; label: string; popular?: boolean; bonus?: string };
-export const STAR_PACKAGES: StarPackage[] = [
-  { stars: 100, gram: 0.85, label: "100" },
-  { stars: 250, gram: 2.125, label: "250" },
-  { stars: 500, gram: 4.25, label: "500", popular: true },
-  { stars: 1000, gram: 8.5, label: "1000", bonus: "×2" },
-];
+
 export type TonPackage = { ton: number; gram: number; label: string; popular?: boolean; bonus?: string };
 export const TON_PACKAGES: TonPackage[] = [
   { ton: 0.5, gram: 0.5, label: "0.5" },
@@ -99,21 +89,9 @@ export const TON_RESERVE_WALLET =
   process.env.NEXT_PUBLIC_TON_RESERVE_WALLET || TON_DEPOSIT_ADDRESS;
 export const TON_PROFIT_WALLET =
   process.env.NEXT_PUBLIC_TON_PROFIT_WALLET || TON_DEPOSIT_ADDRESS;
-export type RoomMode = "classic" | "high";
-export interface RoomConfig {
-  id: RoomMode; name: string; description: string; minBet: number; maxBet: number;
-  houseEdge: number; maxPlayers: number; countdownSec: number;
-}
-export const ROOMS: Record<RoomMode, RoomConfig> = {
-  classic: { id: "classic", name: "Classic", description: "Standard stakes", minBet: 0.25, maxBet: 50, houseEdge: HOUSE_EDGE, maxPlayers: 10_000, countdownSec: 20 },
-  high: { id: "high", name: "High", description: "Higher stakes", minBet: 10, maxBet: 5000, houseEdge: HOUSE_EDGE, maxPlayers: 10_000, countdownSec: 20 },
-};
-export const MAX_PENDING_WITHDRAWALS = 3;
-export const MAX_BETS_PER_MINUTE = 20;
-export const DAILY_WITHDRAW_LIMIT_TON = 50;
-export const MIN_BANK_TO_SPIN = 0.5;
-export const DEFAULT_ROOM: RoomMode = "classic";
 
+export const MAX_PENDING_WITHDRAWALS = 3;
+export const DAILY_WITHDRAW_LIMIT_TON = 50;
 
 /** One-time channel subscribe tasks (bot must be admin in these channels) */
 export type TaskId = "channel_project" | "channel_friend";
@@ -144,7 +122,6 @@ export const TASKS: TaskDef[] = [
     id: "channel_friend",
     title: "Subscribe to partner channel",
     description: "Join the partner channel",
-    // private channel id (also try -100… form in API if needed)
     channel: process.env.NEXT_PUBLIC_TASK_CHANNEL_FRIEND || "-1001858402844",
     inviteLink:
       process.env.NEXT_PUBLIC_TASK_CHANNEL_FRIEND_LINK ||

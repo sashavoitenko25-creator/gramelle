@@ -5,11 +5,11 @@ import { notifyUser, fmtAmount } from "@/lib/server/notify";
 import { BOT_USERNAME, GRAM_PER_STAR } from "@/lib/constants";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 
-const START_TEXT = `🎮 <b>Gramelle</b> — PvP-игры на TON
+const START_TEXT = `🎮 <b>Gramelle</b> — PvP RPS на TON
 
 Как играть:
 1. Пополни баланс TON → получи GRAM
-2. Выбери игру: <b>Spin</b> или <b>Камень-Ножницы-Бумага</b>
+2. Играй в <b>Камень-Ножницы-Бумага</b>
 3. Сделай ставку и выигрывай
 
 Честная игра: у каждого раунда есть Hash и Seed — можно проверить в приложении.
