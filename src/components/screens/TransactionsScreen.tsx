@@ -1,4 +1,6 @@
 "use client";
+
+import { useTelegram } from "@/hooks/useTelegram";
 import { useI18n } from "@/lib/i18n/context";
 
 import { useCallback, useEffect, useState } from "react";
@@ -49,6 +51,13 @@ function formatWhen(iso: string) {
 
 export function TransactionsScreen({ onBack }: Props) {
   const { t } = useI18n();
+  const { setBackButton } = useTelegram();
+  useEffect(() => {
+    setBackButton(() => {
+      onBack();
+    });
+    return () => setBackButton(null);
+  }, [onBack, setBackButton]);
 
   const [items, setItems] = useState<TxItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,20 +86,12 @@ export function TransactionsScreen({ onBack }: Props) {
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      <div className="flex items-center justify-between px-4 pt-3 pb-3">
-        <button
-          onClick={onBack}
-          className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/50 btn-press"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-        </button>
+      <div className="flex items-center justify-center px-4 pt-3 pb-3 relative">
         <h1 className="text-[15px] font-semibold">{t("transactions")}</h1>
         <button
           type="button"
           onClick={() => void load()}
-          className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/45"
+          className="absolute right-4 w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/45"
           aria-label={t("loading")}
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

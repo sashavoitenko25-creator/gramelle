@@ -5,7 +5,7 @@ import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "Gramelle",
-  description: "Gramelle — PvP roulette on TON",
+  description: "Gramelle — PvP RPS on TON",
   applicationName: "Gramelle",
   icons: { icon: "/gram-badge.png", apple: "/gram-badge.png" },
 };
@@ -16,6 +16,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   themeColor: "#06060a",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -31,7 +32,7 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
       </head>
-      <body className="min-h-full flex flex-col app-bg text-white">
+      <body className="min-h-full min-h-[100dvh] flex flex-col app-bg text-white overflow-x-hidden">
         <div className="flex-1 flex flex-col w-full max-w-lg mx-auto relative">
           <Providers>{children}</Providers>
         </div>

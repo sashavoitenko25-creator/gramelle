@@ -120,9 +120,9 @@ export async function POST(req: NextRequest) {
           });
           await notifyUser(
             fromId,
-            `✅ <b>Deposit completed</b>\n` +
+            `✅ <b>Депозит зачислен</b>\n` +
               `+${fmtAmount(gram, "GRAM")} (Stars)\n` +
-              `Status: <b>Completed</b>`
+              `Статус: <b>Успешно</b>`
           );
         }
       }

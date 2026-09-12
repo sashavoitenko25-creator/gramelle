@@ -81,6 +81,7 @@ export const TON_PACKAGES: TonPackage[] = [
   { ton: 5, gram: 5, label: "5", popular: true },
   { ton: 10, gram: 10, label: "10" },
   { ton: 25, gram: 25, label: "25" },
+  { ton: 50, gram: 50, label: "50" },
 ];
 export const TON_DEPOSIT_ADDRESS =
   process.env.NEXT_PUBLIC_TON_WALLET ||
@@ -110,8 +111,8 @@ export interface TaskDef {
 export const TASKS: TaskDef[] = [
   {
     id: "channel_project",
-    title: "Subscribe to project channel",
-    description: "Join the official Gramelle channel",
+    title: "Подписаться на канал проекта",
+    description: "Вступите в официальный канал Gramelle",
     channel: process.env.NEXT_PUBLIC_TASK_CHANNEL_PROJECT || "GramellePlay",
     inviteLink:
       process.env.NEXT_PUBLIC_TASK_CHANNEL_PROJECT_LINK ||
@@ -120,8 +121,8 @@ export const TASKS: TaskDef[] = [
   },
   {
     id: "channel_friend",
-    title: "Subscribe to partner channel",
-    description: "Join the partner channel",
+    title: "Подписаться на партнёрский канал",
+    description: "Вступите в партнёрский канал",
     channel: process.env.NEXT_PUBLIC_TASK_CHANNEL_FRIEND || "-1001858402844",
     inviteLink:
       process.env.NEXT_PUBLIC_TASK_CHANNEL_FRIEND_LINK ||

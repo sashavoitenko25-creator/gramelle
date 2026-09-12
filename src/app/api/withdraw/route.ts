@@ -173,10 +173,10 @@ export async function POST(req: NextRequest) {
     try {
       await notifyUser(
         auth.user.id,
-        "⏳ <b>Withdrawal requested</b>\n" +
+        "⏳ <b>Заявка на вывод</b>\n" +
           fmtAmount(amountTon, "TON") +
-          " — status: <b>Processing</b>\n" +
-          "We will notify you when it is completed or rejected."
+          " — статус: <b>В обработке</b>\n" +
+          "Мы уведомим вас, когда вывод будет выполнен или отклонён."
       );
     } catch {}
 

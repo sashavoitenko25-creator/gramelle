@@ -1,7 +1,8 @@
 "use client";
-import { useI18n } from "@/lib/i18n/context";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useTelegram } from "@/hooks/useTelegram";
+import { useI18n } from "@/lib/i18n/context";
 import {
   BOT_USERNAME,
   REFERRAL_TIERS,
@@ -38,6 +39,12 @@ export function ReferralsScreen({
   withdrawing = false,
 }: ReferralsScreenProps) {
   const { t } = useI18n();
+  const { setBackButton } = useTelegram();
+  useEffect(() => {
+    setBackButton(() => { onBack(); });
+    return () => setBackButton(null);
+  }, [onBack, setBackButton]);
+
 
   const code =
     referralCode ||
@@ -49,19 +56,11 @@ export function ReferralsScreen({
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      <div className="flex items-center justify-between px-4 pt-3 pb-3">
-        <button
-          onClick={onBack}
-          className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/50 btn-press"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-        </button>
+      <div className="flex items-center justify-center px-4 pt-3 pb-3 relative">
         <h2 className="text-base font-semibold tracking-tight">{t("referralsTitle")}</h2>
         <button
           onClick={onHowItWorks}
-          className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/50 btn-press"
+          className="absolute right-4 w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/50 btn-press"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="9" />

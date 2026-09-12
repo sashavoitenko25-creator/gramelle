@@ -82,10 +82,14 @@ export async function GET(req: NextRequest) {
 
       for (const d of deps || []) {
         const st = String(d.status || "pending").toLowerCase();
+        // Skip pure intents that were never paid (no chain tx yet)
+        if (st === "pending" && !d.tx_hash) continue;
+        if (st === "expired") continue;
+
         let status: TxStatus = "pending";
         if (st === "credited" || st === "completed" || st === "confirmed")
           status = "completed";
-        else if (st === "failed" || st === "expired") status = "failed";
+        else if (st === "failed") status = "failed";
         else if (st === "processing") status = "processing";
         else status = "pending";
 
@@ -140,6 +144,11 @@ export async function GET(req: NextRequest) {
           createdAt: row.created_at,
         });
       } else if (reason === "refund") {
+        // Hide RPS room-cancel refunds (not real withdrawals)
+        const meta = (row.meta || {}) as Record<string, unknown>;
+        if (meta.action === "cancel" || meta.game === "rps") {
+          continue;
+        }
         items.push({
           id: `ld-${row.id}`,
           kind: "withdraw",

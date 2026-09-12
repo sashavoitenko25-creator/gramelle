@@ -74,10 +74,10 @@ export async function POST(req: NextRequest) {
       await trackEvent("withdraw_completed", { id, amount: row.amount_ton });
       await notifyUser(
         row.telegram_id,
-        `✅ <b>Withdrawal completed</b>\n` +
+        `✅ <b>Вывод выполнен</b>\n` +
           `${fmtAmount(Number(row.amount_ton), "TON")}` +
           (txHash ? `\nTx: <code>${txHash}</code>` : "") +
-          `\n\nOpen Transactions in the app for details.`
+          `\n\nПодробности — в разделе «Транзакции».`
       );
       return NextResponse.json({ ok: true, status: "completed" });
     }
@@ -106,10 +106,10 @@ export async function POST(req: NextRequest) {
     await trackEvent("withdraw_rejected", { id, amount: row.amount_ton });
     await notifyUser(
       row.telegram_id,
-      `❌ <b>Withdrawal rejected</b>\n` +
-        `${fmtAmount(Number(row.amount_ton), "TON")} returned to balance.` +
-        (note ? `\nNote: ${note}` : "") +
-        `\n\nOpen Transactions in the app for details.`
+      `❌ <b>Вывод отклонён</b>\n` +
+        `${fmtAmount(Number(row.amount_ton), "TON")} возвращены на баланс.` +
+        (note ? `\nПримечание: ${note}` : "") +
+        `\n\nПодробности — в разделе «Транзакции».`
     );
 
     return NextResponse.json({ ok: true, status: "rejected", refunded: true });

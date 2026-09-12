@@ -199,6 +199,10 @@ export default function Home() {
           photoUrl={profile?.photo_url}
           serverMode={serverMode}
           onBack={() => setScreen("games")}
+          onDeposit={() => {
+            haptic("light");
+            setDepositOpen(true);
+          }}
           onBalanceUpdate={(b) => {
             setBalanceFromServer(b);
           }}

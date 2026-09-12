@@ -115,49 +115,48 @@ export function DepositModal({
       hapticError();
       return;
     }
+    // Only move to pay UI — do NOT create server intent / history yet
     setTonAmount(amt);
     setTonInput(String(amt));
-    setLoading(true);
+    setTonMemo("");
+    setExpiresAt(null);
     haptic("light");
-    try {
-      if (serverMode) {
-        const pending = await createTonPending(amt);
-        setTonMemo(pending.memo || "");
-        setExpiresAt(
-          (pending as { expiresAt?: string }).expiresAt ||
-            (pending as { deposit?: { expires_at?: string } }).deposit
-              ?.expires_at ||
-            null
-        );
-        setTonStep("pay");
-      } else {
-        setTonMemo(
-          "gramelle_" +
-            (telegramId || username.toLowerCase().replace(/\s+/g, "")) +
-            "_" +
-            Date.now().toString(36)
-        );
-        setExpiresAt(
-          new Date(Date.now() + TON_PENDING_TTL_SEC * 1000).toISOString()
-        );
-        setTonStep("pay");
-      }
-    } catch (e) {
-      hapticError();
-      showToast(e instanceof Error ? e.message : t("paymentFailed"));
-    } finally {
-      setLoading(false);
+    setTonStep("pay");
+  };
+
+  const ensurePending = async (amt: number) => {
+    if (tonMemo) return tonMemo;
+    if (serverMode) {
+      const pending = await createTonPending(amt);
+      const memo = pending.memo || "";
+      setTonMemo(memo);
+      setExpiresAt(
+        (pending as { expiresAt?: string }).expiresAt ||
+          (pending as { deposit?: { expires_at?: string } }).deposit
+            ?.expires_at ||
+          null
+      );
+      return memo;
     }
+    const memo =
+      "gramelle_" +
+      (telegramId || username.toLowerCase().replace(/\s+/g, "")) +
+      "_" +
+      Date.now().toString(36);
+    setTonMemo(memo);
+    setExpiresAt(
+      new Date(Date.now() + TON_PENDING_TTL_SEC * 1000).toISOString()
+    );
+    return memo;
   };
 
 
   const payWithTonConnect = async () => {
-    if (loading || !tonMemo) return;
+    if (loading) return;
     if (!wallet) {
       tonConnectUI.openModal();
       return;
     }
-    // Placeholder / empty deposit address → wallet will error
     if (
       !TON_DEPOSIT_ADDRESS ||
       TON_DEPOSIT_ADDRESS.includes("UQAAAA") ||
@@ -170,15 +169,14 @@ export function DepositModal({
     setLoading(true);
     haptic("light");
     try {
-      // Copy memo first — payload often breaks TonConnect SDK / wallets
+      const memo = await ensurePending(tonAmount);
       try {
-        await navigator.clipboard.writeText(tonMemo);
+        await navigator.clipboard.writeText(memo);
       } catch {
         /* ignore */
       }
 
       const nano = tonAmountToNano(tonAmount);
-      // NO payload: most stable. User pastes memo into comment in wallet.
       await tonConnectUI.sendTransaction({
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
@@ -212,6 +210,7 @@ export function DepositModal({
     haptic("light");
     if (serverMode) {
       try {
+        await ensurePending(tonAmount);
         const res = await checkTonDeposits();
         if (res.credited?.length) {
           const total = res.credited.reduce((s, c) => s + c.gram, 0);

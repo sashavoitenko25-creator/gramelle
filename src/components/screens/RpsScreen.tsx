@@ -20,6 +20,7 @@ import {
 import { RPS_MIN_BET, RPS_MAX_BET } from "@/lib/rpsConstants";
 import { playWinSound, playLoseSound, playBetSound, startWheelSound, stopWheelSound } from "@/lib/sounds";
 import { useI18n } from "@/lib/i18n/context";
+import { useTelegram } from "@/hooks/useTelegram";
 
 interface RpsScreenProps {
   balance: number;
@@ -28,6 +29,7 @@ interface RpsScreenProps {
   photoUrl?: string | null;
   serverMode: boolean;
   onBack: () => void;
+  onDeposit?: () => void;
   onBalanceUpdate: (b: number) => void;
   onReloadBalance?: () => void;
   showToast: (msg: string) => void;
@@ -571,6 +573,7 @@ export function RpsScreen({
   photoUrl,
   serverMode,
   onBack,
+  onDeposit,
   onBalanceUpdate,
   onReloadBalance,
   showToast,
@@ -578,6 +581,8 @@ export function RpsScreen({
   hapticSuccess,
   hapticError,
 }: RpsScreenProps) {
+  const { setBackButton } = useTelegram();
+
   const { t } = useI18n();
 
   const [view, setView] = useState<View>("lobby");
@@ -881,6 +886,30 @@ export function RpsScreen({
     refresh();
   };
 
+  // Telegram BackButton instead of in-UI back + close X
+  useEffect(() => {
+    const handler = () => {
+      if (view === "detail") {
+        setDetail(null);
+        setVerifyState("idle");
+        setView("history");
+      } else if (view === "create" || view === "join" || view === "history") {
+        goLobby();
+      } else if (view === "result") {
+        setActive(null);
+        setVerifyState("idle");
+        goLobby();
+      } else if (view === "reveal") {
+        /* locked during reveal */
+      } else {
+        onBack();
+      }
+    };
+    setBackButton(handler);
+    return () => setBackButton(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, onBack, setBackButton]);
+
   const headerTitle =
     view === "create"
       ? t("createRoom")
@@ -900,56 +929,38 @@ export function RpsScreen({
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      {/* Header */}
+      {/* Header — no in-app back; Telegram BackButton handles navigation */}
       <div className="px-4 pt-3 pb-3 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => {
-            if (view === "detail") {
-              setDetail(null);
-              setVerifyState("idle");
-              setView("history");
-            } else if (
-              view === "create" ||
-              view === "join" ||
-              view === "history"
-            ) {
-              goLobby();
-            } else if (view === "result") {
-              setActive(null);
-              setVerifyState("idle");
-              goLobby();
-            } else if (view === "reveal") {
-              /* lock */
-            } else {
-              onBack();
-            }
-          }}
-          className="w-10 h-10 rounded-full glass border border-white/[0.09] flex items-center justify-center text-white/55 hover:text-white/90 transition btn-press shrink-0"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-        </button>
-
         <div className="flex-1 min-w-0">
-          <div className="text-[15px] font-semibold tracking-tight leading-tight truncate">
-            {headerTitle}
-          </div>
+          {view !== "lobby" && (
+            <div className="text-[15px] font-semibold tracking-tight leading-tight truncate">
+              {headerTitle}
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-1.5 h-9 px-3 rounded-full glass border border-white/[0.1] shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
-          <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
-            {formatGram(balance)}
-          </span>
-          <span className="text-[10px] text-white/35 font-medium">GRAM</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 h-9 px-3 rounded-full glass border border-white/[0.1] shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
+            <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
+              {formatGram(balance)}
+            </span>
+            <span className="text-[10px] text-white/35 font-medium">GRAM</span>
+          </div>
+          {onDeposit && (
+            <button
+              type="button"
+              onClick={() => {
+                haptic("light");
+                onDeposit();
+              }}
+              className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400/25 to-violet-500/25 border border-cyan-400/30 flex items-center justify-center text-cyan-200 btn-press shadow-[0_0_16px_rgba(34,211,238,0.25)]"
+              aria-label="Deposit"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 

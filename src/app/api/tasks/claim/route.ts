@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
     try {
       await notifyUser(
         auth.user.id,
-        `✅ <b>Task completed</b>
+        `✅ <b>Задание выполнено</b>
 +${fmtAmount(task.rewardGram, "GRAM")}
 ${task.title}`
       );

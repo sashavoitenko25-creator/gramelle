@@ -133,11 +133,21 @@ body {
 }
 
 .safe-bottom {
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 14px);
+  padding-bottom: max(
+    env(safe-area-inset-bottom, 0px),
+    var(--tg-content-safe-area-inset-bottom, 0px),
+    var(--tg-safe-area-inset-bottom, 0px),
+    14px
+  );
 }
 
 .safe-top {
-  padding-top: max(env(safe-area-inset-top, 0px), 10px);
+  padding-top: max(
+    env(safe-area-inset-top, 0px),
+    var(--tg-content-safe-area-inset-top, 0px),
+    var(--tg-safe-area-inset-top, 0px),
+    10px
+  );
 }
 
 ::-webkit-scrollbar { width: 3px; }
