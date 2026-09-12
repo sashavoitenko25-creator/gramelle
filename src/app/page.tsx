@@ -371,7 +371,11 @@ export default function Home() {
                     выигрыш зачисляется на баланс
                   </p>
                   <p className="text-[11px] text-white/35 pt-1">
-                    18+ · Только развлечение · Играйте ответственно
+                    18+ · Развлечение · Не финансовая рекомендация · Играйте ответственно
+                  </p>
+                  <p className="text-[10px] text-white/25 pt-1 leading-snug">
+                    Выводы TON обрабатываются вручную (обычно до 24 часов).
+                    Используя приложение, вы подтверждаете возраст 18+.
                   </p>
                 </>
               ) : (
@@ -389,7 +393,11 @@ export default function Home() {
                     payout credited to your balance
                   </p>
                   <p className="text-[11px] text-white/35 pt-1">
-                    18+ · Entertainment only · Play responsibly
+                    18+ · Entertainment only · Not financial advice · Play responsibly
+                  </p>
+                  <p className="text-[10px] text-white/25 pt-1 leading-snug">
+                    TON withdrawals are processed manually (usually within 24h).
+                    By using the app you confirm you are 18+.
                   </p>
                 </>
               )}

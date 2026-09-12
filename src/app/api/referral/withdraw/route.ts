@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTelegramUser } from "@/lib/server/telegram";
+import { assertNotBanned } from "@/lib/server/ban";
 import { withdrawReferralSavings } from "@/lib/server/referral";
 import { isSupabaseConfigured } from "@/lib/server/supabase";
 import { REFERRAL_MIN_WITHDRAW } from "@/lib/constants";
@@ -15,6 +16,7 @@ export async function POST(req: NextRequest) {
     }
 
     const auth = await requireTelegramUser(req);
+    await assertNotBanned(auth.user.id);
     let amount: number | undefined;
     try {
       const body = await req.json();
