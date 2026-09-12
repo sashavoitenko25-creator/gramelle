@@ -565,6 +565,61 @@ function HistoryRow({
   );
 }
 
+function GlobalHistoryRow({
+  room,
+  no,
+  onOpen,
+}: {
+  room: RpsPublicRoom;
+  no: number;
+  onOpen: () => void;
+}) {
+  const isDraw = room.winnerTelegramId == null;
+  const winnerName = isDraw
+    ? null
+    : room.winnerTelegramId === room.creatorTelegramId
+      ? room.creatorUsername
+      : room.joinerUsername || "?";
+  const winnerChoice = isDraw
+    ? null
+    : room.winnerTelegramId === room.creatorTelegramId
+      ? room.creatorChoice
+      : room.joinerChoice;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-full rounded-2xl px-3.5 py-3 flex items-center gap-3 text-left transition btn-press border border-white/[0.06] bg-white/[0.025] hover:border-white/12"
+    >
+      <div className="text-[11px] font-medium text-white/30 w-[58px] shrink-0">
+        RPS #{no}
+      </div>
+      <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center shrink-0">
+        {winnerChoice ? (
+          <ChoiceIcon choice={winnerChoice} className="w-4 h-4 text-emerald-300" />
+        ) : (
+          <span className="text-[10px] text-white/40">=</span>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[13px] text-white/80 truncate">
+          {isDraw ? "Ничья" : `@${winnerName}`}
+        </div>
+        <div className="text-[10px] text-white/28 mt-0.5">
+          {formatGram(room.amount)} GRAM
+          {room.finishedAt ? ` · ${formatTime(new Date(room.finishedAt))}` : ""}
+        </div>
+      </div>
+      {!isDraw && room.potAfterFee != null && (
+        <div className="text-[14px] font-semibold tabular-nums text-emerald-400 shrink-0">
+          +{formatGram(room.potAfterFee)}
+        </div>
+      )}
+    </button>
+  );
+}
+
 /* ─── Main ─────────────────────────────────────────────── */
 export function RpsScreen({
   balance,
@@ -590,6 +645,8 @@ export function RpsScreen({
   const [mine, setMine] = useState<RpsPublicRoom | null>(null);
   const [active, setActive] = useState<RpsPublicRoom | null>(null);
   const [history, setHistory] = useState<HistItem[]>([]);
+  const [recent, setRecent] = useState<RpsPublicRoom[]>([]);
+  const [histTab, setHistTab] = useState<"all" | "my">("all");
   const [detail, setDetail] = useState<(HistItem & { no: number }) | null>(
     null
   );
@@ -634,6 +691,7 @@ export function RpsScreen({
     try {
       const data = await rpsList();
       setRooms(data.rooms || []);
+      setRecent(data.recent || []);
       setMine(data.mine || null);
       const m = data.mine;
       if (m?.status === "playing") {
@@ -771,17 +829,34 @@ export function RpsScreen({
     }
   };
 
+  // Extra balance refresh while result is open (draw refund lag)
+  useEffect(() => {
+    if (view !== "result") return;
+    onReloadBalance?.();
+    const t1 = setTimeout(() => onReloadBalance?.(), 800);
+    const t2 = setTimeout(() => onReloadBalance?.(), 2500);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, active?.id]);
+
   const onRevealDone = useCallback(async () => {
+
     if (!active) return;
     try {
       const { room } = await rpsState(active.id);
       setActive(room);
       setView("result");
-      // Balance settles async on server — refresh a few times
+      // Balance settles on finishRoom (incl. draw refund) — poll profile
       onReloadBalance?.();
-      setTimeout(() => onReloadBalance?.(), 400);
-      setTimeout(() => onReloadBalance?.(), 1200);
+      setTimeout(() => onReloadBalance?.(), 300);
+      setTimeout(() => onReloadBalance?.(), 900);
+      setTimeout(() => onReloadBalance?.(), 2000);
+      setTimeout(() => onReloadBalance?.(), 4000);
       loadHistory();
+      void refresh();
       const iWon =
         room.winnerTelegramId != null && room.winnerTelegramId === telegramId;
       const draw = room.winnerTelegramId == null;
@@ -804,6 +879,7 @@ export function RpsScreen({
     hapticSuccess,
     onReloadBalance,
     loadHistory,
+    refresh,
   ]);
 
   const openDetail = (h: HistItem & { no: number }) => {
@@ -1043,22 +1119,13 @@ export function RpsScreen({
                 </span>
                 {t("waitingOpponent")}
               </div>
-              {(mine.serverSeedHash || mine.creatorChoiceHash) && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    copyText(mine.serverSeedHash || mine.creatorChoiceHash)
-                  }
-                  className="mt-2.5 w-full text-left rounded-xl bg-black/25 border border-white/10 px-2.5 py-2 btn-press"
-                >
-                  <div className="text-[9px] uppercase tracking-wider text-white/35 mb-0.5">
-                    {t("hash")} · tap to copy
-                  </div>
-                  <div className="text-[10px] font-mono text-cyan-300/90 break-all leading-snug">
-                    {mine.serverSeedHash || mine.creatorChoiceHash}
-                  </div>
-                </button>
-              )}
+              <div className="mt-2 rounded-xl bg-black/25 border border-white/10 px-2.5 py-1">
+                <HashRow
+                  label={t("hash")}
+                  value={mine.serverSeedHash || mine.creatorChoiceHash}
+                  onCopy={copyText}
+                />
+              </div>
             </div>
           )}
 
@@ -1149,14 +1216,37 @@ export function RpsScreen({
             </button>
           </div>
 
-          {numberedHistory.length === 0 ? (
+          {recent.length === 0 ? (
             <div className="text-[12px] text-white/25 text-center py-4 mb-4">
               {t("noGamesYet")}
             </div>
           ) : (
             <div className="space-y-1.5 pb-6">
-              {numberedHistory.slice(0, 5).map((h) => (
-                <HistoryRow key={h.id} h={h} onOpen={() => openDetail(h)} />
+              {recent.slice(0, 8).map((r, i) => (
+                <GlobalHistoryRow
+                  key={r.id}
+                  room={r}
+                  no={recent.length - i}
+                  onOpen={() => {
+                    // open as light detail from room if user played — else noop toast
+                    const mineHist = numberedHistory.find(
+                      (h) => h.room_id === r.id
+                    );
+                    if (mineHist) openDetail(mineHist);
+                    else {
+                      haptic("light");
+                      showToast(
+                        r.winnerTelegramId == null
+                          ? "Ничья"
+                          : `Победитель: @${
+                              r.winnerTelegramId === r.creatorTelegramId
+                                ? r.creatorUsername
+                                : r.joinerUsername
+                            }`
+                      );
+                    }
+                  }}
+                />
               ))}
             </div>
           )}
@@ -1167,11 +1257,69 @@ export function RpsScreen({
       {view === "history" && (
         <div className="px-4 flex-1 overflow-y-auto">
           <div className="flex gap-1.5 p-1 rounded-2xl bg-black/35 border border-white/[0.06] mb-4">
-            <div className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-center bg-white/10 text-white border border-white/12">
+            <button
+              type="button"
+              onClick={() => setHistTab("all")}
+              className={cn(
+                "flex-1 py-2.5 rounded-xl text-xs font-semibold text-center transition",
+                histTab === "all"
+                  ? "bg-white/10 text-white border border-white/12"
+                  : "text-white/40"
+              )}
+            >
               {t("all")}
-            </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setHistTab("my");
+                loadHistory();
+              }}
+              className={cn(
+                "flex-1 py-2.5 rounded-xl text-xs font-semibold text-center transition",
+                histTab === "my"
+                  ? "bg-white/10 text-white border border-white/12"
+                  : "text-white/40"
+              )}
+            >
+              Мои игры
+            </button>
           </div>
-          {numberedHistory.length === 0 ? (
+          {histTab === "all" ? (
+            recent.length === 0 ? (
+              <div className="text-center py-16 text-[13px] text-white/35">
+                {t("noGamesYet")}
+              </div>
+            ) : (
+              <div className="space-y-1.5 pb-6">
+                {recent.map((r, i) => (
+                  <GlobalHistoryRow
+                    key={r.id}
+                    room={r}
+                    no={recent.length - i}
+                    onOpen={() => {
+                      const mineHist = numberedHistory.find(
+                        (h) => h.room_id === r.id
+                      );
+                      if (mineHist) openDetail(mineHist);
+                      else {
+                        haptic("light");
+                        showToast(
+                          r.winnerTelegramId == null
+                            ? "Ничья"
+                            : `Победитель: @${
+                                r.winnerTelegramId === r.creatorTelegramId
+                                  ? r.creatorUsername
+                                  : r.joinerUsername
+                              }`
+                        );
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            )
+          ) : numberedHistory.length === 0 ? (
             <div className="text-center py-16 text-[13px] text-white/35">
               {t("noGamesYet")}
             </div>
@@ -1194,23 +1342,59 @@ export function RpsScreen({
             </div>
             <div className="flex items-center justify-center gap-5 mb-4">
               <div className="flex flex-col items-center gap-1.5">
-                <div className="w-14 h-14 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center">
+                <div
+                  className={cn(
+                    "w-14 h-14 rounded-2xl border flex items-center justify-center",
+                    detail.result === "win"
+                      ? "bg-emerald-500/20 border-emerald-400/45 shadow-[0_0_20px_rgba(52,211,153,0.25)]"
+                      : "bg-white/[0.05] border-white/10"
+                  )}
+                >
                   <ChoiceIcon
                     choice={detail.my_choice}
-                    className="w-7 h-7 text-white/85"
+                    className={cn(
+                      "w-7 h-7",
+                      detail.result === "win" ? "text-emerald-300" : "text-white/85"
+                    )}
                   />
                 </div>
-                <div className="text-[11px] text-white/40">{t("you")}</div>
+                <div
+                  className={cn(
+                    "text-[11px]",
+                    detail.result === "win"
+                      ? "text-emerald-300 font-semibold"
+                      : "text-white/40"
+                  )}
+                >
+                  {t("you")}
+                </div>
               </div>
               <div className="text-white/20 text-xs font-bold">VS</div>
               <div className="flex flex-col items-center gap-1.5">
-                <div className="w-14 h-14 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center">
+                <div
+                  className={cn(
+                    "w-14 h-14 rounded-2xl border flex items-center justify-center",
+                    detail.result === "lose"
+                      ? "bg-emerald-500/20 border-emerald-400/45 shadow-[0_0_20px_rgba(52,211,153,0.25)]"
+                      : "bg-white/[0.05] border-white/10"
+                  )}
+                >
                   <ChoiceIcon
                     choice={detail.opponent_choice}
-                    className="w-7 h-7 text-white/85"
+                    className={cn(
+                      "w-7 h-7",
+                      detail.result === "lose" ? "text-emerald-300" : "text-white/85"
+                    )}
                   />
                 </div>
-                <div className="text-[11px] text-white/40 truncate max-w-[80px]">
+                <div
+                  className={cn(
+                    "text-[11px] truncate max-w-[80px]",
+                    detail.result === "lose"
+                      ? "text-emerald-300 font-semibold"
+                      : "text-white/40"
+                  )}
+                >
                   @{detail.opponent}
                 </div>
               </div>
@@ -1375,24 +1559,13 @@ export function RpsScreen({
               ? t("joining")
               : t("playWithAmount", { n: formatGram(joinTarget.amount) })}
           </button>
-          {(joinTarget.serverSeedHash || joinTarget.creatorChoiceHash) && (
-            <button
-              type="button"
-              onClick={() =>
-                copyText(
-                  joinTarget.serverSeedHash || joinTarget.creatorChoiceHash
-                )
-              }
-              className="mt-3 w-full text-left rounded-xl bg-black/25 border border-white/10 px-3 py-2.5 btn-press"
-            >
-              <div className="text-[9px] uppercase tracking-wider text-white/35 mb-0.5">
-                {t("hash")} · tap to copy
-              </div>
-              <div className="text-[10px] font-mono text-cyan-300/90 break-all leading-snug">
-                {joinTarget.serverSeedHash || joinTarget.creatorChoiceHash}
-              </div>
-            </button>
-          )}
+          <div className="mt-3 rounded-xl bg-black/25 border border-white/10 px-3 py-1">
+            <HashRow
+              label={t("hash")}
+              value={joinTarget.serverSeedHash || joinTarget.creatorChoiceHash}
+              onCopy={copyText}
+            />
+          </div>
         </div>
       )}
 
@@ -1448,15 +1621,34 @@ export function RpsScreen({
 
                 <div className="flex items-center gap-5 mb-7">
                   <div className="flex flex-col items-center gap-2">
-                    <div className="w-[72px] h-[72px] rounded-[22px] bg-gradient-to-br from-fuchsia-500/20 to-violet-600/15 border border-fuchsia-400/35 flex items-center justify-center shadow-[0_0_32px_rgba(232,121,249,0.2)]">
+                    <div
+                      className={cn(
+                        "w-[72px] h-[72px] rounded-[22px] border flex items-center justify-center",
+                        !isDraw && active.winnerTelegramId === active.creatorTelegramId
+                          ? "bg-emerald-500/20 border-emerald-400/50 shadow-[0_0_32px_rgba(52,211,153,0.3)]"
+                          : "bg-gradient-to-br from-fuchsia-500/20 to-violet-600/15 border-fuchsia-400/35"
+                      )}
+                    >
                       {active.creatorChoice && (
                         <ChoiceIcon
                           choice={active.creatorChoice}
-                          className="w-9 h-9 text-fuchsia-100"
+                          className={cn(
+                            "w-9 h-9",
+                            !isDraw && active.winnerTelegramId === active.creatorTelegramId
+                              ? "text-emerald-300"
+                              : "text-fuchsia-100"
+                          )}
                         />
                       )}
                     </div>
-                    <div className="text-[11px] text-white/40 max-w-[80px] truncate">
+                    <div
+                      className={cn(
+                        "text-[11px] max-w-[80px] truncate",
+                        !isDraw && active.winnerTelegramId === active.creatorTelegramId
+                          ? "text-emerald-300 font-semibold"
+                          : "text-white/40"
+                      )}
+                    >
                       @{active.creatorUsername}
                     </div>
                   </div>
@@ -1464,15 +1656,34 @@ export function RpsScreen({
                     VS
                   </div>
                   <div className="flex flex-col items-center gap-2">
-                    <div className="w-[72px] h-[72px] rounded-[22px] bg-gradient-to-br from-cyan-500/20 to-teal-600/15 border border-cyan-400/35 flex items-center justify-center shadow-[0_0_32px_rgba(34,211,238,0.2)]">
+                    <div
+                      className={cn(
+                        "w-[72px] h-[72px] rounded-[22px] border flex items-center justify-center",
+                        !isDraw && active.winnerTelegramId === active.joinerTelegramId
+                          ? "bg-emerald-500/20 border-emerald-400/50 shadow-[0_0_32px_rgba(52,211,153,0.3)]"
+                          : "bg-gradient-to-br from-cyan-500/20 to-teal-600/15 border-cyan-400/35"
+                      )}
+                    >
                       {active.joinerChoice && (
                         <ChoiceIcon
                           choice={active.joinerChoice}
-                          className="w-9 h-9 text-cyan-100"
+                          className={cn(
+                            "w-9 h-9",
+                            !isDraw && active.winnerTelegramId === active.joinerTelegramId
+                              ? "text-emerald-300"
+                              : "text-cyan-100"
+                          )}
                         />
                       )}
                     </div>
-                    <div className="text-[11px] text-white/40 max-w-[80px] truncate">
+                    <div
+                      className={cn(
+                        "text-[11px] max-w-[80px] truncate",
+                        !isDraw && active.winnerTelegramId === active.joinerTelegramId
+                          ? "text-emerald-300 font-semibold"
+                          : "text-white/40"
+                      )}
+                    >
                       @{active.joinerUsername}
                     </div>
                   </div>
@@ -1488,8 +1699,8 @@ export function RpsScreen({
                     onCopy={copyText}
                   />
                   <HashRow
-                    label={t("nonce")}
-                    value={active.creatorChoiceNonce}
+                    label={t("hash")}
+                    value={active.serverSeedHash}
                     onCopy={copyText}
                   />
                 </div>
