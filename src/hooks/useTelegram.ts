@@ -140,22 +140,6 @@ export function useTelegram() {
     }
   }, []);
 
-  const openStarsInvoice = useCallback(
-    (invoiceLink: string): Promise<"paid" | "cancelled" | "failed" | "pending"> => {
-      return new Promise((resolve) => {
-        const tg = window.Telegram?.WebApp;
-        if (!tg?.openInvoice) {
-          resolve("failed");
-          return;
-        }
-        tg.openInvoice(invoiceLink, (status) => {
-          resolve(status);
-        });
-      });
-    },
-    []
-  );
-
   const openLink = useCallback((url: string) => {
     const tg = window.Telegram?.WebApp;
     if (tg?.openLink) {
@@ -222,7 +206,6 @@ export function useTelegram() {
     haptic,
     hapticSuccess,
     hapticError,
-    openStarsInvoice,
     openLink,
     setBackButton,
     initData: typeof window !== "undefined" ? window.Telegram?.WebApp?.initData : undefined,

@@ -1,15 +1,3 @@
-export interface HistoryItem {
-  id: number;
-  winner: string;
-  chance: number;
-  win: number;
-  mult: number;
-  bet: number;
-  time: Date;
-  type: string;
-  isMe: boolean;
-}
-
 export interface Profile {
   id: string;
   username: string;
@@ -30,11 +18,9 @@ export interface Profile {
 export type Screen =
   | "games"
   | "rps"
-  | "history"
   | "profile"
   | "referrals"
   | "transactions"
   | "tasks";
 
-export type HistoryFilter = "all" | "lucky" | "top" | "wins" | "my";
 export type DepositMethod = "ton";

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       { count: pendingWd },
       { data: deposits },
       { data: bets },
-      { count: rounds24 },
+      { count: rpsFinished },
     ] = await Promise.all([
       db.from("profiles").select("id", { count: "exact", head: true }),
       db.from("profiles").select("id", { count: "exact", head: true }).eq("banned", true),
@@ -29,11 +29,11 @@ export async function GET(req: NextRequest) {
       db
         .from("ledger")
         .select("amount")
-        .in("reason", ["deposit_stars", "deposit_ton"])
+        .in("reason", ["deposit_ton", "deposit_stars"])
         .gte("created_at", since),
       db.from("ledger").select("amount").eq("reason", "bet").gte("created_at", since),
       db
-        .from("rounds")
+        .from("rps_rooms")
         .select("id", { count: "exact", head: true })
         .eq("status", "finished")
         .gte("created_at", since),
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       pendingWithdrawals: pendingWd || 0,
       deposits24h: +depositVol.toFixed(2),
       bets24h: +betVol.toFixed(2),
-      rounds24h: rounds24 || 0,
+      rpsFinished24h: rpsFinished || 0,
     });
   } catch (e) {
     if (e instanceof AdminError) {

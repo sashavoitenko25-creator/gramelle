@@ -81,33 +81,7 @@ export async function requestWithdraw(amountTon: number, wallet: string) {
   });
 }
 
-export async function fetchLedger(limit = 50) {
-  return apiFetch<{
-    items: Array<{
-      id: string;
-      amount: number;
-      balance_after: number;
-      reason: string;
-      meta: Record<string, unknown>;
-      created_at: string;
-    }>;
-    demo?: boolean;
-  }>(`/api/ledger?limit=${limit}`);
-}
 
-export async function fetchWithdrawals() {
-  return apiFetch<{
-    items: Array<{
-      id: string;
-      amount_ton: number;
-      amount_gram: number;
-      wallet_address: string;
-      status: string;
-      created_at: string;
-      tx_hash?: string;
-    }>;
-  }>("/api/withdraw");
-}
 
 export async function withdrawReferralSavings(amount?: number) {
   return apiFetch<{

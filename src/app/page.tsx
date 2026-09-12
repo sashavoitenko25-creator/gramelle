@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTelegram } from "@/hooks/useTelegram";
 import { useProfile } from "@/hooks/useProfile";
-import { useHistory } from "@/hooks/useHistory";
-import { HistoryScreen } from "@/components/screens/HistoryScreen";
 import { ProfileScreen } from "@/components/screens/ProfileScreen";
 import { ReferralsScreen } from "@/components/screens/ReferralsScreen";
 import { TransactionsScreen } from "@/components/screens/TransactionsScreen";
@@ -50,15 +48,12 @@ export default function Home() {
     startParam,
   });
 
-  const { history } = useHistory(telegramId);
-
   const [screen, setScreen] = useState<Screen>("games");
   const [refWithdrawing, setRefWithdrawing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [depositOpen, setDepositOpen] = useState(false);
   const [howRefOpen, setHowRefOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
-  const [historyFilter, setHistoryFilter] = useState<"all" | "lucky" | "top">("all");
   const [onboarded, setOnboarded] = useState(() => {
     if (typeof window === "undefined") return true;
     return localStorage.getItem("gramelle_onboarded") === "1";
@@ -218,14 +213,6 @@ export default function Home() {
         />
       )}
 
-      {screen === "history" && (
-        <HistoryScreen
-          history={history}
-          initialTab={historyFilter}
-          telegramId={telegramId}
-          onBack={() => setScreen("games")}
-        />
-      )}
 
       {screen === "profile" && (
         <ProfileScreen
