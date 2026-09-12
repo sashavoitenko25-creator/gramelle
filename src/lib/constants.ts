@@ -24,7 +24,8 @@ export const GRAM_PER_STAR = (() => {
   return 4.25 / 500;
 })();
 
-export const BOT_USERNAME = "Gramelle_bot";
+export const BOT_USERNAME =
+  process.env.NEXT_PUBLIC_BOT_USERNAME || "Gramelle_bot";
 
 /**
  * Economy
@@ -61,7 +62,7 @@ export interface ReferralTier {
   emoji: string;
 }
 export const REFERRAL_TIERS: ReferralTier[] = [
-  { id: "bronze", name: "Bronze", minActive: 1, maxActive: 4, minTurnover: 0, shareOfHouseFee: 0.1, color: "#cd7f32", emoji: "🥉" },
+  { id: "bronze", name: "Bronze", minActive: 0, maxActive: 4, minTurnover: 0, shareOfHouseFee: 0.1, color: "#cd7f32", emoji: "🥉" },
   { id: "silver", name: "Silver", minActive: 5, maxActive: 14, minTurnover: 300, shareOfHouseFee: 0.15, color: "#c0c0c0", emoji: "🥈" },
   { id: "gold", name: "Gold", minActive: 15, maxActive: 44, minTurnover: 1500, shareOfHouseFee: 0.2, color: "#f5c542", emoji: "🥇" },
   { id: "platinum", name: "Platinum", minActive: 45, maxActive: null, minTurnover: 4000, shareOfHouseFee: 0.3, color: "#a78bfa", emoji: "💎" },

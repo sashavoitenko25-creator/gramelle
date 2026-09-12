@@ -25,10 +25,11 @@ export async function apiFetch<T = unknown>(
   return data as T;
 }
 
-export async function fetchSession() {
+export async function fetchSession(startParam?: string | null) {
   return apiFetch<{
     ok: boolean;
     demo?: boolean;
+    referralBound?: boolean;
     profile?: {
       id: string;
       username: string;
@@ -43,9 +44,13 @@ export async function fetchSession() {
       ref_active?: number;
       wager_remaining?: number;
       ref_turnover?: number;
+      referred_by?: string | null;
     };
     user?: { telegramId: number; username: string };
-  }>("/api/auth/session", { method: "POST", body: "{}" });
+  }>("/api/auth/session", {
+    method: "POST",
+    body: JSON.stringify(startParam ? { startParam } : {}),
+  });
 }
 
 export async function createTonPending(ton: number) {

@@ -24,3 +24,8 @@ create index if not exists rps_history_room_idx on public.rps_history (room_id);
 drop table if exists public.round_bets cascade;
 drop table if exists public.rounds cascade;
 drop table if exists public.game_history cascade;
+
+-- Referral parent link
+alter table public.profiles add column if not exists referred_by uuid references public.profiles(id);
+create index if not exists profiles_referred_by_idx on public.profiles (referred_by);
+create unique index if not exists profiles_referral_code_uidx on public.profiles (referral_code);

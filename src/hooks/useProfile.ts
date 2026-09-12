@@ -84,7 +84,7 @@ export function useProfile({
           ? window.Telegram?.WebApp?.initData
           : "";
       if (initData) {
-        const session = await fetchSession();
+        const session = await fetchSession(startParam);
         if (session.ok && session.profile) {
           const p: Profile = {
             id: session.profile.id,
@@ -119,7 +119,7 @@ export function useProfile({
     setBalance(local.balance);
     setServerMode(false);
     setLoading(false);
-  }, [username, telegramId, isReady]);
+  }, [username, telegramId, isReady, startParam]);
 
   useEffect(() => {
     load();

@@ -57,7 +57,27 @@ export async function POST(req: NextRequest) {
     if (msg?.text && typeof msg.text === "string" && msg.chat?.id) {
       const text = msg.text.trim();
       if (text === "/start" || text.startsWith("/start ")) {
-                const webAppUrl =
+        const payload = text.startsWith("/start ")
+          ? text.slice(7).trim()
+          : "";
+        // Bind referral from deep link t.me/bot?start=ref_xxx
+        if (payload && payload.includes("ref") && isSupabaseConfigured()) {
+          try {
+            const fromId = msg.from?.id;
+            if (fromId) {
+              const { bindReferral } = await import("@/lib/server/referral");
+              const uname =
+                msg.from?.username ||
+                msg.from?.first_name ||
+                "Player" + String(fromId).slice(-4);
+              await bindReferral(Number(fromId), payload, uname);
+            }
+          } catch {
+            /* non-fatal */
+          }
+        }
+
+        const webAppUrl =
           process.env.NEXT_PUBLIC_APP_URL ||
           (process.env.VERCEL_URL
             ? `https://${process.env.VERCEL_URL}`

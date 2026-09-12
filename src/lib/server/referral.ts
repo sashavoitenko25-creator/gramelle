@@ -1,10 +1,91 @@
 import { getAdminClient } from "./supabase";
 import { creditBalance } from "./ledger";
 import { getReferralTier, REFERRAL_MIN_WITHDRAW } from "@/lib/constants";
+import { getOrCreateProfile } from "./ledger";
+
+/** Normalize codes: "ref_foo", "REF_FOO", "foo" → try match */
+export function normalizeRefCode(raw: string): string {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  return s.startsWith("ref_") ? s : s.startsWith("ref") ? s : `ref_${s}`;
+}
+
+/**
+ * Bind new user to referrer by referral_code. Idempotent.
+ * Returns true if newly bound.
+ */
+export async function bindReferral(
+  newTelegramId: number,
+  rawCode: string,
+  usernameHint?: string
+): Promise<{ ok: boolean; bound: boolean; reason?: string }> {
+  const code = normalizeRefCode(rawCode);
+  if (!code.startsWith("ref_")) {
+    return { ok: false, bound: false, reason: "bad_code" };
+  }
+
+  const db = getAdminClient();
+  const profile = await getOrCreateProfile(newTelegramId, usernameHint);
+
+  if (code === profile.referral_code) {
+    return { ok: true, bound: false, reason: "self" };
+  }
+
+  const { data: referrer } = await db
+    .from("profiles")
+    .select("id, telegram_id, ref_count, referral_code")
+    .eq("referral_code", code)
+    .maybeSingle();
+
+  // fallback: case-insensitive / without double prefix
+  let ref = referrer;
+  if (!ref) {
+    const { data: all } = await db
+      .from("profiles")
+      .select("id, telegram_id, ref_count, referral_code")
+      .ilike("referral_code", code)
+      .limit(1);
+    ref = all?.[0] || null;
+  }
+
+  if (!ref?.telegram_id) {
+    return { ok: false, bound: false, reason: "not_found" };
+  }
+  if (Number(ref.telegram_id) === Number(newTelegramId)) {
+    return { ok: true, bound: false, reason: "self" };
+  }
+
+  const { data: me } = await db
+    .from("profiles")
+    .select("referred_by")
+    .eq("id", profile.id)
+    .maybeSingle();
+
+  if (me?.referred_by) {
+    return { ok: true, bound: false, reason: "already" };
+  }
+
+  const { error: upErr } = await db
+    .from("profiles")
+    .update({ referred_by: ref.id })
+    .eq("id", profile.id)
+    .is("referred_by", null);
+
+  if (upErr) {
+    return { ok: false, bound: false, reason: upErr.message };
+  }
+
+  // atomic-ish ref_count bump
+  await db
+    .from("profiles")
+    .update({ ref_count: (Number(ref.ref_count) || 0) + 1 })
+    .eq("id", ref.id);
+
+  return { ok: true, bound: true };
+}
 
 /**
  * Accrue share of house fee to referrer's savings (ref_earned).
- * Does NOT credit main balance — user withdraws manually.
  */
 export async function payReferralFromHouseFee(
   playerTelegramId: number,
@@ -36,13 +117,20 @@ export async function payReferralFromHouseFee(
     .update({ ref_turnover: newTurnover })
     .eq("id", referrer.id);
 
-  const { count: active } = await db
+  // Players who already played at least once
+  const { count: played } = await db
     .from("profiles")
     .select("id", { count: "exact", head: true })
     .eq("referred_by", referrer.id)
     .gte("games", 1);
 
-  const activeCount = active || Number(referrer.ref_active || 0);
+  // Total invites (so bronze unlocks even before first game of invitee)
+  const totalInvites = Math.max(
+    Number(referrer.ref_count) || 0,
+    played || 0
+  );
+  const activeCount = Math.max(played || 0, totalInvites > 0 ? 1 : 0);
+
   await db
     .from("profiles")
     .update({ ref_active: activeCount })
@@ -54,7 +142,6 @@ export async function payReferralFromHouseFee(
   const bonus = +(houseFeeFromThisBet * tier.shareOfHouseFee).toFixed(6);
   if (bonus < 0.0001) return;
 
-  // Savings only — no main balance credit
   await db
     .from("profiles")
     .update({
@@ -63,10 +150,6 @@ export async function payReferralFromHouseFee(
     .eq("id", referrer.id);
 }
 
-/**
- * Move referral savings (ref_earned) → main balance.
- * Min amount: REFERRAL_MIN_WITHDRAW.
- */
 export async function withdrawReferralSavings(
   telegramId: number,
   amount?: number
@@ -98,12 +181,11 @@ export async function withdrawReferralSavings(
     .from("profiles")
     .update({ ref_earned: newRef })
     .eq("id", profile.id)
-    .eq("ref_earned", profile.ref_earned) // light optimistic lock
+    .eq("ref_earned", profile.ref_earned)
     .select("ref_earned")
     .maybeSingle();
 
   if (upErr || !updated) {
-    // retry once without version match if concurrent
     const { data: again } = await db
       .from("profiles")
       .select("ref_earned")
@@ -119,7 +201,7 @@ export async function withdrawReferralSavings(
   }
 
   const { balance } = await creditBalance(telegramId, toWithdraw, "referral", {
-    type: "referral_withdraw",
+    kind: "ref_withdraw",
     amount: toWithdraw,
   });
 

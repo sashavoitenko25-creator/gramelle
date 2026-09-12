@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTelegramUser } from "@/lib/server/telegram";
 import { getOrCreateProfile } from "@/lib/server/ledger";
 import { isSupabaseConfigured } from "@/lib/server/supabase";
-import { START_BALANCE } from "@/lib/constants";
+import { bindReferral } from "@/lib/server/referral";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,70 +25,64 @@ export async function POST(req: NextRequest) {
       auth.user.photo_url || null
     );
 
-    // referral once: start_param ref_* — bind only, no join bonus
-    if (auth.startParam?.startsWith("ref_")) {
-      const code = auth.startParam;
-      if (code !== profile.referral_code) {
-        try {
-          const { getAdminClient } = await import("@/lib/server/supabase");
-          const db = getAdminClient();
-          const { data: referrer } = await db
-            .from("profiles")
-            .select("id, telegram_id, ref_count")
-            .eq("referral_code", code)
-            .maybeSingle();
+    // Referral bind: prefer signed initData start_param; fallback body.startParam
+    let bodyStart: string | undefined;
+    try {
+      const body = await req.json().catch(() => ({}));
+      if (body && typeof body.startParam === "string") {
+        bodyStart = body.startParam;
+      }
+    } catch {
+      /* empty body */
+    }
 
-          if (referrer?.telegram_id && referrer.telegram_id !== auth.user.id) {
-            const { data: me } = await db
-              .from("profiles")
-              .select("referred_by")
-              .eq("id", profile.id)
-              .maybeSingle();
-
-            if (!me?.referred_by) {
-              await db
-                .from("profiles")
-                .update({ referred_by: referrer.id })
-                .eq("id", profile.id);
-
-              await db
-                .from("profiles")
-                .update({
-                  ref_count: (referrer.ref_count || 0) + 1,
-                })
-                .eq("id", referrer.id);
-            }
-          }
-        } catch {
-          // non-fatal
-        }
+    const startRaw = auth.startParam || bodyStart;
+    let referralBound = false;
+    if (startRaw && String(startRaw).includes("ref")) {
+      try {
+        const res = await bindReferral(auth.user.id, String(startRaw), username);
+        referralBound = !!res.bound;
+      } catch {
+        /* non-fatal */
       }
     }
 
+    // Re-read profile after possible bind (ref fields may change only for referrer)
+    const fresh = await getOrCreateProfile(
+      auth.user.id,
+      username,
+      auth.user.photo_url || null
+    );
+
     return NextResponse.json({
       ok: true,
+      referralBound,
       user: {
         telegramId: auth.user.id,
-        username: profile.username,
+        username: fresh.username,
         photoUrl: auth.user.photo_url,
       },
       profile: {
-        id: profile.id,
-        username: profile.username,
-        balance: Number(profile.balance),
-        referral_code: profile.referral_code,
-        ref_earned: Number(profile.ref_earned),
-        ref_count: Number(profile.ref_count),
-        photo_url: auth.user.photo_url || (profile as { photo_url?: string }).photo_url || null,
-        biggest_win: Number((profile as { biggest_win?: number }).biggest_win || 0),
-        wins: Number((profile as { wins?: number }).wins || 0),
-        games: Number((profile as { games?: number }).games || 0),
-        ref_turnover: Number((profile as { ref_turnover?: number }).ref_turnover || 0),
-        ref_active: Number((profile as { ref_active?: number }).ref_active || 0),
-        ton_wallet: (profile as { ton_wallet?: string }).ton_wallet || null,
-        wager_remaining: Number((profile as { wager_remaining?: number }).wager_remaining || 0),
-        banned: Boolean((profile as { banned?: boolean }).banned),
-        ban_reason: (profile as { ban_reason?: string }).ban_reason || null,
+        id: fresh.id,
+        username: fresh.username,
+        balance: Number(fresh.balance),
+        referral_code: fresh.referral_code,
+        ref_earned: Number(fresh.ref_earned),
+        ref_count: Number(fresh.ref_count),
+        photo_url: fresh.photo_url,
+        biggest_win: Number(fresh.biggest_win || 0),
+        wins: Number(fresh.wins || 0),
+        games: Number(fresh.games || 0),
+        ref_turnover: Number(
+          (fresh as { ref_turnover?: number }).ref_turnover || 0
+        ),
+        ref_active: Number((fresh as { ref_active?: number }).ref_active || 0),
+        wager_remaining: Number(
+          (fresh as { wager_remaining?: number }).wager_remaining || 0
+        ),
+        referred_by: (fresh as { referred_by?: string | null }).referred_by || null,
+        ban_reason: (fresh as { ban_reason?: string }).ban_reason || null,
+        banned: !!(fresh as { banned?: boolean }).banned,
       },
     });
   } catch (e) {
@@ -96,17 +90,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: e.message }, { status: 401 });
     }
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Auth failed" },
+      { error: e instanceof Error ? e.message : "Session failed" },
       { status: 500 }
     );
   }
-}
-
-/** Dev fallback when no bot token — should not be used in production */
-export async function GET() {
-  return NextResponse.json({
-    ok: true,
-    demo: true,
-    startBalance: START_BALANCE,
-  });
 }
