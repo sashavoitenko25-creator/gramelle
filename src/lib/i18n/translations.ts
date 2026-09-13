@@ -271,6 +271,10 @@ export const translations = {
     support: "Support",
     supportHint: "Questions & help",
     softLaunchLimits: "Min bet {bet} GRAM · min deposit {dep} TON · min withdraw {wd} TON · up to {daily} pending withdrawals",
+    minBetLabel: "Min bet",
+    minDepositLabel: "Min deposit",
+    minWithdrawLabel: "Min withdraw",
+    pendingWdLabel: "Pending WD",
     rulesTitle: "Rules",
     rulesBody:
       "18+ only. Entertainment, not financial advice. Play responsibly. House fee 5% on wins. Withdrawals are usually processed within 1 hour. Cheating / multi-accounting may result in a ban. By continuing you confirm you are 18+.",
@@ -549,6 +553,10 @@ export const translations = {
     supportHint: "Вопросы и помощь",
     softLaunchLimits:
       "Мин. ставка {bet} GRAM · мин. депозит {dep} TON · мин. вывод {wd} TON · до {daily} заявок на вывод одновременно",
+    minBetLabel: "Мин. ставка",
+    minDepositLabel: "Мин. депозит",
+    minWithdrawLabel: "Мин. вывод",
+    pendingWdLabel: "Заявок на вывод",
     rulesTitle: "Правила",
     rulesBody:
       "Только 18+. Развлечение, не финансовая рекомендация. Играйте ответственно. Комиссия 5% с банка при победе. Выводы обычно в течение 1 часа. Мультиаккаунты и читы — бан. Продолжая, вы подтверждаете возраст 18+.",

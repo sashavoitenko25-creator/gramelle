@@ -395,14 +395,42 @@ export default function Home() {
                   </p>
                 </>
               )}
-              <p className="text-[11px] text-amber-200/80 leading-snug rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2">
-                {t("softLaunchLimits", {
-                  bet: 0.25,
-                  dep: 0.5,
-                  wd: 5,
-                  daily: 3,
-                })}
-              </p>
+              <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                  <div className="min-w-0">
+                    <div className="text-[10px] text-amber-200/55 truncate">
+                      {t("minBetLabel")}
+                    </div>
+                    <div className="text-[12px] font-semibold text-amber-100/90 tabular-nums">
+                      0.25 GRAM
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] text-amber-200/55 truncate">
+                      {t("minDepositLabel")}
+                    </div>
+                    <div className="text-[12px] font-semibold text-amber-100/90 tabular-nums">
+                      0.5 TON
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] text-amber-200/55 truncate">
+                      {t("minWithdrawLabel")}
+                    </div>
+                    <div className="text-[12px] font-semibold text-amber-100/90 tabular-nums">
+                      5 TON
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] text-amber-200/55 truncate">
+                      {t("pendingWdLabel")}
+                    </div>
+                    <div className="text-[12px] font-semibold text-amber-100/90 tabular-nums">
+                      ≤ 3
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-3 py-2.5">
                 <div className="text-[11px] font-semibold text-white/50 uppercase tracking-wider mb-1">
                   {t("rulesTitle")}

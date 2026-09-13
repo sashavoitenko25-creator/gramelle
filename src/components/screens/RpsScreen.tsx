@@ -300,8 +300,9 @@ function ReelColumn({
 }
 
 /**
- * 3-2-1 → both reels roll continuously with smooth deceleration (~5s)
- * and stop exactly on each player's real choice. No jumps / snaps.
+ * 3-2-1 → both reels roll (~5s) and stop on real choices.
+ * Start is synced via joinedAt so both clients begin together.
+ * Strict-mode safe (cancelled flag) — animation runs once per room.
  */
 function ReelReveal({
   room,
@@ -311,8 +312,8 @@ function ReelReveal({
   onDone: () => void;
 }) {
   const { t } = useI18n();
-  const [phase, setPhase] = useState<"countdown" | "spin" | "done">(
-    "countdown"
+  const [phase, setPhase] = useState<"wait" | "countdown" | "spin" | "done">(
+    "wait"
   );
   const [count, setCount] = useState(3);
   const [leftOff, setLeftOff] = useState(0);
@@ -320,63 +321,72 @@ function ReelReveal({
   const [leftSettled, setLeftSettled] = useState(false);
   const [rightSettled, setRightSettled] = useState(false);
 
-  // Stable refs — parent re-renders must NOT restart the animation
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
   const leftChoiceRef = useRef(room.creatorChoice);
   const rightChoiceRef = useRef(room.joinerChoice);
-  const spinStartedRef = useRef(false);
   const finishedRef = useRef(false);
 
-  /**
-   * Center of the 3-row window shows strip item at index `k` when:
-   *   offset = (k - 1) * ITEM_H
-   * strip[k] = CYCLE[k % 3]
-   */
   const targetOffset = (choice: RpsChoice | null, fullCycles: number) => {
     const idx = choice ? CYCLE.indexOf(choice) : 0;
     const k = fullCycles * 3 + idx;
     return (k - 1) * ITEM_H;
   };
 
-  // Countdown once on mount
+  // Sync gate + countdown (once; respects React Strict Mode)
   useEffect(() => {
-    let n = 3;
-    setCount(3);
-    playCountdown();
-    const cd = setInterval(() => {
-      n -= 1;
-      if (n <= 0) {
-        clearInterval(cd);
-        setPhase("spin");
-      } else {
+    let cancelled = false;
+    const joinedMs = room.joinedAt
+      ? new Date(room.joinedAt).getTime()
+      : Date.now();
+    // Both clients wait until ~1.2s after join so lobby poll can catch up
+    const goAt = joinedMs + 1200;
+
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+    (async () => {
+      const delay = Math.max(0, goAt - Date.now());
+      if (delay > 0) await sleep(delay);
+      if (cancelled) return;
+
+      setPhase("countdown");
+      for (let n = 3; n >= 1; n--) {
+        if (cancelled) return;
         setCount(n);
         playCountdown();
+        await sleep(550);
       }
-    }, 550);
-    return () => clearInterval(cd);
-  }, []);
+      if (cancelled) return;
+      setPhase("spin");
+    })();
 
-  // Spin once — never restart
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.id]);
+
+  // Spin once when phase becomes spin
   useEffect(() => {
     if (phase !== "spin") return;
-    if (spinStartedRef.current) return;
-    spinStartedRef.current = true;
-    startWheelSound(5200);
+    if (finishedRef.current) return;
+
+    let cancelled = false;
+    let raf = 0;
+    // One continuous wheel bed — no per-tick spam
+    startWheelSound(SPIN_MS + 500);
 
     const leftTarget = targetOffset(leftChoiceRef.current, 7);
     const rightTarget = targetOffset(rightChoiceRef.current, 8);
     const leftDur = SPIN_MS;
     const rightDur = SPIN_MS + 400;
-
     const t0 = performance.now();
-    let lastTickAt = 0;
     let leftDone = false;
     let rightDone = false;
-    let raf = 0;
 
     const loop = (now: number) => {
-      if (finishedRef.current) return;
+      if (cancelled || finishedRef.current) return;
       const el = now - t0;
 
       if (!leftDone) {
@@ -386,7 +396,6 @@ function ReelReveal({
           leftDone = true;
           setLeftOff(leftTarget);
           setLeftSettled(true);
-          playLand();
         }
       }
 
@@ -397,24 +406,18 @@ function ReelReveal({
           rightDone = true;
           setRightOff(rightTarget);
           setRightSettled(true);
-          playLand();
-        }
-      }
-
-      if (!leftDone || !rightDone) {
-        const p = Math.min(1, el / rightDur);
-        const interval = 35 + p * p * 160;
-        if (now - lastTickAt > interval) {
-          lastTickAt = now;
-          playTick();
         }
       }
 
       if (leftDone && rightDone) {
         if (!finishedRef.current) {
           finishedRef.current = true;
+          stopWheelSound();
+          playLand();
           setPhase("done");
-          setTimeout(() => onDoneRef.current(), 850);
+          setTimeout(() => {
+            if (!cancelled) onDoneRef.current();
+          }, 700);
         }
         return;
       }
@@ -423,14 +426,11 @@ function ReelReveal({
 
     raf = requestAnimationFrame(loop);
     return () => {
-      // Only cancel if we haven't finished — avoid killing a good run on strict-mode double invoke mid-spin
-      if (!finishedRef.current && !spinStartedRef.current) {
-        cancelAnimationFrame(raf);
-      } else if (!finishedRef.current) {
-        // keep running; cleanup on unmount only cancels frame
-        cancelAnimationFrame(raf);
-      }
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      stopWheelSound();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   return (
@@ -443,20 +443,28 @@ function ReelReveal({
         }
       `}</style>
 
-      {phase === "countdown" ? (
+      {phase === "wait" || phase === "countdown" ? (
         <div className="flex flex-col items-center justify-center min-h-[280px]">
-          <div
-            key={count}
-            className="text-[88px] font-bold text-white tracking-tighter leading-none"
-            style={{
-              animation: "rps-count-pop 0.4s cubic-bezier(0.16,1,0.3,1)",
-            }}
-          >
-            {count}
-          </div>
-          <div className="text-[12px] uppercase tracking-[0.25em] text-white/30 mt-4">
-            {t("getReady")}
-          </div>
+          {phase === "wait" ? (
+            <div className="text-[13px] text-white/35 uppercase tracking-[0.2em]">
+              {t("getReady")}
+            </div>
+          ) : (
+            <>
+              <div
+                key={count}
+                className="text-[88px] font-bold text-white tracking-tighter leading-none"
+                style={{
+                  animation: "rps-count-pop 0.4s cubic-bezier(0.16,1,0.3,1)",
+                }}
+              >
+                {count}
+              </div>
+              <div className="text-[12px] uppercase tracking-[0.25em] text-white/30 mt-4">
+                {t("getReady")}
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <>
@@ -778,16 +786,20 @@ export function RpsScreen({
       setMine(data.mine || null);
       const m = data.mine;
       if (m?.status === "playing") {
-        setActive(m);
+        // Enter reveal once; do not thrash `active` during animation (avoids remounts)
         if (
           viewRef.current !== "result" &&
           viewRef.current !== "history" &&
           viewRef.current !== "detail" &&
           viewRef.current !== "reveal"
         ) {
+          setActive(m);
           playMatchSound();
           setView("reveal");
-        } else if (viewRef.current !== "reveal") {
+        } else if (viewRef.current === "reveal") {
+          // keep current active snapshot for stable reels
+        } else {
+          setActive(m);
           setView("reveal");
         }
       } else if (m?.status === "finished" && viewRef.current === "reveal") {
@@ -801,11 +813,31 @@ export function RpsScreen({
     }
   }, []);
 
+  const mineRef = useRef(mine);
+  mineRef.current = mine;
+
   useEffect(() => {
     refresh();
     loadHistory();
-    const id = setInterval(refresh, 3500);
-    return () => clearInterval(id);
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    // Faster poll while waiting for opponent so both enter reveal closer together
+    const tick = () => {
+      if (stopped) return;
+      void refresh().finally(() => {
+        if (stopped) return;
+        const wait =
+          mineRef.current?.status === "open" || viewRef.current === "lobby"
+            ? 1200
+            : 3000;
+        timer = setTimeout(tick, wait);
+      });
+    };
+    timer = setTimeout(tick, 1200);
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [refresh, loadHistory]);
 
   useEffect(() => {
@@ -910,13 +942,12 @@ export function RpsScreen({
       resumeAudio();
       const res = await rpsJoin(joinTarget.id, joinChoice);
       playBetSound();
-      playMatchSound();
       onBalanceUpdate(res.balance);
       setActive(res.room);
       setJoinTarget(null);
       setView("reveal");
       haptic("medium");
-      refresh();
+      // Do not refresh immediately — keeps reveal room snapshot stable
     } catch (e) {
       playErrorSound();
       hapticError();
@@ -1685,7 +1716,7 @@ export function RpsScreen({
 
       {/* ── REVEAL ─────────────────────────────────────── */}
       {view === "reveal" && active && (
-        <ReelReveal room={active} onDone={onRevealDone} />
+        <ReelReveal key={active.id} room={active} onDone={onRevealDone} />
       )}
 
       {/* ── RESULT ─────────────────────────────────────── */}

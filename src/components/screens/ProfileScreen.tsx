@@ -38,6 +38,7 @@ export function ProfileScreen({
   const { t, lang, setLang } = useI18n();
   const [langOpen, setLangOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const initial = username.charAt(0).toUpperCase();
   const winrate = games > 0 ? Math.round((wins / games) * 100) : 0;
 
@@ -221,18 +222,68 @@ export function ProfileScreen({
       </div>
 
       <div className="mx-4 mt-5 mb-2 rounded-2xl border border-white/[0.05] bg-white/[0.02] px-3.5 py-3">
-        <p className="text-[10px] text-white/30 leading-relaxed">
-          {t("softLaunchLimits", {
-            bet: 0.25,
-            dep: 0.5,
-            wd: 5,
-            daily: 3,
-          })}
-        </p>
-        <p className="text-[10px] text-white/25 mt-1.5 leading-relaxed">
-          18+ · {t("rulesTitle")} · {t("support")}: {SUPPORT_LABEL}
-        </p>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          <div className="min-w-0">
+            <div className="text-[10px] text-white/30 truncate">{t("minBetLabel")}</div>
+            <div className="text-[12px] font-medium text-white/55 tabular-nums">
+              0.25 GRAM
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] text-white/30 truncate">{t("minDepositLabel")}</div>
+            <div className="text-[12px] font-medium text-white/55 tabular-nums">
+              0.5 TON
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] text-white/30 truncate">{t("minWithdrawLabel")}</div>
+            <div className="text-[12px] font-medium text-white/55 tabular-nums">
+              5 TON
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] text-white/30 truncate">{t("pendingWdLabel")}</div>
+            <div className="text-[12px] font-medium text-white/55 tabular-nums">
+              ≤ 3
+            </div>
+          </div>
+        </div>
+        <div className="mt-2.5 pt-2 border-t border-white/[0.05] flex items-center justify-between gap-2">
+          <span className="text-[10px] text-white/30">18+</span>
+          <button
+            type="button"
+            onClick={() => setRulesOpen(true)}
+            className="text-[11px] font-medium text-cyan-300/90 hover:text-cyan-200 transition"
+          >
+            {t("rulesTitle")}
+          </button>
+        </div>
       </div>
+      {rulesOpen && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/55"
+            aria-label={t("close")}
+            onClick={() => setRulesOpen(false)}
+          />
+          <div className="relative w-full max-w-lg rounded-t-3xl border border-white/10 bg-[#0c0c14] p-5 pb-8 safe-bottom">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold">{t("rulesTitle")}</div>
+              <button
+                type="button"
+                onClick={() => setRulesOpen(false)}
+                className="w-8 h-8 rounded-xl bg-white/[0.05] flex items-center justify-center text-white/45"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-[13px] text-white/55 leading-relaxed">
+              {t("rulesBody")}
+            </p>
+          </div>
+        </div>
+      )}
       {walletOpen && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center">
           <button
