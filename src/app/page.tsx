@@ -427,12 +427,9 @@ export default function Home() {
                       5 TON
                     </div>
                   </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] text-amber-200/55 truncate">
+                  <div className="min-w-0 col-span-2">
+                    <div className="text-[10px] text-amber-200/55">
                       {t("pendingWdLabel")}
-                    </div>
-                    <div className="text-[12px] font-semibold text-amber-100/90 tabular-nums">
-                      ≤ 3
                     </div>
                   </div>
                 </div>

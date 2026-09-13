@@ -274,7 +274,7 @@ export const translations = {
     minBetLabel: "Min bet",
     minDepositLabel: "Min deposit",
     minWithdrawLabel: "Min withdraw",
-    pendingWdLabel: "Pending WD",
+    pendingWdLabel: "Up to 3 pending withdrawals",
     rulesTitle: "Rules",
     rulesBody:
       "18+ only. Entertainment, not financial advice. Play responsibly. House fee 5% on wins. Withdrawals are usually processed within 1 hour. Cheating / multi-accounting may result in a ban. By continuing you confirm you are 18+.",
@@ -558,7 +558,7 @@ export const translations = {
     minBetLabel: "Мин. ставка",
     minDepositLabel: "Мин. депозит",
     minWithdrawLabel: "Мин. вывод",
-    pendingWdLabel: "Заявок на вывод",
+    pendingWdLabel: "Заявок на вывод до 3 одновременно",
     rulesTitle: "Правила",
     rulesBody:
       "Только 18+. Развлечение, не финансовая рекомендация. Играйте ответственно. Комиссия 5% с банка при победе. Выводы обычно в течение 1 часа. Мультиаккаунты и читы — бан. Продолжая, вы подтверждаете возраст 18+.",
