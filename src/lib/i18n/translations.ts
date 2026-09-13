@@ -277,7 +277,7 @@ export const translations = {
     pendingWdLabel: "Up to 3 pending withdrawals",
     rulesTitle: "Rules",
     rulesBody:
-      "18+ only. Entertainment, not financial advice. Play responsibly. House fee 5% on wins. Deposit wager ×1 (play the deposited amount in bets before withdraw). Withdrawals within 1 hour. Cheating / multi-accounting may result in a ban. By continuing you confirm you are 18+.",
+      "18+ only. Entertainment, not financial advice. Play responsibly. House fee 5% on wins. Wager x1 from deposit (you must play through the deposit amount for a successful withdrawal). Withdrawals within 1 hour. Cheating / multi-accounting may result in a ban.",
     ageConfirm: "I am 18+ and accept the rules",
     fairness: "Fairness check",
     fairnessHint: "Verify any round",
@@ -561,7 +561,7 @@ export const translations = {
     pendingWdLabel: "Заявок на вывод до 3 одновременно",
     rulesTitle: "Правила",
     rulesBody:
-      "Только 18+. Развлечение, не финансовая рекомендация. Играйте ответственно. Комиссия 5% с банка при победе. Вейджер ×1 с депозита (нужно отыграть сумму депозита в ставках перед выводом). Выводы в течение 1 часа. Мультиаккаунты и читы — бан. Продолжая, вы подтверждаете возраст 18+.",
+      "Только 18+. Развлечение, не финансовая рекомендация. Играйте ответственно. Комиссия 5% с банка при победе. Вейджер х1 с депозита (нужно отыграть сумму депозита для успешного вывода). Выводы в течение 1 часа. Мультиаккаунты и читы — бан.",
     ageConfirm: "Мне есть 18 лет, с правилами согласен",
     fairness: "Проверка честности",
     fairnessHint: "Проверить любой раунд",
