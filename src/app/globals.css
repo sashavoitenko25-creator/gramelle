@@ -325,22 +325,17 @@ html.tg-light {
   z-index: 60;
   display: flex;
   justify-content: center;
-  align-items: center;
-  /* Sit in the same row as TG close / collapse / ⋮ */
+  align-items: flex-end;
+  /* Level with TG close / collapse / ⋮ (slightly higher than content safe area) */
   height: calc(
     max(
       env(safe-area-inset-top, 0px),
       var(--tg-content-safe-area-inset-top, 0px),
       var(--tg-safe-area-inset-top, 0px),
       0px
-    ) + 44px
+    ) + 8px
   );
-  padding-top: max(
-    env(safe-area-inset-top, 0px),
-    var(--tg-content-safe-area-inset-top, 0px),
-    var(--tg-safe-area-inset-top, 0px),
-    0px
-  );
+  padding-bottom: 2px;
   box-sizing: border-box;
   pointer-events: none;
 }

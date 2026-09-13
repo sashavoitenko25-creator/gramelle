@@ -5,21 +5,19 @@ import { notifyUser, fmtAmount } from "@/lib/server/notify";
 import { BOT_USERNAME, GRAM_PER_STAR } from "@/lib/constants";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 
-const START_TEXT = `🎮 <b>Gramelle</b> — PvP «Камень-Ножницы-Бумага» на TON
+const START_TEXT = `🎮 <b>Gramelle</b> — PvP «Камень-Ножницы-Бумага» на GRAM
 
 Как играть:
-1. Пополни баланс TON → получи GRAM
+1. Пополни баланс (TON) → получи GRAM
 2. Создай комнату или зайди в чужую
 3. Выбери ход — победитель забирает банк
 
-Честная игра: у каждой партии есть <b>Hash</b> и <b>Seed</b>.
+Честная игра: у каждой партии есть <b>Hash</b> и <b>Seed</b> — можно проверить самому.
 
 Правила:
 • Мин. ставка от 0.25 GRAM
-• Вывод TON — до 1 часа
+• Вывод — до 1 часа
 • Только 18+ · Играйте ответственно
-
-Канал: @GramellePlay
 
 Нажми <b>Играть</b>, чтобы открыть игру.`;
 

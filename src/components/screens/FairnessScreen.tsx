@@ -38,7 +38,7 @@ export function FairnessScreen({
     setComputed(null);
   }, [initialSeed, initialHash]);
 
-  // Telegram BackButton instead of in-UI back (close X becomes back)
+  // Telegram BackButton instead of in-UI back
   useEffect(() => {
     setBackButton(() => {
       onBack();
@@ -77,54 +77,48 @@ export function FairnessScreen({
           <div className="text-base font-semibold">
             {isRu ? "Проверка честности" : "Fairness check"}
           </div>
-          <div className="text-[11px] text-white/35">SHA-256 · seed ↔ hash</div>
+          <div className="text-[11px] text-white/35">
+            {isRu ? "Проверь любой раунд сам" : "Verify any round yourself"}
+          </div>
         </div>
       </div>
 
       <div className="px-4 mt-5 space-y-4">
         <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2.5">
-          <p className="text-[12px] text-white/55 leading-relaxed">
-            {isRu
-              ? "Как работает проверка (provably fair):"
-              : "How verification works (provably fair):"}
+          <p className="text-[13px] text-white/70 leading-relaxed font-medium">
+            {isRu ? "Как это работает — просто:" : "How it works — simply:"}
           </p>
-          <ul className="text-[12px] text-white/45 leading-relaxed space-y-1.5 list-disc pl-4">
+          <ol className="text-[12px] text-white/50 leading-relaxed space-y-2 list-decimal pl-4">
             {isRu ? (
               <>
                 <li>
-                  До начала игры сервер публикует <span className="text-white/70">hash</span> = SHA-256(server_seed). Seed при этом скрыт.
+                  До игры показывается <span className="text-white/80">Hash</span> — это «отпечаток» секрета. Сам секрет ещё скрыт.
                 </li>
                 <li>
-                  После окончания игры seed раскрывается. Вы можете сами посчитать SHA-256(seed) и сравнить с hash.
+                  После игры открывается <span className="text-white/80">Seed</span> (секрет).
                 </li>
                 <li>
-                  Если hash совпадает — seed не меняли после публикации. Результат нельзя подкрутить задним числом.
-                </li>
-                <li>
-                  Ходы игроков фиксируются commit-хешем (SHA-256(choice:nonce)) до раскрытия. После игры можно проверить и их.
+                  Вставь оба значения ниже и нажми «Проверить». Если всё совпало — результат не подкручивали.
                 </li>
               </>
             ) : (
               <>
                 <li>
-                  Before the game the server publishes <span className="text-white/70">hash</span> = SHA-256(server_seed). The seed stays hidden.
+                  Before the game you see a <span className="text-white/80">Hash</span> — a fingerprint of a secret. The secret itself stays hidden.
                 </li>
                 <li>
-                  After the game the seed is revealed. You can compute SHA-256(seed) yourself and compare it to the hash.
+                  After the game the <span className="text-white/80">Seed</span> (secret) is revealed.
                 </li>
                 <li>
-                  If the hash matches, the seed was not changed after commitment. The outcome cannot be altered retroactively.
-                </li>
-                <li>
-                  Player moves are also committed via SHA-256(choice:nonce) before reveal. You can verify those after the game too.
+                  Paste both below and tap Verify. If they match — the result was not changed after the fact.
                 </li>
               </>
             )}
-          </ul>
+          </ol>
           <p className="text-[11px] text-white/35 leading-relaxed pt-1">
             {isRu
-              ? "Вставьте hash и seed из завершённой игры ниже и нажмите «Проверить»."
-              : "Paste the hash and seed from a finished game below and tap Verify."}
+              ? "Hash и Seed копируются из завершённой партии (кнопка «Проверить честность»)."
+              : "Copy Hash and Seed from a finished game (Verify fairness)."}
           </p>
         </div>
 
@@ -163,11 +157,7 @@ export function FairnessScreen({
             onClick={verify}
             className="w-full h-12 rounded-xl btn-primary text-sm font-medium btn-press disabled:opacity-40"
           >
-            {loading
-              ? "…"
-              : isRu
-                ? "Проверить"
-                : "Verify"}
+            {loading ? "…" : isRu ? "Проверить" : "Verify"}
           </button>
         </div>
 
@@ -186,11 +176,11 @@ export function FairnessScreen({
             >
               {result === "ok"
                 ? isRu
-                  ? "✓ Честно — SHA-256(seed) совпадает с hash"
-                  : "✓ Fair — SHA-256(seed) matches hash"
+                  ? "✓ Всё честно — совпадает"
+                  : "✓ Fair — matches"
                 : isRu
-                  ? "✗ Не совпадает — seed не соответствует опубликованному hash"
-                  : "✗ Mismatch — seed does not match the published hash"}
+                  ? "✗ Не совпадает"
+                  : "✗ Mismatch"}
             </div>
             {computed && (
               <div className="mt-2 text-[10px] font-mono text-white/35 break-all">
