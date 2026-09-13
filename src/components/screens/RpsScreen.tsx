@@ -506,11 +506,16 @@ function ReelReveal({
 /* ─── History row ──────────────────────────────────────── */
 function HistoryRow({
   h,
+  username,
+  lang,
   onOpen,
 }: {
   h: HistItem & { no: number };
+  username: string;
+  lang: "ru" | "en";
   onOpen: () => void;
 }) {
+  const { t } = useI18n();
   const isWin = h.result === "win";
   const isDraw = h.result === "draw";
   const rowTone = isWin
@@ -518,6 +523,13 @@ function HistoryRow({
     : isDraw
       ? "border-white/[0.06] bg-white/[0.025] hover:border-white/12"
       : "border-rose-500/35 bg-rose-500/[0.08] hover:border-rose-400/45";
+  const cleanUser = (username || "").replace(/^@/, "") || "?";
+  const cleanOpp = (h.opponent || "").replace(/^@/, "") || "?";
+  const winnerLabel = isDraw
+    ? t("draw")
+    : isWin
+      ? `@${cleanUser}`
+      : `@${cleanOpp}`;
   return (
     <button
       type="button"
@@ -540,9 +552,9 @@ function HistoryRow({
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[13px] text-white/70 truncate">@{h.opponent}</div>
+        <div className="text-[13px] text-white/70 truncate">{winnerLabel}</div>
         <div className="text-[10px] text-white/28 mt-0.5">
-          {formatTime(new Date(h.created_at))}
+          {formatTime(new Date(h.created_at), lang)}
         </div>
       </div>
       <div
@@ -568,12 +580,17 @@ function HistoryRow({
 function GlobalHistoryRow({
   room,
   no,
+  telegramId,
+  lang,
   onOpen,
 }: {
   room: RpsPublicRoom;
   no: number;
+  telegramId: number | null;
+  lang: "ru" | "en";
   onOpen: () => void;
 }) {
+  const { t } = useI18n();
   const isDraw = room.winnerTelegramId == null;
   const winnerName = isDraw
     ? null
@@ -586,16 +603,38 @@ function GlobalHistoryRow({
       ? room.creatorChoice
       : room.joinerChoice;
 
+  const participated =
+    telegramId != null &&
+    (telegramId === room.creatorTelegramId ||
+      telegramId === room.joinerTelegramId);
+  const isWin =
+    participated && !isDraw && room.winnerTelegramId === telegramId;
+  const isLose =
+    participated && !isDraw && room.winnerTelegramId !== telegramId;
+
+  const rowTone = isWin
+    ? "border-emerald-500/35 bg-emerald-500/[0.08] hover:border-emerald-400/50"
+    : isLose
+      ? "border-rose-500/35 bg-rose-500/[0.08] hover:border-rose-400/45"
+      : "border-white/[0.06] bg-white/[0.025] hover:border-white/12";
+
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="w-full rounded-2xl px-3.5 py-3 flex items-center gap-3 text-left transition btn-press border border-white/[0.06] bg-white/[0.025] hover:border-white/12"
+      className={`w-full rounded-2xl px-3.5 py-3 flex items-center gap-3 text-left transition btn-press border ${rowTone}`}
     >
       <div className="text-[11px] font-medium text-white/30 w-[58px] shrink-0">
         RPS #{no}
       </div>
-      <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center shrink-0">
+      <div
+        className={cn(
+          "w-8 h-8 rounded-xl border flex items-center justify-center shrink-0",
+          isDraw
+            ? "bg-white/[0.05] border-white/[0.08]"
+            : "bg-emerald-500/15 border-emerald-400/30"
+        )}
+      >
         {winnerChoice ? (
           <ChoiceIcon choice={winnerChoice} className="w-4 h-4 text-emerald-300" />
         ) : (
@@ -604,18 +643,32 @@ function GlobalHistoryRow({
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-[13px] text-white/80 truncate">
-          {isDraw ? "Ничья" : `@${winnerName}`}
+          {isDraw ? t("draw") : `@${(winnerName || "?").replace(/^@/, "")}`}
         </div>
         <div className="text-[10px] text-white/28 mt-0.5">
           {formatGram(room.amount)} GRAM
-          {room.finishedAt ? ` · ${formatTime(new Date(room.finishedAt))}` : ""}
+          {room.finishedAt
+            ? ` · ${formatTime(new Date(room.finishedAt), lang)}`
+            : ""}
         </div>
       </div>
-      {!isDraw && room.potAfterFee != null && (
+      {isWin && room.potAfterFee != null ? (
         <div className="text-[14px] font-semibold tabular-nums text-emerald-400 shrink-0">
           +{formatGram(room.potAfterFee)}
         </div>
-      )}
+      ) : isLose ? (
+        <div className="text-[14px] font-semibold tabular-nums text-red-400/90 shrink-0">
+          −{formatGram(room.amount)}
+        </div>
+      ) : participated && isDraw ? (
+        <div className="text-[14px] font-semibold tabular-nums text-white/45 shrink-0">
+          ±{formatGram(room.amount)}
+        </div>
+      ) : !isDraw && room.potAfterFee != null ? (
+        <div className="text-[14px] font-semibold tabular-nums text-emerald-400/80 shrink-0">
+          +{formatGram(room.potAfterFee)}
+        </div>
+      ) : null}
     </button>
   );
 }
@@ -638,7 +691,7 @@ export function RpsScreen({
 }: RpsScreenProps) {
   const { setBackButton } = useTelegram();
 
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   const [view, setView] = useState<View>("lobby");
   const [rooms, setRooms] = useState<RpsPublicRoom[]>([]);
@@ -1227,6 +1280,8 @@ export function RpsScreen({
                   key={r.id}
                   room={r}
                   no={recent.length - i}
+                  telegramId={telegramId}
+                  lang={lang}
                   onOpen={() => {
                     // open as light detail from room if user played — else noop toast
                     const mineHist = numberedHistory.find(
@@ -1237,7 +1292,7 @@ export function RpsScreen({
                       haptic("light");
                       showToast(
                         r.winnerTelegramId == null
-                          ? "Ничья"
+                          ? t("draw")
                           : `Победитель: @${
                               r.winnerTelegramId === r.creatorTelegramId
                                 ? r.creatorUsername
@@ -1297,6 +1352,8 @@ export function RpsScreen({
                     key={r.id}
                     room={r}
                     no={recent.length - i}
+                    telegramId={telegramId}
+                    lang={lang}
                     onOpen={() => {
                       const mineHist = numberedHistory.find(
                         (h) => h.room_id === r.id
@@ -1306,7 +1363,7 @@ export function RpsScreen({
                         haptic("light");
                         showToast(
                           r.winnerTelegramId == null
-                            ? "Ничья"
+                            ? t("draw")
                             : `Победитель: @${
                                 r.winnerTelegramId === r.creatorTelegramId
                                   ? r.creatorUsername
@@ -1326,7 +1383,13 @@ export function RpsScreen({
           ) : (
             <div className="space-y-1.5 pb-6">
               {numberedHistory.map((h) => (
-                <HistoryRow key={h.id} h={h} onOpen={() => openDetail(h)} />
+                <HistoryRow
+                  key={h.id}
+                  h={h}
+                  username={username}
+                  lang={lang}
+                  onOpen={() => openDetail(h)}
+                />
               ))}
             </div>
           )}
@@ -1338,7 +1401,7 @@ export function RpsScreen({
         <div className="px-4 flex-1 overflow-y-auto">
           <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.03] p-4 mb-4">
             <div className="text-[11px] text-white/35 mb-3">
-              RPS #{detail.no} · {formatTime(new Date(detail.created_at))}
+              RPS #{detail.no} · {formatTime(new Date(detail.created_at), lang)}
             </div>
             <div className="flex items-center justify-center gap-5 mb-4">
               <div className="flex flex-col items-center gap-1.5">

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     const [rooms, recent, mine] = await Promise.all([
       listOpenRooms(telegramId),
-      listRecentFinished(12),
+      listRecentFinished(40),
       telegramId ? getMyActiveRoom(telegramId) : Promise.resolve(null),
     ]);
 

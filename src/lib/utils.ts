@@ -16,11 +16,17 @@ export function cn(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(" ");
 }
 
-export function formatTime(date: Date): string {
+export function formatTime(date: Date, lang: "ru" | "en" = "ru"): string {
   const now = new Date();
   const diff = (now.getTime() - date.getTime()) / 1000;
+  if (lang === "ru") {
+    if (diff < 60) return "только что";
+    if (diff < 3600) return Math.floor(diff / 60) + " мин назад";
+    if (diff < 86400) return Math.floor(diff / 3600) + " ч назад";
+    return date.toLocaleDateString("ru-RU", { month: "short", day: "numeric" });
+  }
   if (diff < 60) return "just now";
   if (diff < 3600) return Math.floor(diff / 60) + "m ago";
   if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
