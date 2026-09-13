@@ -588,3 +588,39 @@ export async function getRpsHistory(telegramId: number, limit = 30) {
   if (error) throw error;
   return data || [];
 }
+
+/**
+ * Cron: finalize playing rooms whose reveal_at has passed.
+ * Safe / idempotent — finishRoom only transitions playing → finished once.
+ */
+export async function processStuckRpsRooms(limit = 30): Promise<{
+  finished: string[];
+  checked: number;
+}> {
+  const db = getAdminClient();
+  const nowIso = new Date().toISOString();
+
+  const { data, error } = await db
+    .from("rps_rooms")
+    .select("id, reveal_at")
+    .eq("status", "playing")
+    .lte("reveal_at", nowIso)
+    .order("reveal_at", { ascending: true })
+    .limit(limit);
+
+  if (error) throw error;
+
+  const rows = data || [];
+  const finished: string[] = [];
+
+  for (const row of rows) {
+    try {
+      const r = await finishRoom(row.id);
+      if (r && r.status === "finished") finished.push(row.id);
+    } catch {
+      /* next room */
+    }
+  }
+
+  return { finished, checked: rows.length };
+}

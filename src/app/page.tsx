@@ -19,6 +19,7 @@ import type { Screen } from "@/lib/types";
 import { withdrawReferralSavings, checkTonDeposits } from "@/lib/api";
 import { rpsList } from "@/lib/rpsApi";
 import { useI18n } from "@/lib/i18n/context";
+import { playSuccessSound, playErrorSound, resumeAudio } from "@/lib/sounds";
 
 export default function Home() {
   const { t, lang } = useI18n();
@@ -156,15 +157,18 @@ export default function Home() {
       return;
     }
     setRefWithdrawing(true);
+    resumeAudio();
     try {
       const res = await withdrawReferralSavings();
       if (res.ok) {
         setBalanceFromServer(res.balance);
         await reloadProfile();
+        playSuccessSound();
         showToast(t("withdrawnAmount", { n: res.withdrawn }));
         hapticSuccess();
       }
     } catch (e) {
+      playErrorSound();
       showToast(e instanceof Error ? e.message : t("withdrawFailed"));
       hapticError();
     } finally {
@@ -305,6 +309,7 @@ export default function Home() {
 
       <BottomNav
         screen={screen}
+        onlineCount={onlineCount}
         onChange={(s) => {
           haptic("light");
           setScreen(s);

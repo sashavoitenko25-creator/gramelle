@@ -5,6 +5,7 @@ import { fetchTasks, claimTask } from "@/lib/api";
 import { formatGram, cn } from "@/lib/utils";
 import { GramIcon } from "@/components/ui/GramIcon";
 import { useI18n } from "@/lib/i18n/context";
+import { playSuccessSound, playErrorSound, resumeAudio } from "@/lib/sounds";
 
 interface TaskRow {
   id: string;
@@ -64,9 +65,11 @@ export function TasksScreen({
   const check = async (task: TaskRow) => {
     if (task.completed || busyId) return;
     setBusyId(task.id);
+    resumeAudio();
     haptic?.("light");
     try {
       const res = await claimTask(task.id);
+      playSuccessSound();
       hapticSuccess?.();
       showToast?.(`+${formatGram(res.rewardGram)} GRAM`);
       setTasks((prev) =>
@@ -74,6 +77,7 @@ export function TasksScreen({
       );
       onRewarded?.(res.balance);
     } catch (e) {
+      playErrorSound();
       hapticError?.();
       showToast?.(e instanceof Error ? e.message : t("taskCheckFailed"));
     } finally {

@@ -7,6 +7,11 @@ import { apiFetch } from "@/lib/api";
 import { MIN_WITHDRAW_TON } from "@/lib/constants";
 import { formatGram } from "@/lib/utils";
 import { GramIcon } from "@/components/ui/GramIcon";
+import {
+  playSuccessSound,
+  playErrorSound,
+  resumeAudio,
+} from "@/lib/sounds";
 
 interface WithdrawModalProps {
   open: boolean;
@@ -65,6 +70,7 @@ export function WithdrawModal({
       return;
     }
     setLoading(true);
+    resumeAudio();
     haptic("light");
     try {
       const res = await apiFetch<{ ok: boolean; balance: number }>(
@@ -74,11 +80,13 @@ export function WithdrawModal({
           body: JSON.stringify({ amountTon: val, wallet: wallet.trim() }),
         }
       );
+      playSuccessSound();
       hapticSuccess();
       showToast(t("withdrawRequested"));
       onDone(res.balance);
       onClose();
     } catch (e) {
+      playErrorSound();
       hapticError();
       showToast(e instanceof Error ? e.message : t("failed"));
     } finally {

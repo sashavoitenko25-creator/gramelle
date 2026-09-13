@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n/context";
 interface BottomNavProps {
   screen: Screen;
   onChange: (s: Screen) => void;
+  onlineCount?: number;
 }
 
 const items: { id: Screen; label: string; icon: React.ReactNode }[] = [
@@ -71,7 +72,11 @@ const items: { id: Screen; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
-export function BottomNav({ screen, onChange }: BottomNavProps) {
+export function BottomNav({
+  screen,
+  onChange,
+  onlineCount = 0,
+}: BottomNavProps) {
   const { t } = useI18n();
   const labels: Record<string, string> = {
     games: t("play"),
@@ -94,7 +99,7 @@ export function BottomNav({ screen, onChange }: BottomNavProps) {
                 key={item.id}
                 onClick={() => onChange(item.id)}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 py-2.5 px-5 rounded-xl transition-all duration-200 btn-press min-w-[64px]",
+                  "relative flex flex-col items-center gap-0.5 py-2.5 px-5 rounded-xl transition-all duration-200 btn-press min-w-[64px]",
                   active
                     ? "text-cyan-300"
                     : "text-white/35 hover:text-white/55"
@@ -102,10 +107,19 @@ export function BottomNav({ screen, onChange }: BottomNavProps) {
               >
                 <span
                   className={cn(
+                    "relative",
                     active && "drop-shadow-[0_0_10px_rgba(34,211,238,0.55)]"
                   )}
                 >
                   {item.icon}
+                  {item.id === "games" && onlineCount > 0 && (
+                    <span
+                      className="absolute -top-1.5 -right-2.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-emerald-500 text-[9px] font-bold text-white leading-[14px] text-center shadow-[0_0_8px_rgba(16,185,129,0.7)] border border-emerald-300/40"
+                      aria-label={`${onlineCount} online`}
+                    >
+                      {onlineCount > 99 ? "99+" : onlineCount}
+                    </span>
+                  )}
                 </span>
                 <span className="text-[10px] font-medium tracking-wide">
                   {labels[item.id] || item.label}

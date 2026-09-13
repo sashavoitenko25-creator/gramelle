@@ -18,7 +18,21 @@ import {
   CHOICE_LABEL,
 } from "@/components/rps/RpsIcons";
 import { RPS_MIN_BET, RPS_MAX_BET } from "@/lib/rpsConstants";
-import { playWinSound, playLoseSound, playBetSound, startWheelSound, stopWheelSound } from "@/lib/sounds";
+import {
+  playWinSound,
+  playLoseSound,
+  playBetSound,
+  playDrawSound,
+  playSelectSound,
+  playClickSound,
+  playCancelSound,
+  playMatchSound,
+  playErrorSound,
+  playCopySound,
+  resumeAudio,
+  startWheelSound,
+  stopWheelSound,
+} from "@/lib/sounds";
 import { useI18n } from "@/lib/i18n/context";
 import { useTelegram } from "@/hooks/useTelegram";
 
@@ -540,15 +554,30 @@ function HistoryRow({
         RPS #{h.no}
       </div>
       <div className="flex items-center gap-1.5">
-        <div className="w-8 h-8 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center">
-          <ChoiceIcon choice={h.my_choice} className="w-4 h-4 text-white/70" />
+        <div
+          className={cn(
+            "w-8 h-8 rounded-xl border flex items-center justify-center",
+            isWin
+              ? "bg-emerald-500/20 border-emerald-400/50 shadow-[0_0_10px_rgba(52,211,153,0.25)]"
+              : isDraw
+                ? "bg-white/[0.05] border-white/[0.08]"
+                : "bg-white/[0.04] border-white/[0.06] opacity-70"
+          )}
+        >
+          <ChoiceIcon choice={h.my_choice} className="w-4 h-4" />
         </div>
         <span className="text-[10px] text-white/20">vs</span>
-        <div className="w-8 h-8 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center">
-          <ChoiceIcon
-            choice={h.opponent_choice}
-            className="w-4 h-4 text-white/70"
-          />
+        <div
+          className={cn(
+            "w-8 h-8 rounded-xl border flex items-center justify-center",
+            !isWin && !isDraw
+              ? "bg-emerald-500/20 border-emerald-400/50 shadow-[0_0_10px_rgba(52,211,153,0.25)]"
+              : isDraw
+                ? "bg-white/[0.05] border-white/[0.08]"
+                : "bg-white/[0.04] border-white/[0.06] opacity-70"
+          )}
+        >
+          <ChoiceIcon choice={h.opponent_choice} className="w-4 h-4" />
         </div>
       </div>
       <div className="flex-1 min-w-0">
@@ -723,12 +752,13 @@ export function RpsScreen({
     (v: string) => {
       if (navigator.clipboard) {
         navigator.clipboard.writeText(v).then(() => {
+          playCopySound();
           hapticSuccess();
           showToast(t("copied"));
         });
       } else showToast(v);
     },
-    [hapticSuccess, showToast]
+    [hapticSuccess, showToast, t]
   );
 
   const loadHistory = useCallback(async () => {
@@ -752,8 +782,12 @@ export function RpsScreen({
         if (
           viewRef.current !== "result" &&
           viewRef.current !== "history" &&
-          viewRef.current !== "detail"
+          viewRef.current !== "detail" &&
+          viewRef.current !== "reveal"
         ) {
+          playMatchSound();
+          setView("reveal");
+        } else if (viewRef.current !== "reveal") {
           setView("reveal");
         }
       } else if (m?.status === "finished" && viewRef.current === "reveal") {
@@ -795,10 +829,12 @@ export function RpsScreen({
   const handleCreate = async () => {
     if (busy) return;
     if (amount < RPS_MIN_BET || amount > RPS_MAX_BET) {
+      playErrorSound();
       showToast(`Bet ${RPS_MIN_BET}–${RPS_MAX_BET} GRAM`);
       return;
     }
     if (amount > balance) {
+      playErrorSound();
       showToast(t("notEnoughBalance"));
       return;
     }
@@ -808,6 +844,7 @@ export function RpsScreen({
         showToast(t("openInTelegram"));
         return;
       }
+      resumeAudio();
       const res = await rpsCreate(choice, amount);
       playBetSound();
       onBalanceUpdate(res.balance);
@@ -818,6 +855,7 @@ export function RpsScreen({
       showToast(t("roomCreated"));
       refresh();
     } catch (e) {
+      playErrorSound();
       hapticError();
       showToast(e instanceof Error ? e.message : t("failed"));
     } finally {
@@ -834,10 +872,12 @@ export function RpsScreen({
       onBalanceUpdate(res.balance);
       setMine(null);
       if (active?.id === id) setActive(null);
+      playCancelSound();
       haptic("light");
       showToast(t("cancelledRefunded"));
       refresh();
     } catch (e) {
+      playErrorSound();
       hapticError();
       showToast(e instanceof Error ? e.message : t("cancelFailed"));
     } finally {
@@ -848,6 +888,7 @@ export function RpsScreen({
   const handleJoin = async () => {
     if (!joinTarget || busy) return;
     if (joinTarget.amount > balance) {
+      playErrorSound();
       showToast(t("notEnoughBalance"));
       return;
     }
@@ -866,8 +907,10 @@ export function RpsScreen({
           /* ok */
         }
       }
+      resumeAudio();
       const res = await rpsJoin(joinTarget.id, joinChoice);
       playBetSound();
+      playMatchSound();
       onBalanceUpdate(res.balance);
       setActive(res.room);
       setJoinTarget(null);
@@ -875,6 +918,7 @@ export function RpsScreen({
       haptic("medium");
       refresh();
     } catch (e) {
+      playErrorSound();
       hapticError();
       showToast(e instanceof Error ? e.message : t("joinFailed"));
     } finally {
@@ -913,8 +957,10 @@ export function RpsScreen({
       const iWon =
         room.winnerTelegramId != null && room.winnerTelegramId === telegramId;
       const draw = room.winnerTelegramId == null;
-      if (draw) haptic("medium");
-      else if (iWon) {
+      if (draw) {
+        playDrawSound();
+        haptic("medium");
+      } else if (iWon) {
         hapticSuccess();
         playWinSound();
       } else {
@@ -1512,6 +1558,8 @@ export function RpsScreen({
                 choice={c}
                 selected={choice === c}
                 onClick={() => {
+                  resumeAudio();
+                  playSelectSound();
                   haptic("light");
                   setChoice(c);
                 }}
@@ -1528,6 +1576,7 @@ export function RpsScreen({
                 key={a}
                 type="button"
                 onClick={() => {
+                  playClickSound();
                   haptic("light");
                   setAmount(a);
                 }}
@@ -1605,6 +1654,8 @@ export function RpsScreen({
                 choice={c}
                 selected={joinChoice === c}
                 onClick={() => {
+                  resumeAudio();
+                  playSelectSound();
                   haptic("light");
                   setJoinChoice(c);
                 }}

@@ -20,6 +20,12 @@ import { tonAmountToNano } from "@/lib/tonPayload";
 import { cn } from "@/lib/utils";
 import { TonIcon } from "@/components/ui/TonIcon";
 import { GramIcon } from "@/components/ui/GramIcon";
+import {
+  playSuccessSound,
+  playErrorSound,
+  playClickSound,
+  resumeAudio,
+} from "@/lib/sounds";
 
 interface DepositModalProps {
   open: boolean;
@@ -128,11 +134,14 @@ export function DepositModal({
   const startTonDeposit = async (amt: number) => {
     if (loading) return;
     if (!Number.isFinite(amt) || amt < MIN_DEPOSIT_TON) {
+      playErrorSound();
       showToast(t("minTon", { n: MIN_DEPOSIT_TON }));
       hapticError();
       return;
     }
     // Only move to pay UI — do NOT create server intent / history yet
+    resumeAudio();
+    playClickSound();
     setTonAmount(amt);
     setTonInput(String(amt));
     setTonMemo("");
@@ -224,6 +233,7 @@ export function DepositModal({
 
   const confirmTon = async () => {
     setLoading(true);
+    resumeAudio();
     haptic("light");
     if (serverMode) {
       try {
@@ -232,10 +242,12 @@ export function DepositModal({
         if (res.credited?.length) {
           const total = res.credited.reduce((s, c) => s + c.gram, 0);
           if (onBalanceRefresh) await onBalanceRefresh();
+          playSuccessSound();
           hapticSuccess();
           showToast(t("plusGram", { n: total }));
           resetAndClose();
         } else {
+          playErrorSound();
           showToast(
             res.message === "No pending deposits" /* mapped below */
               ? t("expiredDeposit")
@@ -243,6 +255,7 @@ export function DepositModal({
           );
         }
       } catch (e) {
+        playErrorSound();
         hapticError();
         showToast(e instanceof Error ? e.message : t("checkFailed"));
       } finally {
@@ -251,6 +264,7 @@ export function DepositModal({
       return;
     }
     onCredit(gramFromTon(tonAmount));
+    playSuccessSound();
     hapticSuccess();
     showToast(t("demoGram", { n: gramFromTon(tonAmount) }));
     resetAndClose();
