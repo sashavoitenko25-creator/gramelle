@@ -16,23 +16,7 @@ export function GamesScreen({
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      <div className="px-5 pt-2 pb-6 relative">
-        {/* Online indicator top — restored */}
-        <div className="absolute top-2 right-5 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.06] border border-white/10">
-          <span className="relative flex h-1.5 w-1.5">
-            {onlineCount > 0 ? (
-              <>
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-              </>
-            ) : (
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white/35" />
-            )}
-          </span>
-          <span className="text-[11px] font-medium text-white/70 tabular-nums">
-            {onlineCount > 99 ? "99+" : onlineCount} {t("online")}
-          </span>
-        </div>
+      <div className="px-5 pt-2 pb-6">
         <h1 className="text-center text-[30px] font-bold tracking-tight text-white leading-none">
           {t("pvpGame")}
         </h1>

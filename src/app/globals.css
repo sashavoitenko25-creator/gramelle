@@ -325,13 +325,23 @@ html.tg-light {
   z-index: 60;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
+  /* Sit in the same row as TG close / collapse / ⋮ */
+  height: calc(
+    max(
+      env(safe-area-inset-top, 0px),
+      var(--tg-content-safe-area-inset-top, 0px),
+      var(--tg-safe-area-inset-top, 0px),
+      0px
+    ) + 44px
+  );
   padding-top: max(
     env(safe-area-inset-top, 0px),
     var(--tg-content-safe-area-inset-top, 0px),
     var(--tg-safe-area-inset-top, 0px),
-    6px
+    0px
   );
+  box-sizing: border-box;
   pointer-events: none;
 }
 .app-top-online > * {

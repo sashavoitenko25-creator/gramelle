@@ -208,6 +208,26 @@ export default function Home() {
 
   return (
     <div className="relative min-h-[100dvh] w-full">
+      {/* Global online — top center, level with TG close / collapse / menu */}
+      <div className="app-top-online">
+        <div className="flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-black/45 border border-white/15 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.35)]">
+          <span className="relative flex h-1.5 w-1.5 shrink-0">
+            {onlineCount > 0 ? (
+              <>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+              </>
+            ) : (
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white/40" />
+            )}
+          </span>
+          <span className="text-[11px] font-semibold text-white/90 tabular-nums leading-none">
+            {onlineCount > 99 ? "99+" : onlineCount}{" "}
+            <span className="font-medium text-white/55">{t("online")}</span>
+          </span>
+        </div>
+      </div>
+
       {!serverMode && (
         <div className="mx-4 mt-2 mb-1 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-200/90 text-center">
           {t("demoMode")} configured for real play.
