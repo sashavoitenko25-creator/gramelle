@@ -16,13 +16,12 @@ const START_TEXT = `🎮 <b>Gramelle</b> — PvP «Камень-Ножницы-�
 
 Правила:
 • Мин. ставка от 0.25 GRAM
-• Вывод TON · обработка вручную (обычно до 24ч)
+• Вывод TON — до 1 часа
 • Только 18+ · Играйте ответственно
 
 Канал: @GramellePlay
-Бот: @Gramelle_bot
 
-Нажми кнопку ниже, чтобы открыть игру.`;
+Нажми <b>Играть</b>, чтобы открыть игру.`;
 
 async function tgApi(method: string, body: Record<string, unknown>) {
   const token = getBotToken();
@@ -77,11 +76,11 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        const webAppUrl =
+        // Always production Mini App URL (not VERCEL_URL / preview — those hit Deployment Protection)
+        const webAppUrl = (
           process.env.NEXT_PUBLIC_APP_URL ||
-          (process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : "https://gramelle-gamma.vercel.app");
+          "https://gramelle-gamma.vercel.app"
+        ).replace(/\/$/, "");
 
         await tgApi("sendMessage", {
           chat_id: msg.chat.id,
@@ -100,10 +99,6 @@ export async function POST(req: NextRequest) {
                 {
                   text: "📢 Канал",
                   url: "https://t.me/GramellePlay",
-                },
-                {
-                  text: "🤖 Бот",
-                  url: "https://t.me/Gramelle_bot",
                 },
               ],
             ],
