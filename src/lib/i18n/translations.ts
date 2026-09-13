@@ -268,6 +268,13 @@ export const translations = {
     hashLabel: "Hash",
     seedLabel: "Seed",
     gotIt: "Got it",
+    support: "Support",
+    supportHint: "Questions & help",
+    softLaunchLimits: "Min bet {bet} GRAM · min deposit {dep} TON · min withdraw {wd} TON · up to {daily} pending withdrawals",
+    rulesTitle: "Rules",
+    rulesBody:
+      "18+ only. Entertainment, not financial advice. Play responsibly. House fee 5% on wins. Withdrawals are manual (usually within 24h). Cheating / multi-accounting may result in a ban. By continuing you confirm you are 18+.",
+    ageConfirm: "I am 18+ and accept the rules",
   },
   ru: {
     play: "Играть",
@@ -538,6 +545,14 @@ export const translations = {
     hashLabel: "Хеш",
     seedLabel: "Seed",
     gotIt: "Понятно",
+    support: "Поддержка",
+    supportHint: "Вопросы и помощь",
+    softLaunchLimits:
+      "Мин. ставка {bet} GRAM · мин. депозит {dep} TON · мин. вывод {wd} TON · до {daily} заявок на вывод одновременно",
+    rulesTitle: "Правила",
+    rulesBody:
+      "Только 18+. Развлечение, не финансовая рекомендация. Играйте ответственно. Комиссия 5% с банка при победе. Выводы обрабатываются вручную (обычно до 24 часов). Мультиаккаунты и читы — бан. Продолжая, вы подтверждаете возраст 18+.",
+    ageConfirm: "Мне есть 18 лет, с правилами согласен",
   },
 } as const;
 

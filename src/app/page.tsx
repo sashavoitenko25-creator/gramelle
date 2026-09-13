@@ -14,7 +14,7 @@ import { DepositModal } from "@/components/modals/DepositModal";
 import { HowRefModal } from "@/components/modals/HowRefModal";
 import { Toast } from "@/components/ui/Toast";
 import { WithdrawModal } from "@/components/modals/WithdrawModal";
-import { BOT_USERNAME } from "@/lib/constants";
+import { BOT_USERNAME, SUPPORT_URL } from "@/lib/constants";
 import type { Screen } from "@/lib/types";
 import { withdrawReferralSavings, checkTonDeposits } from "@/lib/api";
 import { rpsList } from "@/lib/rpsApi";
@@ -59,8 +59,10 @@ export default function Home() {
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [onboarded, setOnboarded] = useState(() => {
     if (typeof window === "undefined") return true;
-    return localStorage.getItem("gramelle_onboarded") === "1";
+    // v2 — soft-launch rules + 18+ checkbox
+    return localStorage.getItem("gramelle_onboarded_v2") === "1";
   });
+  const [ageOk, setAgeOk] = useState(false);
 
   const balanceRef = useRef(balance);
   balanceRef.current = balance;
@@ -263,6 +265,7 @@ export default function Home() {
           wins={profile?.wins}
           games={profile?.games}
           biggestWin={profile?.biggest_win}
+          openLink={openLink}
           onDeposit={() => {
             haptic("light");
             setDepositOpen(true);
@@ -356,11 +359,11 @@ export default function Home() {
 
       {!onboarded && (
         <div className="fixed inset-0 z-[70] flex items-end justify-center modal-backdrop">
-          <div className="w-full max-w-md glass-strong rounded-t-3xl p-6 slide-up border-t border-white/10 safe-bottom">
+          <div className="w-full max-w-md glass-strong rounded-t-3xl p-6 slide-up border-t border-white/10 safe-bottom max-h-[90dvh] overflow-y-auto">
             <h3 className="text-xl font-semibold tracking-tight mb-2">
               {t("howItWorks")}
             </h3>
-            <div className="space-y-3 mb-5 text-sm text-white/70">
+            <div className="space-y-3 mb-4 text-sm text-white/70">
               {lang === "ru" ? (
                 <>
                   <p>
@@ -374,13 +377,6 @@ export default function Home() {
                   <p>
                     <span className="text-cyan-300 font-medium">3. Победа</span> —
                     выигрыш зачисляется на баланс
-                  </p>
-                  <p className="text-[11px] text-white/35 pt-1">
-                    18+ · Развлечение · Не финансовая рекомендация · Играйте ответственно
-                  </p>
-                  <p className="text-[10px] text-white/25 pt-1 leading-snug">
-                    Выводы TON обрабатываются вручную (обычно до 24 часов).
-                    Используя приложение, вы подтверждаете возраст 18+.
                   </p>
                 </>
               ) : (
@@ -397,20 +393,52 @@ export default function Home() {
                     <span className="text-cyan-300 font-medium">3. Win</span> —
                     payout credited to your balance
                   </p>
-                  <p className="text-[11px] text-white/35 pt-1">
-                    18+ · Entertainment only · Not financial advice · Play responsibly
-                  </p>
-                  <p className="text-[10px] text-white/25 pt-1 leading-snug">
-                    TON withdrawals are processed manually (usually within 24h).
-                    By using the app you confirm you are 18+.
-                  </p>
                 </>
               )}
+              <p className="text-[11px] text-amber-200/80 leading-snug rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+                {t("softLaunchLimits", {
+                  bet: 0.25,
+                  dep: 0.5,
+                  wd: 5,
+                  daily: 3,
+                })}
+              </p>
+              <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-3 py-2.5">
+                <div className="text-[11px] font-semibold text-white/50 uppercase tracking-wider mb-1">
+                  {t("rulesTitle")}
+                </div>
+                <p className="text-[11px] text-white/40 leading-relaxed">
+                  {t("rulesBody")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  haptic("light");
+                  openLink(SUPPORT_URL);
+                }}
+                className="w-full text-left text-[12px] text-cyan-300/90 hover:text-cyan-200 transition"
+              >
+                {t("support")}: {SUPPORT_URL.replace("https://t.me/", "@")}
+              </button>
+              <label className="flex items-start gap-2.5 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={ageOk}
+                  onChange={(e) => setAgeOk(e.target.checked)}
+                  className="mt-0.5 accent-cyan-400"
+                />
+                <span className="text-[12px] text-white/55 leading-snug">
+                  {t("ageConfirm")}
+                </span>
+              </label>
             </div>
             <button
-              className="w-full h-12 rounded-2xl btn-primary text-sm btn-press"
+              className="w-full h-12 rounded-2xl btn-primary text-sm btn-press disabled:opacity-40"
+              disabled={!ageOk}
               onClick={() => {
-                localStorage.setItem("gramelle_onboarded", "1");
+                if (!ageOk) return;
+                localStorage.setItem("gramelle_onboarded_v2", "1");
                 setOnboarded(true);
                 haptic("light");
               }}

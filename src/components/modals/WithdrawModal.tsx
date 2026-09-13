@@ -4,7 +4,11 @@ import { useI18n } from "@/lib/i18n/context";
 import { useEffect, useState } from "react";
 import { useTonAddress, useTonConnectUI, useTonWallet } from "@tonconnect/ui-react";
 import { apiFetch } from "@/lib/api";
-import { MIN_WITHDRAW_TON } from "@/lib/constants";
+import {
+  MIN_WITHDRAW_TON,
+  MAX_WITHDRAW_TON,
+  DAILY_WITHDRAW_LIMIT_TON,
+} from "@/lib/constants";
 import { formatGram } from "@/lib/utils";
 import { GramIcon } from "@/components/ui/GramIcon";
 import {
@@ -53,6 +57,7 @@ export function WithdrawModal({
   const can =
     wagerRemaining <= 0.0001 &&
     val >= MIN_WITHDRAW_TON &&
+    val <= MAX_WITHDRAW_TON + 1e-9 &&
     val <= balance + 1e-9 &&
     wallet.trim().length >= 20;
 
@@ -134,6 +139,7 @@ export function WithdrawModal({
           type="number"
           inputMode="decimal"
           min={MIN_WITHDRAW_TON}
+          max={MAX_WITHDRAW_TON}
           step="0.1"
           placeholder={`Мин. ${MIN_WITHDRAW_TON}`}
           value={amount}

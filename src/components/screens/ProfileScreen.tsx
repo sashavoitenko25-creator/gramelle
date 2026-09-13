@@ -6,6 +6,7 @@ import { GramIcon } from "@/components/ui/GramIcon";
 import { ConnectWalletButton } from "@/components/ton/ConnectWalletButton";
 import { useI18n } from "@/lib/i18n/context";
 import type { Lang } from "@/lib/i18n/translations";
+import { SUPPORT_URL, SUPPORT_LABEL } from "@/lib/constants";
 
 interface ProfileScreenProps {
   username: string;
@@ -18,6 +19,7 @@ interface ProfileScreenProps {
   onWithdraw: () => void;
   onReferrals: () => void;
   onTransactions: () => void;
+  openLink?: (url: string) => void;
 }
 
 export function ProfileScreen({
@@ -31,6 +33,7 @@ export function ProfileScreen({
   onWithdraw,
   onReferrals,
   onTransactions,
+  openLink,
 }: ProfileScreenProps) {
   const { t, lang, setLang } = useI18n();
   const [langOpen, setLangOpen] = useState(false);
@@ -192,6 +195,43 @@ export function ProfileScreen({
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (openLink) openLink(SUPPORT_URL);
+            else window.open(SUPPORT_URL, "_blank");
+          }}
+          className="w-full flex items-center justify-between rounded-2xl bg-white/[0.03] border border-white/[0.06] px-4 py-4 hover:bg-white/[0.05] transition btn-press"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/12 border border-emerald-500/20 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-emerald-300">
+                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+              </svg>
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-medium">{t("support")}</div>
+              <div className="text-[11px] text-white/35">{SUPPORT_LABEL}</div>
+            </div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/25">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="mx-4 mt-5 mb-2 rounded-2xl border border-white/[0.05] bg-white/[0.02] px-3.5 py-3">
+        <p className="text-[10px] text-white/30 leading-relaxed">
+          {t("softLaunchLimits", {
+            bet: 0.25,
+            dep: 0.5,
+            wd: 5,
+            daily: 3,
+          })}
+        </p>
+        <p className="text-[10px] text-white/25 mt-1.5 leading-relaxed">
+          18+ · {t("rulesTitle")} · {t("support")}: {SUPPORT_LABEL}
+        </p>
       </div>
       {walletOpen && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center">

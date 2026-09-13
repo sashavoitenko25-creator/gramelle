@@ -34,7 +34,8 @@ export interface RpsRoomRow {
 }
 
 export const RPS_MIN_BET = MIN_BET;
-export const RPS_MAX_BET = 500;
+/** Practical upper bound — keep in sync with src/lib/rpsConstants.ts */
+export const RPS_MAX_BET = 1_000_000;
 export const RPS_REVEAL_SEC = 11; // animation length
 
 const CHOICES: RpsChoice[] = ["rock", "paper", "scissors"];

@@ -4,6 +4,7 @@ import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 import { creditBalance, getOrCreateProfile } from "@/lib/server/ledger";
 import {
   MIN_WITHDRAW_TON,
+  MAX_WITHDRAW_TON,
   GRAM_PER_TON,
   WITHDRAW_FEE_GRAM,
   DAILY_WITHDRAW_LIMIT_TON,
@@ -57,6 +58,12 @@ export async function POST(req: NextRequest) {
     if (!Number.isFinite(amountTon) || amountTon < MIN_WITHDRAW_TON) {
       return NextResponse.json(
         { error: `Minimum withdraw is ${MIN_WITHDRAW_TON} TON` },
+        { status: 400 }
+      );
+    }
+    if (amountTon > MAX_WITHDRAW_TON) {
+      return NextResponse.json(
+        { error: `Maximum withdraw is ${MAX_WITHDRAW_TON} TON per request` },
         { status: 400 }
       );
     }

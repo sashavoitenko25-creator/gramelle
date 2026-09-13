@@ -40,12 +40,20 @@ export const GRAM_PER_TON = (() => {
 
 export const MIN_DEPOSIT_GRAM = 0.5;
 export const MIN_DEPOSIT_TON = 0.5;
+/** No practical deposit cap */
 export const MAX_DEPOSIT_TON = 1_000_000;
 export const TON_PENDING_TTL_SEC = 10 * 60;
 
 export const MIN_WITHDRAW_TON = 5;
+/** No practical per-request withdraw cap */
 export const MAX_WITHDRAW_TON = 1_000_000;
 export const WITHDRAW_FEE_GRAM = 0;
+
+/** Support / community (Telegram) */
+export const SUPPORT_URL =
+  process.env.NEXT_PUBLIC_SUPPORT_URL || "https://t.me/GramellePlay";
+export const SUPPORT_LABEL =
+  process.env.NEXT_PUBLIC_SUPPORT_LABEL || "@GramellePlay";
 /** @deprecated join bonus disabled — only % of house fee */
 export const REFERRAL_JOIN_BONUS = 0;
 export const REFERRAL_MIN_WITHDRAW = 0.25;
@@ -93,7 +101,8 @@ export const TON_PROFIT_WALLET =
   process.env.NEXT_PUBLIC_TON_PROFIT_WALLET || TON_DEPOSIT_ADDRESS;
 
 export const MAX_PENDING_WITHDRAWALS = 3;
-export const DAILY_WITHDRAW_LIMIT_TON = 50;
+/** No practical daily withdraw cap */
+export const DAILY_WITHDRAW_LIMIT_TON = 1_000_000;
 
 /** One-time channel subscribe tasks (bot must be admin in these channels) */
 export type TaskId = "channel_project" | "channel_friend";
