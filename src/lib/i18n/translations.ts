@@ -279,6 +279,8 @@ export const translations = {
     rulesBody:
       "18+ only. Entertainment, not financial advice. Play responsibly. House fee 5% on wins. Withdrawals are usually processed within 1 hour. Cheating / multi-accounting may result in a ban. By continuing you confirm you are 18+.",
     ageConfirm: "I am 18+ and accept the rules",
+    fairness: "Fairness check",
+    fairnessHint: "Verify any round",
   },
   ru: {
     play: "Играть",
@@ -561,6 +563,8 @@ export const translations = {
     rulesBody:
       "Только 18+. Развлечение, не финансовая рекомендация. Играйте ответственно. Комиссия 5% с банка при победе. Выводы обычно в течение 1 часа. Мультиаккаунты и читы — бан. Продолжая, вы подтверждаете возраст 18+.",
     ageConfirm: "Мне есть 18 лет, с правилами согласен",
+    fairness: "Проверка честности",
+    fairnessHint: "Проверить любой раунд",
   },
 } as const;
 

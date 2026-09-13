@@ -9,6 +9,7 @@ import { TransactionsScreen } from "@/components/screens/TransactionsScreen";
 import { TasksScreen } from "@/components/screens/TasksScreen";
 import { GamesScreen } from "@/components/screens/GamesScreen";
 import { RpsScreen } from "@/components/screens/RpsScreen";
+import { FairnessScreen } from "@/components/screens/FairnessScreen";
 import { BottomNav } from "@/components/game/BottomNav";
 import { DepositModal } from "@/components/modals/DepositModal";
 import { HowRefModal } from "@/components/modals/HowRefModal";
@@ -276,7 +277,12 @@ export default function Home() {
           }}
           onReferrals={() => setScreen("referrals")}
           onTransactions={() => setScreen("transactions")}
+          onFairness={() => setScreen("fairness")}
         />
+      )}
+
+      {screen === "fairness" && (
+        <FairnessScreen onBack={() => setScreen("profile")} />
       )}
 
       {screen === "transactions" && (

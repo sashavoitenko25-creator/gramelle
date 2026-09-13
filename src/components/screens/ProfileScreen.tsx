@@ -19,6 +19,7 @@ interface ProfileScreenProps {
   onWithdraw: () => void;
   onReferrals: () => void;
   onTransactions: () => void;
+  onFairness?: () => void;
   openLink?: (url: string) => void;
 }
 
@@ -33,6 +34,7 @@ export function ProfileScreen({
   onWithdraw,
   onReferrals,
   onTransactions,
+  onFairness,
   openLink,
 }: ProfileScreenProps) {
   const { t, lang, setLang } = useI18n();
@@ -190,6 +192,27 @@ export function ProfileScreen({
             <div className="text-left">
               <div className="text-sm font-medium">{t("referrals")}</div>
               <div className="text-[11px] text-white/35">{t("shareOfFee")}</div>
+            </div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/25">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={onFairness}
+          className="w-full flex items-center justify-between rounded-2xl bg-white/[0.03] border border-white/[0.06] px-4 py-4 hover:bg-white/[0.05] transition btn-press"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/12 border border-cyan-500/20 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-cyan-300">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-medium">{t("fairness")}</div>
+              <div className="text-[11px] text-white/35">{t("fairnessHint")}</div>
             </div>
           </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/25">
