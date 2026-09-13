@@ -210,7 +210,7 @@ export const translations = {
     shareOfFee: "Share of house fee from friends' bets",
     depositsWithdrawals: "Deposits & withdrawals status",
     amountPlaceholder: "Amount ({min}–{max})",
-    requestsManual: "Requests are reviewed manually. Status appears in Transactions.",
+    requestsManual: "Withdrawals are usually processed within 1 hour. Status appears in Transactions.",
     starter: "Starter",
     payStars: "Pay with Stars",
     customAmount: "Custom amount",
@@ -273,7 +273,7 @@ export const translations = {
     softLaunchLimits: "Min bet {bet} GRAM · min deposit {dep} TON · min withdraw {wd} TON · up to {daily} pending withdrawals",
     rulesTitle: "Rules",
     rulesBody:
-      "18+ only. Entertainment, not financial advice. Play responsibly. House fee 5% on wins. Withdrawals are manual (usually within 24h). Cheating / multi-accounting may result in a ban. By continuing you confirm you are 18+.",
+      "18+ only. Entertainment, not financial advice. Play responsibly. House fee 5% on wins. Withdrawals are usually processed within 1 hour. Cheating / multi-accounting may result in a ban. By continuing you confirm you are 18+.",
     ageConfirm: "I am 18+ and accept the rules",
   },
   ru: {
@@ -487,7 +487,7 @@ export const translations = {
     shareOfFee: "Доля комиссии с ставок друзей",
     depositsWithdrawals: "Статусы депозитов и выводов",
     amountPlaceholder: "Сумма ({min}–{max})",
-    requestsManual: "Заявки проверяются вручную. Статус — в «Транзакции».",
+    requestsManual: "Выводы обычно в течение 1 часа. Статус — в «Транзакции».",
     starter: "Старт",
     payStars: "Оплатить Stars",
     customAmount: "Своя сумма",
@@ -551,7 +551,7 @@ export const translations = {
       "Мин. ставка {bet} GRAM · мин. депозит {dep} TON · мин. вывод {wd} TON · до {daily} заявок на вывод одновременно",
     rulesTitle: "Правила",
     rulesBody:
-      "Только 18+. Развлечение, не финансовая рекомендация. Играйте ответственно. Комиссия 5% с банка при победе. Выводы обрабатываются вручную (обычно до 24 часов). Мультиаккаунты и читы — бан. Продолжая, вы подтверждаете возраст 18+.",
+      "Только 18+. Развлечение, не финансовая рекомендация. Играйте ответственно. Комиссия 5% с банка при победе. Выводы обычно в течение 1 часа. Мультиаккаунты и читы — бан. Продолжая, вы подтверждаете возраст 18+.",
     ageConfirm: "Мне есть 18 лет, с правилами согласен",
   },
 } as const;
