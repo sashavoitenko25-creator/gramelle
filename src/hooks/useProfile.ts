@@ -53,6 +53,7 @@ export function useProfile({
   username,
   telegramId,
   isReady,
+  startParam,
 }: UseProfileOptions) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [balance, setBalance] = useState(START_BALANCE);

@@ -124,10 +124,18 @@ export function TasksScreen({
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-white/90">
-                    {task.title}
+                    {task.id === "channel_project"
+                      ? t("taskChannelProjectTitle")
+                      : task.id === "channel_friend"
+                        ? t("taskChannelFriendTitle")
+                        : task.title}
                   </div>
                   <div className="text-[12px] text-white/40 mt-1">
-                    {task.description}
+                    {task.id === "channel_project"
+                      ? t("taskChannelProjectDesc")
+                      : task.id === "channel_friend"
+                        ? t("taskChannelFriendDesc")
+                        : task.description}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0 text-sm font-semibold text-cyan-300 tabular-nums">

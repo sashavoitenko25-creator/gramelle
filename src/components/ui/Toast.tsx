@@ -8,7 +8,8 @@ interface ToastProps {
   durationMs?: number;
 }
 
-export function Toast({ message, onClose, durationMs = 2600 }: ToastProps) {
+/** Below TG chrome + online pill in fullscreen */
+export function Toast({ message, onClose, durationMs = 2800 }: ToastProps) {
   const [visible, setVisible] = useState<string | null>(null);
 
   useEffect(() => {
@@ -31,7 +32,7 @@ export function Toast({ message, onClose, durationMs = 2600 }: ToastProps) {
     <div
       className="fixed left-0 right-0 z-[80] flex justify-center px-4 pointer-events-none"
       style={{
-        top: "max(0.75rem, calc(env(safe-area-inset-top) + 0.5rem))",
+        top: "max(3.25rem, calc(env(safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px) + 2.75rem))",
       }}
     >
       <div

@@ -82,8 +82,7 @@ export async function GET(req: NextRequest) {
 
       for (const d of deps || []) {
         const st = String(d.status || "pending").toLowerCase();
-        // Skip pure intents that were never paid (no chain tx yet)
-        if (st === "pending" && !d.tx_hash) continue;
+        // Show pending after "Pay with wallet" (intent exists); hide only expired
         if (st === "expired") continue;
 
         let status: TxStatus = "pending";

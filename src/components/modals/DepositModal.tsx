@@ -105,6 +105,23 @@ export function DepositModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, tonStep, serverMode, tonMemo]);
 
+  // After user leaves to wallet and returns: toast + close deposit sheet
+  useEffect(() => {
+    if (!open || tonStep !== "pay" || !tonMemo) return;
+    const onVis = () => {
+      if (document.visibilityState !== "visible") return;
+      showToast(t("depositProcessing"));
+      haptic("light");
+      setLoading(false);
+      setTonStep("pick");
+      setTonMemo("");
+      setExpiresAt(null);
+      onClose();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, tonStep, tonMemo]);
 
   if (!open) return null;
 
