@@ -244,7 +244,7 @@ export function ProfileScreen({
         </button>
       </div>
 
-      <div className="mx-4 mt-5 mb-2 flex items-center justify-center gap-2 py-2">
+      <div className="mx-4 mt-5 mb-2 flex items-center justify-start gap-2 py-2">
         <span className="text-[11px] text-white/30">18+</span>
         <span className="text-white/15">·</span>
         <button

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n/context";
 
 async function sha256Hex(text: string): Promise<string> {
@@ -13,15 +13,28 @@ async function sha256Hex(text: string): Promise<string> {
 
 interface FairnessScreenProps {
   onBack: () => void;
+  initialHash?: string;
+  initialSeed?: string;
 }
 
-export function FairnessScreen({ onBack }: FairnessScreenProps) {
+export function FairnessScreen({
+  onBack,
+  initialHash = "",
+  initialSeed = "",
+}: FairnessScreenProps) {
   const { lang } = useI18n();
-  const [seed, setSeed] = useState("");
-  const [hash, setHash] = useState("");
+  const [seed, setSeed] = useState(initialSeed);
+  const [hash, setHash] = useState(initialHash);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<"ok" | "fail" | null>(null);
   const [computed, setComputed] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSeed(initialSeed || "");
+    setHash(initialHash || "");
+    setResult(null);
+    setComputed(null);
+  }, [initialSeed, initialHash]);
 
   const verify = async () => {
     const s = seed.trim();
@@ -66,8 +79,8 @@ export function FairnessScreen({ onBack }: FairnessScreenProps) {
       <div className="px-4 mt-5 space-y-4">
         <p className="text-[12px] text-white/45 leading-relaxed">
           {lang === "ru"
-            ? "До игры публикуется hash. После — seed. Вставьте оба: если SHA-256(seed) совпадает с hash, сервер не менял значение после фиксации."
-            : "Before the game the hash is published. After — the seed. Paste both: if SHA-256(seed) matches the hash, the server did not change the value after commitment."}
+            ? "До игры публикуется hash. После — seed. Если SHA-256(seed) совпадает с hash — значение не меняли."
+            : "Before the game the hash is published. After — the seed. If SHA-256(seed) matches the hash, the value was not changed."}
         </p>
 
         <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3">
@@ -141,12 +154,6 @@ export function FairnessScreen({ onBack }: FairnessScreenProps) {
             )}
           </div>
         )}
-
-        <div className="rounded-2xl border border-white/[0.04] px-3.5 py-3 text-[11px] text-white/30 leading-relaxed">
-          {lang === "ru"
-            ? "Hash и seed можно скопировать из результата игры или истории. Формула: hash = SHA-256(seed)."
-            : "Copy hash and seed from the game result or history. Formula: hash = SHA-256(seed)."}
-        </div>
       </div>
     </div>
   );

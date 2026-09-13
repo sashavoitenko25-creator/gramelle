@@ -5,9 +5,13 @@ import { useI18n } from "@/lib/i18n/context";
 
 interface GamesScreenProps {
   onSelectRps: () => void;
+  onlineCount?: number;
 }
 
-export function GamesScreen({ onSelectRps }: GamesScreenProps) {
+export function GamesScreen({
+  onSelectRps,
+  onlineCount = 0,
+}: GamesScreenProps) {
   const { t } = useI18n();
 
   return (
@@ -40,6 +44,19 @@ export function GamesScreen({ onSelectRps }: GamesScreenProps) {
               backgroundSize: "28px 28px",
             }}
           />
+
+          {/* Online badge — top right on RPS card */}
+          {onlineCount > 0 && (
+            <div className="absolute top-3.5 right-3.5 z-20 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 border border-white/15 backdrop-blur-md">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+              </span>
+              <span className="text-[11px] font-semibold text-white/90 tabular-nums">
+                {onlineCount > 99 ? "99+" : onlineCount}
+              </span>
+            </div>
+          )}
 
           <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
             <div className="flex items-center -space-x-2.5">

@@ -50,6 +50,8 @@ interface RpsScreenProps {
   haptic: (type?: "light" | "medium" | "heavy") => void;
   hapticSuccess: () => void;
   hapticError: () => void;
+  /** Open fairness tab with prefilled hash + seed */
+  onVerifyFairness?: (hash: string, seed: string) => void;
 }
 
 type View =
@@ -725,6 +727,7 @@ export function RpsScreen({
   haptic,
   hapticSuccess,
   hapticError,
+  onVerifyFairness,
 }: RpsScreenProps) {
   const { setBackButton } = useTelegram();
 
@@ -778,6 +781,23 @@ export function RpsScreen({
     }
   }, []);
 
+  const resultSoundPlayed = useRef<string | null>(null);
+
+  const playResultSfx = useCallback(
+    (room: RpsPublicRoom) => {
+      if (resultSoundPlayed.current === room.id) return;
+      resultSoundPlayed.current = room.id;
+      const iWon =
+        room.winnerTelegramId != null &&
+        room.winnerTelegramId === telegramId;
+      const draw = room.winnerTelegramId == null;
+      if (draw) playDrawSound();
+      else if (iWon) playWinSound();
+      else playLoseSound();
+    },
+    [telegramId]
+  );
+
   const refresh = useCallback(async () => {
     try {
       const data = await rpsList();
@@ -805,13 +825,14 @@ export function RpsScreen({
       } else if (m?.status === "finished" && viewRef.current === "reveal") {
         setActive(m);
         setView("result");
+        playResultSfx(m);
       }
     } catch {
       /* demo */
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [playResultSfx]);
 
   const mineRef = useRef(mine);
   mineRef.current = mine;
@@ -985,18 +1006,14 @@ export function RpsScreen({
       setTimeout(() => onReloadBalance?.(), 4000);
       loadHistory();
       void refresh();
-      const iWon =
-        room.winnerTelegramId != null && room.winnerTelegramId === telegramId;
-      const draw = room.winnerTelegramId == null;
-      if (draw) {
-        playDrawSound();
-        haptic("medium");
-      } else if (iWon) {
+      playResultSfx(room);
+      if (
+        room.winnerTelegramId != null &&
+        room.winnerTelegramId === telegramId
+      ) {
         hapticSuccess();
-        playWinSound();
       } else {
         haptic("medium");
-        playLoseSound();
       }
     } catch {
       setView("result");
@@ -1010,6 +1027,7 @@ export function RpsScreen({
     onReloadBalance,
     loadHistory,
     refresh,
+    playResultSfx,
   ]);
 
   const openDetail = (h: HistItem & { no: number }) => {
@@ -1571,6 +1589,25 @@ export function RpsScreen({
               value={detail.server_seed_hash}
               onCopy={copyText}
             />
+            {detail.server_seed &&
+              detail.server_seed_hash &&
+              onVerifyFairness && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic("light");
+                    onVerifyFairness(
+                      detail.server_seed_hash!,
+                      detail.server_seed!
+                    );
+                  }}
+                  className="mt-3 w-full h-11 rounded-xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-200 text-sm font-semibold btn-press"
+                >
+                  {lang === "ru"
+                    ? "Проверить честность"
+                    : "Verify fairness"}
+                </button>
+              )}
           </div>
 
         </div>
@@ -1848,6 +1885,25 @@ export function RpsScreen({
                     value={active.serverSeedHash}
                     onCopy={copyText}
                   />
+                  {active.serverSeed &&
+                    active.serverSeedHash &&
+                    onVerifyFairness && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          haptic("light");
+                          onVerifyFairness(
+                            active.serverSeedHash!,
+                            active.serverSeed!
+                          );
+                        }}
+                        className="mt-3 w-full h-11 rounded-xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-200 text-sm font-semibold btn-press"
+                      >
+                        {lang === "ru"
+                          ? "Проверить честность"
+                          : "Verify fairness"}
+                      </button>
+                    )}
                 </div>
 
                 

@@ -7,7 +7,6 @@ import { useI18n } from "@/lib/i18n/context";
 interface BottomNavProps {
   screen: Screen;
   onChange: (s: Screen) => void;
-  onlineCount?: number;
 }
 
 const items: { id: Screen; label: string; icon: React.ReactNode }[] = [
@@ -72,11 +71,7 @@ const items: { id: Screen; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
-export function BottomNav({
-  screen,
-  onChange,
-  onlineCount = 0,
-}: BottomNavProps) {
+export function BottomNav({ screen, onChange }: BottomNavProps) {
   const { t } = useI18n();
   const labels: Record<string, string> = {
     games: t("play"),
@@ -92,7 +87,9 @@ export function BottomNav({
               screen === item.id ||
               (item.id === "games" && screen === "rps") ||
               (item.id === "profile" &&
-                (screen === "referrals" || screen === "transactions"));
+                (screen === "referrals" ||
+                  screen === "transactions" ||
+                  screen === "fairness"));
 
             return (
               <button
@@ -112,14 +109,6 @@ export function BottomNav({
                   )}
                 >
                   {item.icon}
-                  {item.id === "games" && onlineCount > 0 && (
-                    <span
-                      className="absolute -top-1.5 -right-2.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-emerald-500 text-[9px] font-bold text-white leading-[14px] text-center shadow-[0_0_8px_rgba(16,185,129,0.7)] border border-emerald-300/40"
-                      aria-label={`${onlineCount} online`}
-                    >
-                      {onlineCount > 99 ? "99+" : onlineCount}
-                    </span>
-                  )}
                 </span>
                 <span className="text-[10px] font-medium tracking-wide">
                   {labels[item.id] || item.label}

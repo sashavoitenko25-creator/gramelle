@@ -78,23 +78,28 @@ export function playSpinSound() {
   tone(160, 0.15, 0.2, "sine", 0.03);
 }
 
-/** Win fanfare */
+/** Win fanfare — brighter / longer */
 export function playWinSound() {
-  tone(523, 0, 0.12, "sine", 0.09);
-  tone(659, 0.1, 0.12, "sine", 0.08);
-  tone(784, 0.2, 0.18, "sine", 0.07);
+  resumeAudio();
+  tone(523, 0, 0.14, "sine", 0.11);
+  tone(659, 0.12, 0.14, "sine", 0.1);
+  tone(784, 0.24, 0.16, "sine", 0.09);
+  tone(1046, 0.38, 0.22, "triangle", 0.07);
 }
 
 /** Lose down-tone */
 export function playLoseSound() {
-  tone(300, 0, 0.1, "triangle", 0.05);
-  tone(220, 0.1, 0.18, "triangle", 0.04);
+  resumeAudio();
+  tone(320, 0, 0.12, "triangle", 0.07);
+  tone(240, 0.12, 0.16, "triangle", 0.06);
+  tone(160, 0.26, 0.22, "sine", 0.05);
 }
 
 /** Neutral draw */
 export function playDrawSound() {
-  tone(400, 0, 0.08, "sine", 0.05);
-  tone(400, 0.12, 0.1, "sine", 0.04);
+  resumeAudio();
+  tone(400, 0, 0.1, "sine", 0.06);
+  tone(360, 0.14, 0.12, "sine", 0.05);
 }
 
 /** Task / deposit / withdraw success */

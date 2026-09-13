@@ -64,6 +64,10 @@ export default function Home() {
     return localStorage.getItem("gramelle_onboarded_v2") === "1";
   });
   const [ageOk, setAgeOk] = useState(false);
+  const [fairnessPrefill, setFairnessPrefill] = useState<{
+    hash: string;
+    seed: string;
+  } | null>(null);
 
   const balanceRef = useRef(balance);
   balanceRef.current = balance;
@@ -204,17 +208,6 @@ export default function Home() {
 
   return (
     <div className="relative min-h-[100dvh] w-full">
-      <div className="app-top-online">
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/45 border border-white/15 backdrop-blur-md shadow-[0_2px_12px_rgba(0,0,0,0.35)]">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-          </span>
-          <span className="text-[11px] font-medium text-white/90 tabular-nums">
-            {onlineCount} {t("online")}
-          </span>
-        </div>
-      </div>
       {!serverMode && (
         <div className="mx-4 mt-2 mb-1 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-200/90 text-center">
           {t("demoMode")} configured for real play.
@@ -223,6 +216,7 @@ export default function Home() {
 
       {screen === "games" && (
         <GamesScreen
+          onlineCount={onlineCount}
           onSelectRps={() => {
             haptic("light");
             setScreen("rps");
@@ -254,6 +248,10 @@ export default function Home() {
           haptic={haptic}
           hapticSuccess={hapticSuccess}
           hapticError={hapticError}
+          onVerifyFairness={(hash, seed) => {
+            setFairnessPrefill({ hash, seed });
+            setScreen("fairness");
+          }}
         />
       )}
 
@@ -277,12 +275,22 @@ export default function Home() {
           }}
           onReferrals={() => setScreen("referrals")}
           onTransactions={() => setScreen("transactions")}
-          onFairness={() => setScreen("fairness")}
+          onFairness={() => {
+            setFairnessPrefill(null);
+            setScreen("fairness");
+          }}
         />
       )}
 
       {screen === "fairness" && (
-        <FairnessScreen onBack={() => setScreen("profile")} />
+        <FairnessScreen
+          initialHash={fairnessPrefill?.hash}
+          initialSeed={fairnessPrefill?.seed}
+          onBack={() => {
+            setFairnessPrefill(null);
+            setScreen(fairnessPrefill ? "rps" : "profile");
+          }}
+        />
       )}
 
       {screen === "transactions" && (
@@ -318,7 +326,6 @@ export default function Home() {
 
       <BottomNav
         screen={screen}
-        onlineCount={onlineCount}
         onChange={(s) => {
           haptic("light");
           setScreen(s);
