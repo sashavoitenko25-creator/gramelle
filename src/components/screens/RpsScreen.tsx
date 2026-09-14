@@ -52,6 +52,8 @@ interface RpsScreenProps {
   hapticError: () => void;
   /** Open fairness tab with prefilled hash + seed */
   onVerifyFairness?: (hash: string, seed: string) => void;
+  /** When false, pause background polling (kept mounted) */
+  isVisible?: boolean;
 }
 
 type View =
@@ -728,6 +730,7 @@ export function RpsScreen({
   hapticSuccess,
   hapticError,
   onVerifyFairness,
+  isVisible = true,
 }: RpsScreenProps) {
   const { setBackButton } = useTelegram();
 
@@ -863,10 +866,9 @@ export function RpsScreen({
 
   useEffect(() => {
     if (!active || view !== "reveal") return;
-    const roomId = active.id;
     const id = setInterval(async () => {
       try {
-        const { room } = await rpsState(roomId);
+        const { room } = await rpsState(active.id);
         setActive(room);
         if (room.status === "finished") {
           setView("result");
