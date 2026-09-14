@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import { getAdminClient } from "./supabase";
-import { creditBalance } from "./ledger";
+import { creditBalance, recordWinStats } from "./ledger";
+import { creditHouse } from "./house";
+import { payReferralFromHouseFee } from "./referral";
 import {
   DICE_HOUSE_EDGE,
   DICE_MAX_BET,
@@ -568,6 +570,33 @@ async function advanceAfterRoll(
       pot,
       fee,
     });
+
+    try {
+      if (fee > 0) {
+        await creditHouse(fee, "profit", "house_fee", {
+          game: "dice",
+          room_id: room.id,
+        });
+        const stake = Number(room.amount);
+        const contributors = players.length || 1;
+        const slice = +(fee / contributors).toFixed(6);
+        for (const pl of players) {
+          try {
+            await payReferralFromHouseFee(pl.telegram_id, stake, slice);
+          } catch {}
+        }
+      }
+    } catch {}
+
+    try {
+      for (const pl of players) {
+        await recordWinStats(
+          pl.telegram_id,
+          payout,
+          pl.telegram_id === winner.telegram_id
+        );
+      }
+    } catch {}
 
     const { data } = await db
       .from("dice_rooms")

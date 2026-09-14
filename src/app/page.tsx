@@ -21,6 +21,7 @@ import { BOT_USERNAME, SUPPORT_URL, MAINTENANCE_MODE, isMaintenanceBypass } from
 import type { Screen } from "@/lib/types";
 import { withdrawReferralSavings, checkTonDeposits } from "@/lib/api";
 import { rpsList } from "@/lib/rpsApi";
+import { diceList } from "@/lib/diceApi";
 import { useI18n } from "@/lib/i18n/context";
 import { playSuccessSound, playErrorSound, resumeAudio } from "@/lib/sounds";
 
@@ -70,6 +71,7 @@ export default function Home() {
     hash: string;
     seed: string;
   } | null>(null);
+  const [fairnessReturn, setFairnessReturn] = useState<Screen>("profile");
 
   const balanceRef = useRef(balance);
   balanceRef.current = balance;
@@ -77,17 +79,40 @@ export default function Home() {
   const showToast = useCallback((msg: string) => setToast(msg), []);
 
 
-  // Global online (RPS open rooms) — top bar all screens
+  // Global online — RPS + Dice tables
   useEffect(() => {
     if (!isReady) return;
     let stopped = false;
     const tick = async () => {
       try {
-        const rps = await rpsList();
+        const [rps, dice] = await Promise.all([
+          rpsList().catch(() => null),
+          diceList().catch(() => null),
+        ]);
         if (stopped) return;
-        const open = (rps.rooms || []).length;
-        const playing = rps.mine?.status === "playing" ? 2 : 0;
-        setOnlineCount(Math.max(0, open + playing));
+        const ids = new Set<number>();
+        for (const r of rps?.rooms || []) {
+          if ("creatorTelegramId" in r && r.creatorTelegramId)
+            ids.add(r.creatorTelegramId as number);
+          if ("joinerTelegramId" in r && (r as { joinerTelegramId?: number | null }).joinerTelegramId)
+            ids.add((r as { joinerTelegramId: number }).joinerTelegramId);
+        }
+        if (rps?.mine?.creatorTelegramId) ids.add(rps.mine.creatorTelegramId);
+        if (rps?.mine && (rps.mine as { joinerTelegramId?: number | null }).joinerTelegramId)
+          ids.add((rps.mine as { joinerTelegramId: number }).joinerTelegramId);
+        for (const r of dice?.rooms || []) {
+          for (const pl of r.players || []) ids.add(pl.telegramId);
+        }
+        if (dice?.mine) {
+          for (const pl of dice.mine.players || []) ids.add(pl.telegramId);
+        }
+        // Fallback: at least open-room count if no player ids
+        const fallback =
+          (rps?.rooms || []).length +
+          (dice?.rooms || []).length +
+          (rps?.mine?.status === "playing" ? 1 : 0) +
+          (dice?.mine?.status === "playing" ? 1 : 0);
+        setOnlineCount(Math.max(ids.size, fallback > 0 && ids.size === 0 ? fallback : ids.size));
       } catch {
         /* keep */
       }
@@ -293,6 +318,7 @@ export default function Home() {
           hapticError={hapticError}
           onVerifyFairness={(hash, seed) => {
             setFairnessPrefill({ hash, seed });
+            setFairnessReturn("rps");
             setScreen("fairness");
           }}
           isVisible={screen === "rps"}
@@ -322,6 +348,11 @@ export default function Home() {
           hapticSuccess={hapticSuccess}
           hapticError={hapticError}
           isVisible={screen === "dice"}
+          onVerifyFairness={(hash, seed) => {
+            setFairnessPrefill({ hash, seed });
+            setFairnessReturn("dice");
+            setScreen("fairness");
+          }}
         />
       )}
 
@@ -347,6 +378,7 @@ export default function Home() {
           onTransactions={() => setScreen("transactions")}
           onFairness={() => {
             setFairnessPrefill(null);
+            setFairnessReturn("profile");
             setScreen("fairness");
           }}
         />
@@ -358,7 +390,7 @@ export default function Home() {
           initialSeed={fairnessPrefill?.seed}
           onBack={() => {
             setFairnessPrefill(null);
-            setScreen(fairnessPrefill ? "rps" : "profile");
+            setScreen(fairnessReturn);
           }}
         />
       )}

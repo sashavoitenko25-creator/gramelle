@@ -51,6 +51,7 @@ interface Props {
   hapticSuccess: () => void;
   hapticError: () => void;
   isVisible?: boolean;
+  onVerifyFairness?: (hash: string, seed: string) => void;
 }
 
 type View = "lobby" | "create" | "table" | "history";
@@ -207,6 +208,7 @@ export function DiceScreen({
   hapticSuccess,
   hapticError,
   isVisible = true,
+  onVerifyFairness,
 }: Props) {
   const { t, lang } = useI18n();
   const { setBackButton } = useTelegram();
@@ -657,65 +659,98 @@ export function DiceScreen({
 
   /* ═══════════ HISTORY ═══════════ */
   if (view === "history") {
+    const numbered = [...recent].map((r, i) => ({
+      ...r,
+      no: recent.length - i,
+    }));
     return (
       <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
         {header}
         <div className="px-4 space-y-2 flex-1 overflow-y-auto">
-          {recent.length === 0 && (
+          {numbered.length === 0 && (
             <div className="text-center text-white/35 text-sm py-16">
               {tr("No games yet", "Пока нет партий")}
             </div>
           )}
-          {recent.map((r) => {
+          {numbered.map((r) => {
             const winner = r.players.find(
               (p) => p.telegramId === r.winnerTelegramId
             );
             const iWon = r.winnerTelegramId === telegramId;
             const iPlayed = r.players.some((p) => p.telegramId === telegramId);
             return (
-              <button
+              <div
                 key={r.id}
-                type="button"
-                onClick={() => openTable(r)}
-                className="w-full text-left rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3.5 btn-press"
+                className="w-full text-left rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3.5"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex -space-x-2">
-                    {r.players.slice(0, 4).map((p) => (
-                      <Avatar
-                        key={p.telegramId}
-                        name={p.username}
-                        photoUrl={p.photoUrl}
-                        size={28}
-                      />
-                    ))}
-                  </div>
-                  <div
-                    className={cn(
-                      "text-[13px] font-semibold tabular-nums",
-                      iWon
-                        ? "text-emerald-300"
+                <button
+                  type="button"
+                  onClick={() => openTable(r)}
+                  className="w-full text-left btn-press"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-[11px] font-semibold text-white/40 tabular-nums">
+                      DICE#{r.no}
+                    </span>
+                    <div
+                      className={cn(
+                        "text-[13px] font-semibold tabular-nums",
+                        iWon
+                          ? "text-emerald-300"
+                          : iPlayed
+                            ? "text-red-300/80"
+                            : "text-white/40"
+                      )}
+                    >
+                      {iWon
+                        ? `+${formatGram((r.pot || 0) - (r.houseFee || 0))}`
                         : iPlayed
-                          ? "text-red-300/80"
-                          : "text-white/40"
-                    )}
-                  >
-                    {iWon
-                      ? `+${formatGram((r.pot || 0) - (r.houseFee || 0))}`
-                      : iPlayed
-                        ? `−${formatGram(r.amount)}`
-                        : formatGram(r.amount)}
+                          ? `−${formatGram(r.amount)}`
+                          : formatGram(r.amount)}
+                    </div>
                   </div>
-                </div>
-                <div className="mt-2 flex justify-between text-[11px] text-white/35">
-                  <span>
-                    {winner ? `@${winner.username}` : "—"} · {r.playerCount}p
-                  </span>
-                  <span className="font-mono text-white/25">
-                    {(r.serverSeedHash || "").slice(0, 8)}…
-                  </span>
-                </div>
-              </button>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex -space-x-2">
+                      {r.players.slice(0, 5).map((p) => {
+                        const isW = p.telegramId === r.winnerTelegramId;
+                        return (
+                          <div key={p.telegramId} className="relative">
+                            <Avatar
+                              name={p.username}
+                              photoUrl={p.photoUrl}
+                              size={30}
+                              ring={
+                                isW
+                                  ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
+                                  : undefined
+                              }
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <span className="text-[11px] text-white/35 truncate max-w-[45%]">
+                      {winner
+                        ? tr(`Winner @${winner.username}`, `Победитель @${winner.username}`)
+                        : "—"}
+                    </span>
+                  </div>
+                </button>
+                {r.serverSeed &&
+                  r.serverSeedHash &&
+                  onVerifyFairness && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptic("light");
+                        onVerifyFairness(r.serverSeedHash, r.serverSeed!);
+                      }}
+                      className="mt-2.5 w-full h-10 rounded-xl bg-cyan-500/12 border border-cyan-400/25 text-cyan-200 text-[12px] font-semibold btn-press"
+                    >
+                      {tr("Verify fairness", "Проверить честность")}
+                    </button>
+                  )}
+              </div>
             );
           })}
         </div>
@@ -724,6 +759,7 @@ export function DiceScreen({
   }
 
   /* ═══════════ TABLE ═══════════ */
+
   if (view === "table" && active) {
     const turnPlayer = active.players.find((p) => p.seat === active.turnSeat);
     const isPlaying = active.status === "playing";
@@ -938,6 +974,24 @@ export function DiceScreen({
                 onCopy={copyText}
               />
             )}
+            {isDone &&
+              active.serverSeed &&
+              active.serverSeedHash &&
+              onVerifyFairness && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic("light");
+                    onVerifyFairness(
+                      active.serverSeedHash,
+                      active.serverSeed!
+                    );
+                  }}
+                  className="w-full h-11 rounded-xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-200 text-sm font-semibold btn-press"
+                >
+                  {tr("Verify fairness", "Проверить честность")}
+                </button>
+              )}
           </div>
 
           {/* Actions */}
