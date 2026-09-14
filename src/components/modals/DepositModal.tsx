@@ -233,11 +233,12 @@ export function DepositModal({
       const payload = tonCommentPayload(memo);
       await tonConnectUI.sendTransaction({
         validUntil: Math.floor(Date.now() / 1000) + 600,
+        network: "-239", // mainnet
         messages: [
           {
             address: TON_DEPOSIT_ADDRESS,
             amount: nano,
-            // Comment (memo) embedded in body — required for auto-credit
+            // Comment (memo) as valid BOC — required for auto-credit
             payload,
           },
         ],
