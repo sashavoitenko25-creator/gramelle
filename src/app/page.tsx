@@ -9,6 +9,7 @@ import { TransactionsScreen } from "@/components/screens/TransactionsScreen";
 import { TasksScreen } from "@/components/screens/TasksScreen";
 import { GamesScreen } from "@/components/screens/GamesScreen";
 import { RpsScreen } from "@/components/screens/RpsScreen";
+import { DiceScreen } from "@/components/screens/DiceScreen";
 import { FairnessScreen } from "@/components/screens/FairnessScreen";
 import { MaintenanceScreen } from "@/components/screens/MaintenanceScreen";
 import { BottomNav } from "@/components/game/BottomNav";
@@ -278,6 +279,15 @@ export default function Home() {
             setFairnessPrefill({ hash, seed });
             setScreen("fairness");
           }}
+        />
+      )}
+
+      {screen === "dice" && (
+        <DiceScreen
+          onBack={() => setScreen("games")}
+          balance={balance}
+          onBalance={(n) => setBalanceFromServer(n)}
+          showToast={showToast}
         />
       )}
 

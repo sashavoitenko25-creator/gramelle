@@ -18,6 +18,7 @@ export interface Profile {
 export type Screen =
   | "games"
   | "rps"
+  | "dice"
   | "profile"
   | "referrals"
   | "transactions"

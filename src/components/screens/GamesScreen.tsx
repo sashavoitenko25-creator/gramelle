@@ -5,11 +5,13 @@ import { useI18n } from "@/lib/i18n/context";
 
 interface GamesScreenProps {
   onSelectRps: () => void;
+  onSelectDice?: () => void;
   onlineCount?: number;
 }
 
 export function GamesScreen({
   onSelectRps,
+  onSelectDice,
   onlineCount = 0,
 }: GamesScreenProps) {
   const { t } = useI18n();
@@ -82,6 +84,25 @@ export function GamesScreen({
               <div className="text-[13px] text-white/55 mt-1.5 leading-snug">
                 {t("rpsDesc")}
               </div>
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onSelectDice?.()}
+          className="group relative overflow-hidden rounded-[28px] text-left btn-press active:scale-[0.98] transition-all duration-200"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-[#065f46] via-[#047857] to-[#0e7490]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_20%_20%,rgba(52,211,153,0.35),transparent_55%)]" />
+          <div className="relative p-5 min-h-[140px] flex flex-col justify-between">
+            <div className="flex gap-2">
+              <span className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center text-xl font-bold text-white">5</span>
+              <span className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center text-xl font-bold text-white">6</span>
+            </div>
+            <div className="mt-5">
+              <div className="text-[22px] font-bold text-white tracking-tight leading-none">Dice</div>
+              <p className="text-[12px] text-white/55 mt-1.5 leading-snug">PvP · 2–6 · стол · очередь · переброс</p>
             </div>
           </div>
         </button>
