@@ -288,10 +288,26 @@ export default function Home() {
 
       {screen === "dice" && (
         <DiceScreen
-          onBack={() => setScreen("games")}
           balance={balance}
-          onBalance={(n) => setBalanceFromServer(n)}
+          telegramId={telegramId}
+          username={username}
+          photoUrl={profile?.photo_url}
+          serverMode={serverMode}
+          onBack={() => setScreen("games")}
+          onDeposit={() => {
+            haptic("light");
+            setDepositOpen(true);
+          }}
+          onBalanceUpdate={(b) => setBalanceFromServer(b)}
+          onReloadBalance={() => {
+            void reloadProfile();
+            setTimeout(() => void reloadProfile(), 500);
+            setTimeout(() => void reloadProfile(), 1500);
+          }}
           showToast={showToast}
+          haptic={haptic}
+          hapticSuccess={hapticSuccess}
+          hapticError={hapticError}
         />
       )}
 
