@@ -16,7 +16,7 @@ export async function apiFetch<T = unknown>(
   }
 
   const controller = new AbortController();
-  const timeoutMs = 18_000;
+  const timeoutMs = 12_000;
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(path, {

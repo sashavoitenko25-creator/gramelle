@@ -193,12 +193,8 @@ export default function Home() {
     t,
   ]);
 
-  // Maintenance: everyone blocked except allow-list Telegram IDs
-  if (MAINTENANCE_MODE && !isMaintenanceBypass(telegramId)) {
-    return <MaintenanceScreen />;
-  }
-
-  if (profileLoading) {
+  // Brief skeleton only while first paint — hard-capped in useProfile
+  if (profileLoading && !profile) {
     return (
       <div className="min-h-screen app-bg px-4 pt-8 safe-top">
         <div className="flex items-center justify-between mb-6">
@@ -211,6 +207,22 @@ export default function Home() {
         <div className="skeleton h-12 w-full rounded-2xl" />
       </div>
     );
+  }
+
+  // Maintenance: only after we know telegramId (avoid false block before TG user loads)
+  if (MAINTENANCE_MODE) {
+    if (!isReady || telegramId == null) {
+      return (
+        <div className="min-h-screen app-bg px-4 pt-8 safe-top flex items-center justify-center">
+          <div className="text-sm text-white/45 text-center px-6">
+            Open Gramelle from Telegram…
+          </div>
+        </div>
+      );
+    }
+    if (!isMaintenanceBypass(telegramId)) {
+      return <MaintenanceScreen />;
+    }
   }
 
   return (
