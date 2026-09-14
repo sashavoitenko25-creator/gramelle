@@ -326,16 +326,16 @@ html.tg-light {
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  /* Level with TG close / collapse / ⋮ (slightly higher than content safe area) */
+  /* Align with TG close / collapse / ⋮ row (between previous high and low) */
   height: calc(
     max(
       env(safe-area-inset-top, 0px),
       var(--tg-content-safe-area-inset-top, 0px),
       var(--tg-safe-area-inset-top, 0px),
       0px
-    ) + 8px
+    ) + 26px
   );
-  padding-bottom: 2px;
+  padding-bottom: 6px;
   box-sizing: border-box;
   pointer-events: none;
 }
