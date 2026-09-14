@@ -138,14 +138,45 @@ export function GamesScreen({
           <OnlineBadge count={diceOnline} />
           <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
             <div className="flex items-center gap-2.5">
-              {[5, 6].map((n) => (
-                <div
-                  key={n}
-                  className="w-11 h-11 rounded-2xl bg-gradient-to-br from-white via-white to-white/80 text-[#064e3b] border border-white/30 shadow-[0_8px_24px_rgba(0,0,0,0.35)] flex items-center justify-center text-[18px] font-bold tabular-nums"
-                >
-                  {n}
-                </div>
-              ))}
+              {/* Mini premium dice faces 5 & 6 */}
+              <div
+                className="w-11 h-11 rounded-[14px] border border-white/40 shadow-[0_8px_24px_rgba(0,0,0,0.35)] grid grid-cols-3 grid-rows-3 place-items-center p-[14%]"
+                style={{
+                  background:
+                    "linear-gradient(145deg,#fff 0%,#f4f4f5 50%,#e4e4e7 100%)",
+                }}
+              >
+                {[1, 0, 1, 0, 1, 0, 1, 0, 1].map((on, i) => (
+                  <span
+                    key={i}
+                    className="rounded-full bg-[#12121a]"
+                    style={{
+                      width: 5,
+                      height: 5,
+                      opacity: on ? 1 : 0,
+                    }}
+                  />
+                ))}
+              </div>
+              <div
+                className="w-11 h-11 rounded-[14px] border border-white/40 shadow-[0_8px_24px_rgba(0,0,0,0.35)] grid grid-cols-3 grid-rows-3 place-items-center p-[14%]"
+                style={{
+                  background:
+                    "linear-gradient(145deg,#fff 0%,#f4f4f5 50%,#e4e4e7 100%)",
+                }}
+              >
+                {[1, 0, 1, 1, 0, 1, 1, 0, 1].map((on, i) => (
+                  <span
+                    key={i}
+                    className="rounded-full bg-[#12121a]"
+                    style={{
+                      width: 5,
+                      height: 5,
+                      opacity: on ? 1 : 0,
+                    }}
+                  />
+                ))}
+              </div>
             </div>
             <div className="mt-6">
               <div className="text-[22px] font-bold text-white tracking-tight leading-none">

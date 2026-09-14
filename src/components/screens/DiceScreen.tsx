@@ -28,6 +28,7 @@ import {
   playLoseSound,
   playMatchSound,
   playSelectSound,
+  playCopySound,
   resumeAudio,
 } from "@/lib/sounds";
 import { useI18n } from "@/lib/i18n/context";
@@ -47,7 +48,6 @@ interface Props {
   haptic: (type?: "light" | "medium" | "heavy") => void;
   hapticSuccess: () => void;
   hapticError: () => void;
-  /** When false, pause background polling (kept mounted) */
   isVisible?: boolean;
 }
 
@@ -55,23 +55,36 @@ type View = "lobby" | "create" | "table" | "history";
 
 const QUICK = [0.5, 1, 2, 5, 10, 25];
 
+/** Standard die pip positions (3×3) */
+const PIP_MAP: Record<number, boolean[]> = {
+  1: [0, 0, 0, 0, 1, 0, 0, 0, 0],
+  2: [1, 0, 0, 0, 0, 0, 0, 0, 1],
+  3: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+  4: [1, 0, 1, 0, 0, 0, 1, 0, 1],
+  5: [1, 0, 1, 0, 1, 0, 1, 0, 1],
+  6: [1, 0, 1, 1, 0, 1, 1, 0, 1],
+};
+
 function Avatar({
   name,
   photoUrl,
   size = 40,
   ring,
+  dimmed,
 }: {
   name: string;
   photoUrl?: string | null;
   size?: number;
   ring?: string;
+  dimmed?: boolean;
 }) {
   const letter = (name || "?").replace(/^@/, "").charAt(0).toUpperCase();
   return (
     <div
       className={cn(
         "rounded-full overflow-hidden bg-gradient-to-br from-white/20 to-white/5 border flex items-center justify-center shrink-0 text-white/90 font-semibold shadow-[0_4px_16px_rgba(0,0,0,0.4)]",
-        ring || "border-white/15"
+        ring || "border-white/15",
+        dimmed && "opacity-40 grayscale"
       )}
       style={{ width: size, height: size, fontSize: size * 0.38 }}
     >
@@ -85,50 +98,94 @@ function Avatar({
   );
 }
 
-/** Classic die face with pips */
-function DiePips({
-  n,
+/** Premium casino die */
+function DieFace({
+  value,
+  size = 48,
   rolling,
-  size = 52,
+  highlight,
 }: {
-  n: number | null;
-  rolling?: boolean;
+  value: number | null;
   size?: number;
+  rolling?: boolean;
+  highlight?: boolean;
 }) {
-  const v = n && n >= 1 && n <= 6 ? n : null;
-  const pip = (show: boolean, key: string) => (
-    <span
-      key={key}
-      className={cn(
-        "rounded-full bg-[#0c0c14]",
-        show ? "opacity-100" : "opacity-0"
-      )}
-      style={{ width: size * 0.16, height: size * 0.16 }}
-    />
-  );
-  // 3x3 grid positions for standard die faces
-  const map: Record<number, boolean[]> = {
-    1: [false, false, false, false, true, false, false, false, false],
-    2: [true, false, false, false, false, false, false, false, true],
-    3: [true, false, false, false, true, false, false, false, true],
-    4: [true, false, true, false, false, false, true, false, true],
-    5: [true, false, true, false, true, false, true, false, true],
-    6: [true, false, true, true, false, true, true, false, true],
-  };
-  const cells = v ? map[v] : Array(9).fill(false);
+  const [spin, setSpin] = useState(1);
+
+  useEffect(() => {
+    if (!rolling) return;
+    const id = setInterval(() => setSpin(1 + Math.floor(Math.random() * 6)), 60);
+    return () => clearInterval(id);
+  }, [rolling]);
+
+  const face =
+    rolling ? spin : value && value >= 1 && value <= 6 ? value : null;
+  const cells = face ? PIP_MAP[face] : Array(9).fill(false);
+  const pip = Math.max(4, size * 0.14);
 
   return (
     <div
       className={cn(
-        "rounded-2xl bg-gradient-to-br from-white via-[#f3f4f6] to-[#e5e7eb] shadow-[0_8px_24px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.9)] border border-white/40 grid grid-cols-3 grid-rows-3 place-items-center p-[18%]",
+        "relative grid grid-cols-3 grid-rows-3 place-items-center shrink-0",
         rolling && "dice-tumble"
       )}
-      style={{ width: size, height: size }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.18,
+        padding: size * 0.14,
+        background:
+          "linear-gradient(145deg, #ffffff 0%, #f4f4f5 45%, #e4e4e7 100%)",
+        boxShadow: highlight
+          ? "0 0 0 2px rgba(52,211,153,0.7), 0 10px 28px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.95)"
+          : "0 10px 28px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -2px 4px rgba(0,0,0,0.06)",
+        border: "1px solid rgba(255,255,255,0.55)",
+      }}
     >
-      {rolling
-        ? cells.map((_, i) => pip(i % 2 === 0, `r${i}`))
-        : cells.map((on, i) => pip(on, `p${i}`))}
+      {cells.map((on, i) => (
+        <span
+          key={i}
+          className="rounded-full"
+          style={{
+            width: pip,
+            height: pip,
+            background: on ? "#12121a" : "transparent",
+            boxShadow: on ? "inset 0 1px 1px rgba(255,255,255,0.12)" : "none",
+          }}
+        />
+      ))}
     </div>
+  );
+}
+
+function HashChip({
+  label,
+  value,
+  onCopy,
+}: {
+  label: string;
+  value: string | null | undefined;
+  onCopy: (v: string) => void;
+}) {
+  if (!value) return null;
+  const short =
+    value.length > 16
+      ? `${value.slice(0, 8)}…${value.slice(-6)}`
+      : value;
+  return (
+    <button
+      type="button"
+      onClick={() => onCopy(value)}
+      className="w-full flex items-center gap-2 rounded-xl bg-black/30 border border-white/[0.07] px-3 py-2 text-left btn-press"
+    >
+      <span className="text-[10px] uppercase tracking-wider text-white/30 shrink-0 w-10">
+        {label}
+      </span>
+      <span className="flex-1 text-[11px] font-mono text-white/55 truncate">
+        {short}
+      </span>
+      <span className="text-[10px] text-cyan-300/80 shrink-0">copy</span>
+    </button>
   );
 }
 
@@ -151,6 +208,10 @@ export function DiceScreen({
   const { t, lang } = useI18n();
   const { setBackButton } = useTelegram();
   const isRu = lang === "ru";
+  const tr = useCallback(
+    (en: string, ru: string) => (isRu ? ru : en),
+    [isRu]
+  );
 
   const [view, setView] = useState<View>("lobby");
   const [rooms, setRooms] = useState<DiceRoomPublic[]>([]);
@@ -168,9 +229,18 @@ export function DiceScreen({
     sum: number;
   } | null>(null);
 
-  const tr = useCallback(
-    (en: string, ru: string) => (isRu ? ru : en),
-    [isRu]
+  const copyText = useCallback(
+    (v: string) => {
+      try {
+        void navigator.clipboard.writeText(v);
+        playCopySound();
+        haptic("light");
+        showToast(tr("Copied", "Скопировано"));
+      } catch {
+        showToast(v);
+      }
+    },
+    [haptic, showToast, tr]
   );
 
   const refresh = useCallback(async () => {
@@ -186,23 +256,25 @@ export function DiceScreen({
           (data.recent || []).find((r) => r.id === active.id);
         if (still) setActive(still);
       }
-    } catch (e) {
-      /* silent poll */
+    } catch {
+      /* */
     } finally {
       setLoading(false);
     }
   }, [active?.id]);
 
   useEffect(() => {
+    if (!isVisible) return;
     void refresh();
-    const id = setInterval(() => void refresh(), 6000);
+    const id = setInterval(() => void refresh(), 5000);
     return () => clearInterval(id);
-  }, [refresh]);
+  }, [refresh, isVisible]);
 
   useEffect(() => {
-    if (!active?.id || active.status !== "playing") return;
+    if (!isVisible || !active?.id || active.status !== "playing") return;
+    const roomId = active.id;
     const id = setInterval(() => {
-      void diceState(active.id)
+      void diceState(roomId)
         .then((r) => {
           setActive(r.room);
           if (r.room.status === "finished") {
@@ -211,9 +283,9 @@ export function DiceScreen({
           }
         })
         .catch(() => {});
-    }, 2500);
+    }, 1400);
     return () => clearInterval(id);
-  }, [active?.id, active?.status, onReloadBalance, refresh]);
+  }, [active?.id, active?.status, onReloadBalance, refresh, isVisible]);
 
   useEffect(() => {
     const handler = () => {
@@ -222,12 +294,10 @@ export function DiceScreen({
         return;
       }
       if (view === "table") {
-        if (active?.status === "playing") {
-          /* stay — or allow back to lobby view of same table */
-        }
         setView("lobby");
         if (active?.status === "finished" || active?.status === "cancelled") {
           setActive(null);
+          setLastRoll(null);
         }
         return;
       }
@@ -257,6 +327,15 @@ export function DiceScreen({
     return ids.size;
   }, [rooms]);
 
+  const seats = useMemo(() => {
+    if (!active) return [] as (DicePlayerPublic | null)[];
+    const map = new Map(active.players.map((p) => [p.seat, p]));
+    return Array.from(
+      { length: active.maxPlayers },
+      (_, i) => map.get(i) ?? null
+    );
+  }, [active]);
+
   const onCreate = async () => {
     if (busy) return;
     if (!serverMode) {
@@ -280,10 +359,10 @@ export function DiceScreen({
       const res = await diceCreate(amount, maxPlayers);
       onBalanceUpdate(res.balance);
       setActive(res.room);
+      setLastRoll(null);
       setView("table");
       playMatchSound();
       hapticSuccess();
-      showToast(tr("Table created", "Стол создан"));
       await refresh();
     } catch (e) {
       playErrorSound();
@@ -304,6 +383,7 @@ export function DiceScreen({
       const res = await diceJoin(roomId);
       onBalanceUpdate(res.balance);
       setActive(res.room);
+      setLastRoll(null);
       setView("table");
       playMatchSound();
       hapticSuccess();
@@ -325,6 +405,7 @@ export function DiceScreen({
     try {
       const res = await diceStart(active.id);
       setActive(res.room);
+      setLastRoll(null);
       playMatchSound();
       hapticSuccess();
     } catch (e) {
@@ -338,6 +419,7 @@ export function DiceScreen({
 
   const onRoll = async () => {
     if (!active || busy || rollingAnim) return;
+    const roomId = active.id;
     setBusy(true);
     setRollingAnim(true);
     setLastRoll(null);
@@ -345,32 +427,41 @@ export function DiceScreen({
     playSelectSound();
     haptic("medium");
     try {
-      await new Promise((r) => setTimeout(r, 900));
-      const res = await diceRoll(active.id);
-      setLastRoll(res.roll || null);
+      const resPromise = diceRoll(roomId);
+      await new Promise((r) => setTimeout(r, 1200));
+      const res = await resPromise;
+      const roll = res.roll;
+      if (roll && roll.die1 >= 1 && roll.die2 >= 1) {
+        setLastRoll(roll);
+      } else {
+        const me = res.room.players.find((p) => p.telegramId === telegramId);
+        if (me?.die1 && me?.die2) {
+          setLastRoll({ die1: me.die1, die2: me.die2, sum: me.sum || me.die1 + me.die2 });
+        }
+      }
       setActive(res.room);
+      setRollingAnim(false);
       if (res.room.status === "finished") {
+        const net = (res.room.pot || 0) - (res.room.houseFee || 0);
         if (res.room.winnerTelegramId === telegramId) {
           playWinSound();
           hapticSuccess();
           showToast(
-            tr(
-              `You win +${formatGram((res.room.pot || 0) - (res.room.houseFee || 0))} GRAM`,
-              `Победа +${formatGram((res.room.pot || 0) - (res.room.houseFee || 0))} GRAM`
-            )
+            tr(`You win +${formatGram(net)} GRAM`, `Победа +${formatGram(net)} GRAM`)
           );
         } else {
           playLoseSound();
+          haptic("medium");
           showToast(tr("Better luck next time", "В этот раз не повезло"));
         }
         onReloadBalance?.();
       }
     } catch (e) {
+      setRollingAnim(false);
       playErrorSound();
       hapticError();
       showToast(e instanceof Error ? e.message : "Error");
     } finally {
-      setRollingAnim(false);
       setBusy(false);
       void refresh();
     }
@@ -383,6 +474,7 @@ export function DiceScreen({
       const res = await diceCancel(active.id);
       onBalanceUpdate(res.balance);
       setActive(null);
+      setLastRoll(null);
       setView("lobby");
       playClickSound();
       await refresh();
@@ -401,6 +493,7 @@ export function DiceScreen({
       const res = await diceLeave(active.id);
       onBalanceUpdate(res.balance);
       setActive(null);
+      setLastRoll(null);
       setView("lobby");
       await refresh();
     } catch (e) {
@@ -414,33 +507,26 @@ export function DiceScreen({
     playClickSound();
     haptic("light");
     setActive(room);
+    setLastRoll(null);
     setView("table");
   };
 
-  const seats = useMemo(() => {
-    if (!active) return [];
-    const map = new Map(active.players.map((p) => [p.seat, p]));
-    return Array.from({ length: active.maxPlayers }, (_, i) => map.get(i) || null);
-  }, [active]);
-
-  /* ═══════════ HEADER ═══════════ */
+  /* ── header ── */
   const header = (
-    <div className="px-4 pt-3 pb-3 flex items-center gap-3">
+    <div className="px-4 pt-3 pb-2 flex items-center gap-3">
       <div className="flex-1 min-w-0">
         {view !== "lobby" && (
           <div className="text-[15px] font-semibold tracking-tight truncate">
             {view === "create"
-              ? tr("Create table", "Создать стол")
+              ? tr("New table", "Новый стол")
               : view === "history"
                 ? t("history")
-                : view === "table"
-                  ? "Dice"
-                  : "Dice"}
+                : "Dice"}
           </div>
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <div className="flex items-center gap-1.5 h-9 px-3 rounded-full glass border border-white/[0.1] shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
+        <div className="flex items-center gap-1.5 h-9 px-3 rounded-full glass border border-white/[0.1]">
           <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
             {formatGram(balance)}
           </span>
@@ -502,10 +588,9 @@ export function DiceScreen({
                 className="w-full h-12 rounded-2xl bg-black/35 border border-white/10 px-4 text-[15px] font-semibold tabular-nums outline-none focus:border-emerald-500/40"
               />
             </div>
-
             <div>
               <div className="text-[12px] text-white/40 mb-2 font-medium">
-                {tr("Seats at table", "Мест за столом")}
+                {tr("Seats", "Мест")}
               </div>
               <div className="flex gap-2">
                 {[2, 3, 4, 5, 6].map((n) => (
@@ -528,10 +613,9 @@ export function DiceScreen({
                 ))}
               </div>
             </div>
-
-            <div className="rounded-2xl bg-black/25 border border-white/[0.06] px-4 py-3 text-[12px] text-white/45 space-y-1">
+            <div className="rounded-2xl bg-black/25 border border-white/[0.06] px-4 py-3 text-[12px] text-white/45 space-y-1.5">
               <div className="flex justify-between">
-                <span>{tr("Your buy-in", "Ваш взнос")}</span>
+                <span>{tr("Buy-in", "Взнос")}</span>
                 <span className="text-white/80 tabular-nums font-medium">
                   {formatGram(amount)} GRAM
                 </span>
@@ -543,12 +627,13 @@ export function DiceScreen({
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>{tr("House fee", "Комиссия")}</span>
-                <span className="text-white/80">{Math.round(DICE_HOUSE_EDGE * 100)}%</span>
+                <span>{tr("House", "Комиссия")}</span>
+                <span className="text-white/80">
+                  {Math.round(DICE_HOUSE_EDGE * 100)}%
+                </span>
               </div>
             </div>
           </div>
-
           <button
             type="button"
             disabled={busy || amount < DICE_MIN_BET}
@@ -570,7 +655,7 @@ export function DiceScreen({
         <div className="px-4 space-y-2 flex-1 overflow-y-auto">
           {recent.length === 0 && (
             <div className="text-center text-white/35 text-sm py-16">
-              {tr("No finished games yet", "Пока нет сыгранных партий")}
+              {tr("No games yet", "Пока нет партий")}
             </div>
           )}
           {recent.map((r) => {
@@ -599,7 +684,7 @@ export function DiceScreen({
                   </div>
                   <div
                     className={cn(
-                      "text-[12px] font-semibold tabular-nums",
+                      "text-[13px] font-semibold tabular-nums",
                       iWon
                         ? "text-emerald-300"
                         : iPlayed
@@ -618,15 +703,8 @@ export function DiceScreen({
                   <span>
                     {winner ? `@${winner.username}` : "—"} · {r.playerCount}p
                   </span>
-                  <span>
-                    {r.finishedAt
-                      ? new Date(r.finishedAt).toLocaleString(undefined, {
-                          day: "2-digit",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : ""}
+                  <span className="font-mono text-white/25">
+                    {(r.serverSeedHash || "").slice(0, 8)}…
                   </span>
                 </div>
               </button>
@@ -643,158 +721,182 @@ export function DiceScreen({
     const isPlaying = active.status === "playing";
     const isLobby = active.status === "open";
     const isDone = active.status === "finished";
+    const winner = active.players.find(
+      (p) => p.telegramId === active.winnerTelegramId
+    );
+    const me = active.players.find((p) => p.telegramId === telegramId);
+    const showRoll =
+      lastRoll ||
+      (me?.hasRolled && me.die1 && me.die2
+        ? { die1: me.die1, die2: me.die2, sum: me.sum || me.die1 + me.die2 }
+        : null);
 
     return (
-      <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
+      <div className="flex flex-col min-h-[100dvh] pb-28 safe-top overflow-x-hidden">
         {header}
 
-        <div className="px-4 flex-1 flex flex-col">
-          {/* Meta strip */}
-          <div className="flex items-center justify-between mb-3 text-[11px] text-white/40">
-            <span>
+        <div className="px-4 flex-1 flex flex-col min-w-0">
+          {/* Meta */}
+          <div className="flex items-center justify-between mb-2 text-[11px] text-white/40">
+            <span className="tabular-nums">
               {formatGram(active.amount)} GRAM · {active.playerCount}/
               {active.maxPlayers}
-              {isPlaying && ` · R${active.round}`}
+              {isPlaying ? ` · R${active.round}` : ""}
             </span>
-            <span className="font-mono text-white/25">
-              {active.serverSeedHash.slice(0, 8)}…
+            <span className="text-emerald-200/50 font-medium">
+              {isLobby
+                ? tr("Lobby", "Лобби")
+                : isPlaying
+                  ? tr("Live", "Идёт игра")
+                  : tr("Finished", "Финиш")}
             </span>
           </div>
 
-          {/* Premium felt table */}
-          <div className="relative mx-auto w-full max-w-[340px] aspect-square">
-            {/* outer glow */}
-            <div className="absolute inset-[-4%] rounded-full bg-emerald-500/10 blur-2xl dice-pot-glow pointer-events-none" />
+          {/* Felt table */}
+          <div className="relative mx-auto w-full max-w-[340px] aspect-square shrink-0">
+            <div className="absolute inset-[-5%] rounded-full bg-emerald-500/10 blur-3xl dice-pot-glow pointer-events-none" />
             <div
-              className="absolute inset-0 rounded-full border border-emerald-400/25 overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.5),inset_0_0_80px_rgba(16,185,129,0.08)]"
+              className="absolute inset-0 rounded-full overflow-hidden"
               style={{
                 background:
-                  "radial-gradient(ellipse at 40% 35%, #0d3d2e 0%, #062a1f 45%, #041a14 100%)",
+                  "radial-gradient(ellipse at 42% 30%, #167a58 0%, #0b4a36 42%, #062a1f 75%, #031812 100%)",
+                border: "3px solid rgba(212,175,55,0.4)",
+                boxShadow:
+                  "0 20px 60px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.06), inset 0 0 70px rgba(16,185,129,0.12)",
               }}
             >
-              {/* wood rim illusion */}
-              <div className="absolute inset-[3%] rounded-full border-[3px] border-[#2a1a0a]/60 pointer-events-none" />
-              <div className="absolute inset-[5%] rounded-full border border-emerald-500/15 pointer-events-none" />
+              <div
+                className="absolute inset-[5%] rounded-full pointer-events-none"
+                style={{ border: "1.5px solid rgba(212,175,55,0.18)" }}
+              />
 
-              {/* center pot */}
-              <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                <div className="text-center px-4">
+              {/* Center pot */}
+              <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none px-6">
+                <div className="text-center max-w-[140px]">
                   {active.pot != null ? (
                     <>
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-200/40 mb-1">
+                      <div className="text-[9px] uppercase tracking-[0.22em] text-emerald-200/45 mb-0.5">
                         {tr("Pot", "Банк")}
                       </div>
-                      <div className="text-[22px] font-bold text-emerald-200 tabular-nums drop-shadow-[0_0_20px_rgba(52,211,153,0.35)]">
+                      <div className="text-[22px] font-bold text-emerald-100 tabular-nums leading-none drop-shadow-[0_0_18px_rgba(52,211,153,0.4)]">
                         {formatGram(active.pot)}
                       </div>
-                      <div className="text-[10px] text-white/30 mt-0.5">GRAM</div>
+                      <div className="text-[9px] text-white/30 mt-0.5">GRAM</div>
                     </>
                   ) : (
                     <>
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-white/30 mb-1">
-                        {tr("Lobby", "Лобби")}
+                      <div className="text-[9px] uppercase tracking-[0.22em] text-white/30 mb-1">
+                        {tr("Waiting", "Ожидание")}
                       </div>
-                      <div className="text-[15px] font-semibold text-white/70">
+                      <div className="text-[18px] font-semibold text-white/70 tabular-nums">
                         {active.playerCount}/{active.maxPlayers}
                       </div>
                     </>
                   )}
                   {isPlaying && turnPlayer && (
-                    <div className="mt-2 text-[11px] text-amber-200/90 font-medium">
+                    <div className="mt-2 text-[11px] text-amber-200/95 font-semibold truncate">
                       {tr("Turn", "Ход")}: @{turnPlayer.username}
                     </div>
                   )}
                   {isDone && (
-                    <div className="mt-2 text-[12px] text-cyan-300 font-semibold">
+                    <div className="mt-2 text-[12px] font-bold text-cyan-200 truncate">
                       {active.winnerTelegramId === telegramId
                         ? tr("You won!", "Вы победили!")
-                        : tr("Finished", "Игра окончена")}
+                        : winner
+                          ? `@${winner.username}`
+                          : tr("Finished", "Финиш")}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* seats */}
+              {/* Seats */}
               {seats.map((p, i) => {
                 const n = seats.length || 1;
                 const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
-                const radius = 38;
+                const radius = 36;
                 const left = 50 + radius * Math.cos(angle);
                 const top = 50 + radius * Math.sin(angle);
-                const isTurn = isPlaying && active.turnSeat === i && p?.active;
-                const elim = p && !p.active;
+                const isTurn =
+                  isPlaying && active.turnSeat === i && !!p?.active;
+                const elim = !!p && !p.active;
+                const isMe = p?.telegramId === telegramId;
+                const isWin =
+                  isDone && p?.telegramId === active.winnerTelegramId;
 
                 return (
                   <div
                     key={i}
                     className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-                    style={{ left: `${left}%`, top: `${top}%`, width: 88 }}
+                    style={{ left: `${left}%`, top: `${top}%`, width: 76 }}
                   >
                     <div
                       className={cn(
-                        "rounded-2xl px-1.5 py-1.5 text-center border backdrop-blur-md transition-all",
-                        elim && "opacity-35 grayscale",
+                        "rounded-2xl px-1 py-1.5 text-center border backdrop-blur-md transition-all",
+                        elim && "opacity-35",
                         isTurn
-                          ? "bg-amber-500/15 border-amber-400/50 dice-seat-turn"
-                          : p
-                            ? "bg-black/55 border-white/12"
-                            : "bg-black/30 border-white/[0.06] border-dashed"
+                          ? "bg-amber-500/20 border-amber-400/55 dice-seat-turn"
+                          : isWin
+                            ? "bg-emerald-500/20 border-emerald-400/50"
+                            : p
+                              ? "bg-black/55 border-white/12"
+                              : "bg-black/25 border-white/[0.06] border-dashed"
                       )}
                     >
-                      <div className="flex justify-center -mt-5 mb-1">
+                      <div className="flex justify-center -mt-4 mb-0.5">
                         {p ? (
                           <Avatar
                             name={p.username}
                             photoUrl={p.photoUrl}
-                            size={36}
+                            size={32}
+                            dimmed={elim}
                             ring={
                               isTurn
-                                ? "border-amber-400/70"
-                                : p.telegramId === telegramId
-                                  ? "border-cyan-400/50"
-                                  : undefined
+                                ? "border-amber-400/80"
+                                : isWin
+                                  ? "border-emerald-400/70"
+                                  : isMe
+                                    ? "border-cyan-400/55"
+                                    : undefined
                             }
                           />
                         ) : (
-                          <div className="w-9 h-9 rounded-full border border-dashed border-white/15 bg-white/[0.03]" />
+                          <div className="w-8 h-8 rounded-full border border-dashed border-white/15 bg-white/[0.03]" />
                         )}
                       </div>
-                      <div className="text-[10px] text-white/55 truncate px-0.5 leading-tight">
-                        {p ? `@${p.username}` : tr("Empty", "Пусто")}
+                      <div className="text-[9px] text-white/55 truncate px-0.5 leading-tight">
+                        {p ? `@${p.username}` : "·"}
                       </div>
-                      {p && (p.hasRolled || (rollingAnim && isTurn && p.telegramId === telegramId)) && (
-                        <div className="flex justify-center gap-1 mt-1.5 scale-90 origin-top">
-                          <DiePips
-                            n={
-                              rollingAnim && isTurn && p.telegramId === telegramId
-                                ? null
-                                : p.die1
-                            }
-                            rolling={
-                              rollingAnim &&
-                              isTurn &&
-                              p.telegramId === telegramId
-                            }
-                            size={36}
-                          />
-                          <DiePips
-                            n={
-                              rollingAnim && isTurn && p.telegramId === telegramId
-                                ? null
-                                : p.die2
-                            }
-                            rolling={
-                              rollingAnim &&
-                              isTurn &&
-                              p.telegramId === telegramId
-                            }
-                            size={36}
-                          />
-                        </div>
-                      )}
+                      {p &&
+                        (p.hasRolled ||
+                          (rollingAnim && isTurn && isMe)) && (
+                          <div className="flex justify-center gap-0.5 mt-1">
+                            <DieFace
+                              value={
+                                rollingAnim && isTurn && isMe ? null : p.die1
+                              }
+                              rolling={rollingAnim && isTurn && isMe}
+                              size={28}
+                              highlight={isWin}
+                            />
+                            <DieFace
+                              value={
+                                rollingAnim && isTurn && isMe ? null : p.die2
+                              }
+                              rolling={rollingAnim && isTurn && isMe}
+                              size={28}
+                              highlight={isWin}
+                            />
+                          </div>
+                        )}
                       {p?.sum != null && p.hasRolled && !rollingAnim && (
-                        <div className="text-[12px] font-bold text-white mt-1 tabular-nums">
-                          Σ {p.sum}
+                        <div
+                          className={cn(
+                            "text-[11px] font-bold mt-0.5 tabular-nums",
+                            isWin ? "text-emerald-300" : "text-white/85"
+                          )}
+                        >
+                          {p.sum}
                         </div>
                       )}
                     </div>
@@ -804,35 +906,57 @@ export function DiceScreen({
             </div>
           </div>
 
-          {/* Big dice preview when you just rolled */}
-          {lastRoll && active.isSeated && (
-            <div className="flex justify-center gap-3 mt-4 mb-1">
-              <DiePips n={lastRoll.die1} size={56} />
-              <DiePips n={lastRoll.die2} size={56} />
-              <div className="flex items-center text-lg font-bold text-white/80 tabular-nums pl-1">
-                = {lastRoll.sum}
+          {/* Your roll showcase */}
+          {showRoll && !rollingAnim && (
+            <div className="flex items-center justify-center gap-3 mt-4 mb-1">
+              <DieFace value={showRoll.die1} size={56} />
+              <DieFace value={showRoll.die2} size={56} />
+              <div className="text-[20px] font-bold text-white/85 tabular-nums pl-1">
+                = {showRoll.sum}
               </div>
             </div>
           )}
+          {rollingAnim && (
+            <div className="flex items-center justify-center gap-3 mt-4 mb-1">
+              <DieFace value={null} rolling size={56} />
+              <DieFace value={null} rolling size={56} />
+            </div>
+          )}
+
+          {/* Fairness */}
+          <div className="mt-3 space-y-1.5 max-w-sm mx-auto w-full">
+            <HashChip
+              label="hash"
+              value={active.serverSeedHash}
+              onCopy={copyText}
+            />
+            {active.serverSeed && (
+              <HashChip
+                label="seed"
+                value={active.serverSeed}
+                onCopy={copyText}
+              />
+            )}
+          </div>
 
           {/* Actions */}
-          <div className="mt-auto pt-5 space-y-2.5 pb-2">
+          <div className="mt-auto pt-4 space-y-2.5 pb-2">
             {isLobby && active.isHost && (
               <>
                 <button
                   type="button"
                   disabled={busy || active.playerCount < DICE_MIN_PLAYERS}
                   onClick={() => void onStart()}
-                  className="w-full h-13 h-[52px] rounded-2xl btn-primary text-[15px] font-semibold btn-press disabled:opacity-40"
+                  className="w-full h-[52px] rounded-2xl btn-primary text-[15px] font-semibold btn-press disabled:opacity-40"
                 >
-                  {tr("Start game", "Начать игру")} · {active.playerCount}/
+                  {tr("Start", "Начать")} · {active.playerCount}/
                   {active.maxPlayers}
                 </button>
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => void onCancel()}
-                  className="w-full h-11 rounded-2xl border border-white/10 text-[13px] text-white/50 hover:text-white/70"
+                  className="w-full h-11 rounded-2xl border border-white/10 text-[13px] text-white/45"
                 >
                   {tr("Cancel table", "Отменить стол")}
                 </button>
@@ -844,29 +968,31 @@ export function DiceScreen({
                 type="button"
                 disabled={busy}
                 onClick={() => void onLeave()}
-                className="w-full h-11 rounded-2xl border border-white/10 text-[13px] text-white/50"
+                className="w-full h-11 rounded-2xl border border-white/10 text-[13px] text-white/45"
               >
-                {tr("Leave seat", "Освободить место")}
+                {tr("Leave seat", "Встать")}
               </button>
             )}
 
-            {isLobby && !active.isSeated && active.playerCount < active.maxPlayers && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void onJoin(active.id)}
-                className="w-full h-[52px] rounded-2xl btn-primary text-[15px] font-semibold btn-press"
-              >
-                {tr("Sit down", "Сесть за стол")} · {formatGram(active.amount)} GRAM
-              </button>
-            )}
+            {isLobby &&
+              !active.isSeated &&
+              active.playerCount < active.maxPlayers && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void onJoin(active.id)}
+                  className="w-full h-[52px] rounded-2xl btn-primary text-[15px] font-semibold btn-press"
+                >
+                  {tr("Sit down", "Сесть")} · {formatGram(active.amount)} GRAM
+                </button>
+              )}
 
             {isPlaying && active.isMyTurn && (
               <button
                 type="button"
                 disabled={busy || rollingAnim}
                 onClick={() => void onRoll()}
-                className="w-full h-14 rounded-2xl btn-primary text-[16px] font-bold btn-press shadow-[0_0_40px_rgba(16,185,129,0.25)]"
+                className="w-full h-14 rounded-2xl btn-primary text-[16px] font-bold btn-press shadow-[0_0_40px_rgba(16,185,129,0.28)]"
               >
                 {rollingAnim
                   ? tr("Rolling…", "Бросок…")
@@ -875,13 +1001,11 @@ export function DiceScreen({
             )}
 
             {isPlaying && !active.isMyTurn && active.isSeated && (
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] py-4 text-center text-[13px] text-white/40">
-                {active.players.find((p) => p.seat === active.turnSeat)?.active
-                  ? tr(
-                      `Waiting for @${turnPlayer?.username || "…"}`,
-                      `Ход @${turnPlayer?.username || "…"}`
-                    )
-                  : tr("Waiting…", "Ожидание…")}
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] py-3.5 text-center text-[13px] text-white/40">
+                {tr(
+                  `Waiting for @${turnPlayer?.username || "…"}`,
+                  `Ход @${turnPlayer?.username || "…"}`
+                )}
               </div>
             )}
 
@@ -898,12 +1022,6 @@ export function DiceScreen({
               >
                 {tr("Back to lobby", "В лобби")}
               </button>
-            )}
-
-            {active.serverSeed && (
-              <p className="text-[10px] text-white/25 text-center font-mono break-all px-2">
-                seed {active.serverSeed.slice(0, 24)}…
-              </p>
             )}
           </div>
         </div>
@@ -922,15 +1040,21 @@ export function DiceScreen({
         </h1>
         <p className="text-[13px] text-white/40 mt-1.5">
           {tr(
-            "PvP table · 2–6 players · highest sum wins",
-            "PvP стол · 2–6 игроков · побеждает большая сумма"
+            "Table 2–6 · highest sum wins · ties re-roll",
+            "Стол 2–6 · побеждает большая сумма · ничья — переброс"
           )}
         </p>
         <div className="mt-3 flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-200/90 font-medium">
             <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+              {onlineAtTables > 0 ? (
+                <>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                </>
+              ) : (
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white/30" />
+              )}
             </span>
             {tr("Online", "Онлайн")} {onlineAtTables}
           </span>
@@ -1001,12 +1125,15 @@ export function DiceScreen({
         )}
         {!loading && openRooms.length === 0 && (
           <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] py-14 text-center">
-            <div className="text-[28px] mb-2 opacity-40">⚄</div>
+            <div className="flex justify-center gap-2 mb-3">
+              <DieFace value={5} size={36} />
+              <DieFace value={6} size={36} />
+            </div>
             <div className="text-sm text-white/40">
               {tr("No open tables", "Нет открытых столов")}
             </div>
             <div className="text-[12px] text-white/25 mt-1">
-              {tr("Be the first to create one", "Создайте первый стол")}
+              {tr("Create the first one", "Создайте первый")}
             </div>
           </div>
         )}
@@ -1034,16 +1161,6 @@ export function DiceScreen({
                   <span>
                     {r.playerCount}/{r.maxPlayers}
                   </span>
-                  <span className="flex -space-x-1.5 ml-1">
-                    {r.players.slice(0, 4).map((p) => (
-                      <Avatar
-                        key={p.telegramId}
-                        name={p.username}
-                        photoUrl={p.photoUrl}
-                        size={18}
-                      />
-                    ))}
-                  </span>
                 </div>
               </div>
               <button
@@ -1052,9 +1169,7 @@ export function DiceScreen({
                 onClick={() => void onJoin(r.id)}
                 className="shrink-0 h-10 px-4 rounded-xl btn-primary text-[12px] font-semibold disabled:opacity-35"
               >
-                {r.isSeated
-                  ? tr("Seated", "Вы здесь")
-                  : tr("Sit", "Сесть")}
+                {r.isSeated ? tr("Seated", "Вы здесь") : tr("Sit", "Сесть")}
               </button>
             </div>
           );
