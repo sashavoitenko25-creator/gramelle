@@ -47,7 +47,6 @@ interface Props {
   haptic: (type?: "light" | "medium" | "heavy") => void;
   hapticSuccess: () => void;
   hapticError: () => void;
-  isVisible?: boolean;
 }
 
 type View = "lobby" | "create" | "table" | "history";
@@ -84,7 +83,7 @@ function Avatar({
   );
 }
 
-/** Classic die face with pips */
+/** Classic casino die face with pips */
 function DiePips({
   n,
   rolling,
@@ -94,18 +93,34 @@ function DiePips({
   rolling?: boolean;
   size?: number;
 }) {
-  const v = n && n >= 1 && n <= 6 ? n : null;
+  const [spinFace, setSpinFace] = useState(1);
+
+  useEffect(() => {
+    if (!rolling) return;
+    const id = setInterval(() => {
+      setSpinFace(1 + Math.floor(Math.random() * 6));
+    }, 70);
+    return () => clearInterval(id);
+  }, [rolling]);
+
+  const v =
+    rolling
+      ? spinFace
+      : n && n >= 1 && n <= 6
+        ? n
+        : null;
+
   const pip = (show: boolean, key: string) => (
     <span
       key={key}
       className={cn(
-        "rounded-full bg-[#0c0c14]",
+        "rounded-full bg-[#12121a] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]",
         show ? "opacity-100" : "opacity-0"
       )}
-      style={{ width: size * 0.16, height: size * 0.16 }}
+      style={{ width: size * 0.15, height: size * 0.15 }}
     />
   );
-  // 3x3 grid positions for standard die faces
+
   const map: Record<number, boolean[]> = {
     1: [false, false, false, false, true, false, false, false, false],
     2: [true, false, false, false, false, false, false, false, true],
@@ -119,14 +134,12 @@ function DiePips({
   return (
     <div
       className={cn(
-        "rounded-2xl bg-gradient-to-br from-white via-[#f3f4f6] to-[#e5e7eb] shadow-[0_8px_24px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.9)] border border-white/40 grid grid-cols-3 grid-rows-3 place-items-center p-[18%]",
+        "rounded-[14px] bg-gradient-to-br from-[#ffffff] via-[#f4f4f5] to-[#d4d4d8] shadow-[0_10px_28px_rgba(0,0,0,0.5),inset_0_2px_0_rgba(255,255,255,0.95),inset_0_-2px_4px_rgba(0,0,0,0.08)] border border-white/50 grid grid-cols-3 grid-rows-3 place-items-center p-[16%]",
         rolling && "dice-tumble"
       )}
       style={{ width: size, height: size }}
     >
-      {rolling
-        ? cells.map((_, i) => pip(i % 2 === 0, `r${i}`))
-        : cells.map((on, i) => pip(on, `p${i}`))}
+      {cells.map((on, i) => pip(Boolean(on), `p${i}`))}
     </div>
   );
 }
@@ -145,7 +158,6 @@ export function DiceScreen({
   haptic,
   hapticSuccess,
   hapticError,
-  isVisible = true,
 }: Props) {
   const { t, lang } = useI18n();
   const { setBackButton } = useTelegram();
@@ -193,17 +205,16 @@ export function DiceScreen({
   }, [active?.id]);
 
   useEffect(() => {
-    if (!isVisible) return;
     void refresh();
-    const id = setInterval(() => void refresh(), 8000);
+    const id = setInterval(() => void refresh(), 6000);
     return () => clearInterval(id);
-  }, [refresh, isVisible]);
+  }, [refresh]);
 
   useEffect(() => {
-    if (!isVisible) return;
     if (!active?.id || active.status !== "playing") return;
+    const roomId = active.id;
     const id = setInterval(() => {
-      void diceState(active.id)
+      void diceState(roomId)
         .then((r) => {
           setActive(r.room);
           if (r.room.status === "finished") {
@@ -212,9 +223,9 @@ export function DiceScreen({
           }
         })
         .catch(() => {});
-    }, 2500);
+    }, 1500);
     return () => clearInterval(id);
-  }, [isVisible, active?.id, active?.status, onReloadBalance, refresh]);
+  }, [active?.id, active?.status, onReloadBalance, refresh]);
 
   useEffect(() => {
     const handler = () => {
@@ -339,6 +350,7 @@ export function DiceScreen({
 
   const onRoll = async () => {
     if (!active || busy || rollingAnim) return;
+    const roomId = active.id;
     setBusy(true);
     setRollingAnim(true);
     setLastRoll(null);
@@ -346,32 +358,37 @@ export function DiceScreen({
     playSelectSound();
     haptic("medium");
     try {
-      await new Promise((r) => setTimeout(r, 900));
-      const res = await diceRoll(active.id);
+      // Request result early; keep tumble animation while waiting
+      const resPromise = diceRoll(roomId);
+      await new Promise((r) => setTimeout(r, 1100));
+      const res = await resPromise;
       setLastRoll(res.roll || null);
       setActive(res.room);
+      setRollingAnim(false);
       if (res.room.status === "finished") {
+        const net =
+          (res.room.pot || 0) - (res.room.houseFee || 0);
         if (res.room.winnerTelegramId === telegramId) {
           playWinSound();
           hapticSuccess();
           showToast(
-            tr(
-              `You win +${formatGram((res.room.pot || 0) - (res.room.houseFee || 0))} GRAM`,
-              `Победа +${formatGram((res.room.pot || 0) - (res.room.houseFee || 0))} GRAM`
-            )
+            tr(`You win +${formatGram(net)} GRAM`, `Победа +${formatGram(net)} GRAM`)
           );
         } else {
           playLoseSound();
+          haptic("medium");
           showToast(tr("Better luck next time", "В этот раз не повезло"));
         }
         onReloadBalance?.();
+      } else {
+        haptic("light");
       }
     } catch (e) {
+      setRollingAnim(false);
       playErrorSound();
       hapticError();
       showToast(e instanceof Error ? e.message : "Error");
     } finally {
-      setRollingAnim(false);
       setBusy(false);
       void refresh();
     }
@@ -662,20 +679,28 @@ export function DiceScreen({
             </span>
           </div>
 
-          {/* Premium felt table */}
-          <div className="relative mx-auto w-full max-w-[340px] aspect-square">
-            {/* outer glow */}
-            <div className="absolute inset-[-4%] rounded-full bg-emerald-500/10 blur-2xl dice-pot-glow pointer-events-none" />
+          {/* Premium felt table — Arizona / casino style */}
+          <div className="relative mx-auto w-full max-w-[360px] aspect-square">
+            <div className="absolute inset-[-6%] rounded-full bg-emerald-500/12 blur-3xl dice-pot-glow pointer-events-none" />
             <div
-              className="absolute inset-0 rounded-full border border-emerald-400/25 overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.5),inset_0_0_80px_rgba(16,185,129,0.08)]"
+              className="absolute inset-0 rounded-full overflow-hidden shadow-[0_24px_70px_rgba(0,0,0,0.55),inset_0_0_90px_rgba(16,185,129,0.1)]"
               style={{
                 background:
-                  "radial-gradient(ellipse at 40% 35%, #0d3d2e 0%, #062a1f 45%, #041a14 100%)",
+                  "radial-gradient(ellipse at 42% 32%, #145c43 0%, #0a3d2c 38%, #05261c 72%, #031610 100%)",
+                border: "3px solid rgba(212,175,55,0.35)",
+                boxShadow:
+                  "0 24px 70px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.06), inset 0 0 80px rgba(16,185,129,0.12)",
               }}
             >
-              {/* wood rim illusion */}
-              <div className="absolute inset-[3%] rounded-full border-[3px] border-[#2a1a0a]/60 pointer-events-none" />
-              <div className="absolute inset-[5%] rounded-full border border-emerald-500/15 pointer-events-none" />
+              {/* gold inner rim */}
+              <div
+                className="absolute inset-[4%] rounded-full pointer-events-none"
+                style={{
+                  border: "2px solid rgba(212,175,55,0.22)",
+                  boxShadow: "inset 0 0 24px rgba(0,0,0,0.35)",
+                }}
+              />
+              <div className="absolute inset-[7%] rounded-full border border-emerald-400/10 pointer-events-none" />
 
               {/* center pot */}
               <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">

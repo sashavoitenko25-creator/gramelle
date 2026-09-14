@@ -52,8 +52,6 @@ interface RpsScreenProps {
   hapticError: () => void;
   /** Open fairness tab with prefilled hash + seed */
   onVerifyFairness?: (hash: string, seed: string) => void;
-  /** When false, pause network polling (screen kept mounted for instant tab switch) */
-  isVisible?: boolean;
 }
 
 type View =
@@ -730,7 +728,6 @@ export function RpsScreen({
   hapticSuccess,
   hapticError,
   onVerifyFairness,
-  isVisible = true,
 }: RpsScreenProps) {
   const { setBackButton } = useTelegram();
 
@@ -841,35 +838,35 @@ export function RpsScreen({
   mineRef.current = mine;
 
   useEffect(() => {
-    if (!isVisible) return;
-    void refresh();
-    void loadHistory();
+    refresh();
+    loadHistory();
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    // Faster poll while waiting for opponent so both enter reveal closer together
     const tick = () => {
       if (stopped) return;
       void refresh().finally(() => {
         if (stopped) return;
         const wait =
           mineRef.current?.status === "open" || viewRef.current === "lobby"
-            ? 4000
-            : 8000;
+            ? 2500
+            : 5000;
         timer = setTimeout(tick, wait);
       });
     };
-    timer = setTimeout(tick, 2500);
+    timer = setTimeout(tick, 2000);
     return () => {
       stopped = true;
       if (timer) clearTimeout(timer);
     };
-  }, [refresh, loadHistory, isVisible]);
+  }, [refresh, loadHistory]);
 
   useEffect(() => {
-    if (!isVisible) return;
-    if (view !== "reveal") return;
+    if (!active || view !== "reveal") return;
+    const roomId = active.id;
     const id = setInterval(async () => {
       try {
-        const { room } = await rpsState(active.id);
+        const { room } = await rpsState(roomId);
         setActive(room);
         if (room.status === "finished") {
           setView("result");
