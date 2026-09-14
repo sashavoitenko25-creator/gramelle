@@ -2,7 +2,6 @@
 
 import { useTelegram } from "@/hooks/useTelegram";
 import { useI18n } from "@/lib/i18n/context";
-
 import { useCallback, useEffect, useState } from "react";
 import { formatGram, cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api";
@@ -20,12 +19,14 @@ interface TxItem {
   detail?: string | null;
   createdAt: string;
   txHash?: string | null;
+  memo?: string | null;
+  amountGram?: number | null;
+  amountTon?: number | null;
 }
 
 interface Props {
   onBack: () => void;
 }
-
 
 function statusStyle(s: TxStatus) {
   if (s === "completed")
@@ -49,9 +50,15 @@ function formatWhen(iso: string) {
   }
 }
 
+function explorerUrl(txHash: string): string {
+  const h = encodeURIComponent(txHash);
+  // Tonviewer accepts event / message hashes from TonAPI
+  return `https://tonviewer.com/transaction/${h}`;
+}
+
 export function TransactionsScreen({ onBack }: Props) {
-  const { t } = useI18n();
-  const { setBackButton } = useTelegram();
+  const { t, lang } = useI18n();
+  const { setBackButton, openLink } = useTelegram();
   useEffect(() => {
     setBackButton(() => {
       onBack();
@@ -63,15 +70,18 @@ export function TransactionsScreen({ onBack }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "deposit" | "withdraw">("all");
+  const [selected, setSelected] = useState<TxItem | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<{ items: TxItem[] }>("/api/transactions?limit=60");
+      const data = await apiFetch<{ items: TxItem[] }>(
+        "/api/transactions?limit=60"
+      );
       setItems(data.items || []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("failedToLoad"));
+      setError(e instanceof Error ? e.message : "Failed");
     } finally {
       setLoading(false);
     }
@@ -82,41 +92,33 @@ export function TransactionsScreen({ onBack }: Props) {
   }, [load]);
 
   const filtered =
-    filter === "all" ? items : items.filter((i) => i.kind === filter);
+    filter === "all" ? items : items.filter((x) => x.kind === filter);
+
+  const isRu = lang === "ru";
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      <div className="flex items-center justify-center px-4 pt-3 pb-3 relative">
+      <div className="px-4 pt-3 pb-2">
         <h1 className="text-[15px] font-semibold">{t("transactions")}</h1>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="absolute right-4 w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/45"
-          aria-label={t("loading")}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 12a9 9 0 11-3-6.7" />
-            <path d="M21 3v6h-6" />
-          </svg>
-        </button>
       </div>
 
-      <div className="mx-4 mb-4 flex gap-1.5 p-1 rounded-2xl bg-black/35 border border-white/[0.06]">
+      <div className="px-4 flex gap-2 mb-3">
         {(
           [
-            ["all", t("allTx")],
+            ["all", t("all")],
             ["deposit", t("deposits")],
             ["withdraw", t("withdrawals")],
           ] as const
         ).map(([id, label]) => (
           <button
             key={id}
+            type="button"
             onClick={() => setFilter(id)}
             className={cn(
-              "flex-1 py-2 rounded-xl text-xs font-semibold transition btn-press",
+              "px-3 py-1.5 rounded-xl text-[12px] font-medium border transition",
               filter === id
-                ? "bg-white/10 text-white border border-white/10"
-                : "text-white/40 border border-transparent"
+                ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-200"
+                : "bg-white/[0.03] border-white/10 text-white/45"
             )}
           >
             {label}
@@ -124,46 +126,55 @@ export function TransactionsScreen({ onBack }: Props) {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 space-y-2.5">
+      <div className="px-4 flex-1 space-y-2 overflow-y-auto">
         {loading && (
-          <p className="text-center text-xs text-white/35 py-12 pulse-soft">
-            Loading…
-          </p>
+          <div className="text-center text-white/40 text-sm py-10">…</div>
         )}
         {error && (
-          <p className="text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
-            {error}
-          </p>
+          <div className="text-center text-red-300/80 text-sm py-6">{error}</div>
         )}
         {!loading && !error && filtered.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-sm text-white/45 font-medium">{t("noTransactions")} yet</p>
-            <p className="text-xs text-white/25 mt-1.5">
-              {t("txEmptyHint")}
-            </p>
+          <div className="text-center text-white/35 text-sm py-10">
+            {t("noRounds")}
           </div>
         )}
 
         {filtered.map((tx) => (
-          <div
+          <button
             key={tx.id}
-            className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3.5"
+            type="button"
+            onClick={() => setSelected(tx)}
+            className="w-full text-left rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3.5 btn-press active:scale-[0.99] transition"
           >
-            <div className="flex items-start gap-3">
+            <div className="flex gap-3">
               <div
                 className={cn(
                   "w-10 h-10 rounded-xl border flex items-center justify-center shrink-0",
                   tx.kind === "deposit"
-                    ? "bg-cyan-500/12 border-cyan-500/25 text-cyan-300"
+                    ? "bg-emerald-500/12 border-emerald-500/25 text-emerald-300"
                     : "bg-violet-500/12 border-violet-500/25 text-violet-300"
                 )}
               >
                 {tx.kind === "deposit" ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <path d="M12 5v14M5 12h14" />
                   </svg>
                 ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <path d="M12 19V5M5 12l7-7 7 7" />
                   </svg>
                 )}
@@ -189,7 +200,9 @@ export function TransactionsScreen({ onBack }: Props) {
                     {tx.status === "completed"
                       ? t("completed")
                       : tx.status === "rejected" || tx.status === "failed"
-                        ? t(tx.status === "rejected" ? "rejected" : "failed")
+                        ? t(
+                            tx.status === "rejected" ? "rejected" : "failed"
+                          )
                         : t("processing")}
                   </span>
                   <span className="text-[10px] text-white/30">
@@ -201,16 +214,129 @@ export function TransactionsScreen({ onBack }: Props) {
                     {tx.detail}
                   </p>
                 )}
-                {tx.txHash && (
-                  <p className="text-[10px] text-white/25 mt-1 truncate font-mono">
-                    tx {tx.txHash.slice(0, 10)}…{tx.txHash.slice(-6)}
-                  </p>
-                )}
               </div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
+
+      {/* Detail sheet */}
+      {selected && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/55"
+            aria-label="close"
+            onClick={() => setSelected(null)}
+          />
+          <div className="relative w-full max-w-lg rounded-t-3xl border border-white/10 bg-[#0c0c14] p-5 pb-8 safe-bottom slide-up">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-sm font-semibold">{selected.title}</div>
+              <button
+                type="button"
+                onClick={() => setSelected(null)}
+                className="text-white/40 text-sm px-2"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-[13px]">
+              <div className="flex justify-between gap-3">
+                <span className="text-white/40">
+                  {isRu ? "Статус" : "Status"}
+                </span>
+                <span
+                  className={cn(
+                    "text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-lg border",
+                    statusStyle(selected.status)
+                  )}
+                >
+                  {selected.status === "completed"
+                    ? t("completed")
+                    : selected.status === "rejected"
+                      ? t("rejected")
+                      : selected.status === "failed"
+                        ? t("failed")
+                        : t("processing")}
+                </span>
+              </div>
+
+              <div className="flex justify-between gap-3">
+                <span className="text-white/40">
+                  {isRu ? "Сумма" : "Amount"}
+                </span>
+                <span className="font-semibold tabular-nums">
+                  {selected.kind === "deposit" ? "+" : "−"}
+                  {formatGram(selected.amount)} {selected.unit}
+                </span>
+              </div>
+
+              {selected.amountTon != null && selected.amountTon > 0 && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-white/40">TON</span>
+                  <span className="tabular-nums">
+                    {formatGram(selected.amountTon)} TON
+                  </span>
+                </div>
+              )}
+              {selected.amountGram != null && selected.amountGram > 0 && (
+                <div className="flex justify-between gap-3">
+                  <span className="text-white/40">GRAM</span>
+                  <span className="tabular-nums">
+                    {formatGram(selected.amountGram)} GRAM
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-between gap-3">
+                <span className="text-white/40">
+                  {isRu ? "Дата" : "Date"}
+                </span>
+                <span className="text-white/70">
+                  {formatWhen(selected.createdAt)}
+                </span>
+              </div>
+
+              {selected.memo && (
+                <div>
+                  <div className="text-white/40 mb-1">Memo</div>
+                  <div className="rounded-xl bg-black/30 border border-white/10 px-3 py-2 font-mono text-[11px] text-cyan-200/90 break-all">
+                    {selected.memo}
+                  </div>
+                </div>
+              )}
+
+              {selected.txHash && (
+                <div>
+                  <div className="text-white/40 mb-1">TX</div>
+                  <div className="rounded-xl bg-black/30 border border-white/10 px-3 py-2 font-mono text-[11px] text-white/60 break-all">
+                    {selected.txHash}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {selected.txHash && (
+              <button
+                type="button"
+                onClick={() => openLink(explorerUrl(selected.txHash!))}
+                className="mt-5 w-full h-12 rounded-2xl btn-primary text-sm font-medium btn-press"
+              >
+                {isRu ? "Проверить в сети" : "View on explorer"}
+              </button>
+            )}
+
+            {!selected.txHash && selected.status === "completed" && (
+              <p className="mt-4 text-[11px] text-white/35 text-center">
+                {isRu
+                  ? "Хеш транзакции недоступен для этой записи"
+                  : "Transaction hash not available for this entry"}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

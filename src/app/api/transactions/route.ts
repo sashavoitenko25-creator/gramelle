@@ -3,13 +3,18 @@ import { AuthError, requireTelegramUser } from "@/lib/server/telegram";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 
 export type TxKind = "deposit" | "withdraw";
-export type TxStatus = "pending" | "processing" | "completed" | "rejected" | "failed";
+export type TxStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "rejected"
+  | "failed";
 
 /**
  * Unified money history for the current user:
- * - withdrawals table (pending → completed / rejected)
- * - ton_deposits (pending → credited)
- * - ledger deposit_stars / deposit_ton / withdraw / refund
+ * - withdrawals table
+ * - ton_deposits (source of truth for TON deposits — includes memo + tx)
+ * - ledger deposit_stars / refund; deposit_ton only if no matching ton_deposits row
  */
 export async function GET(req: NextRequest) {
   try {
@@ -17,7 +22,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ items: [], demo: true });
     }
     const auth = await requireTelegramUser(req);
-    const limit = Math.min(Number(req.nextUrl.searchParams.get("limit") || 50), 100);
+    const limit = Math.min(
+      Number(req.nextUrl.searchParams.get("limit") || 50),
+      100
+    );
     const db = getAdminClient();
     const tg = auth.user.id;
 
@@ -31,9 +39,14 @@ export async function GET(req: NextRequest) {
       detail?: string | null;
       createdAt: string;
       txHash?: string | null;
+      memo?: string | null;
+      amountGram?: number | null;
+      amountTon?: number | null;
     };
 
     const items: Item[] = [];
+    const seenTonTx = new Set<string>();
+    const seenTonMemo = new Set<string>();
 
     // Withdrawals
     const { data: wds } = await db
@@ -68,21 +81,24 @@ export async function GET(req: NextRequest) {
           : w.admin_note || null,
         createdAt: w.created_at,
         txHash: w.tx_hash || null,
+        amountTon: Number(w.amount_ton || 0) || null,
+        amountGram: Number(w.amount_gram || 0) || null,
       });
     }
 
-    // TON deposit intents
+    // TON deposit intents — primary source (memo + tx_hash)
     try {
       const { data: deps } = await db
         .from("ton_deposits")
-        .select("id, amount_ton, amount_gram, status, memo, created_at, tx_hash")
+        .select(
+          "id, amount_ton, amount_gram, status, memo, created_at, tx_hash, completed_at"
+        )
         .eq("telegram_id", tg)
         .order("created_at", { ascending: false })
         .limit(limit);
 
       for (const d of deps || []) {
         const st = String(d.status || "pending").toLowerCase();
-        // Show pending after "Pay with wallet" (intent exists); hide only expired
         if (st === "expired") continue;
 
         let status: TxStatus = "pending";
@@ -92,23 +108,38 @@ export async function GET(req: NextRequest) {
         else if (st === "processing") status = "processing";
         else status = "pending";
 
+        const memo = d.memo ? String(d.memo) : null;
+        const txHash = d.tx_hash ? String(d.tx_hash) : null;
+        if (memo) seenTonMemo.add(memo);
+        if (txHash) seenTonTx.add(txHash);
+
+        const amountTon = Number(d.amount_ton || 0);
+        const amountGram = Number(d.amount_gram || 0);
+
         items.push({
           id: `td-${d.id}`,
           kind: "deposit",
           status,
-          amount: Number(d.amount_ton || 0),
-          unit: "TON",
+          amount: amountTon || amountGram,
+          unit: amountTon ? "TON" : "GRAM",
           title: "Депозит TON",
-          detail: d.memo ? `memo ${String(d.memo).slice(0, 12)}` : null,
+          detail: memo
+            ? status === "completed"
+              ? `memo · ${memo.slice(0, 16)}${memo.length > 16 ? "…" : ""}`
+              : `memo ${memo.slice(0, 14)}…`
+            : null,
           createdAt: d.created_at,
-          txHash: d.tx_hash || null,
+          txHash,
+          memo,
+          amountTon: amountTon || null,
+          amountGram: amountGram || null,
         });
       }
     } catch {
       /* table may not exist */
     }
 
-    // Ledger deposits (Stars / credited TON) — skip raw withdraw debits if withdrawal row exists
+    // Ledger: Stars + refunds; deposit_ton only if not already in ton_deposits
     const { data: led } = await db
       .from("ledger")
       .select("id, amount, reason, meta, created_at")
@@ -119,6 +150,11 @@ export async function GET(req: NextRequest) {
 
     for (const row of led || []) {
       const reason = String(row.reason);
+      const meta =
+        row.meta && typeof row.meta === "object"
+          ? (row.meta as Record<string, unknown>)
+          : {};
+
       if (reason === "deposit_stars") {
         items.push({
           id: `ld-${row.id}`,
@@ -131,7 +167,18 @@ export async function GET(req: NextRequest) {
           createdAt: row.created_at,
         });
       } else if (reason === "deposit_ton") {
-        // may duplicate ton_deposits credited — still useful if no ton_deposits row
+        const metaTx = meta.tx != null ? String(meta.tx) : "";
+        const metaMemo = meta.memo != null ? String(meta.memo) : "";
+        // Skip empty duplicate of ton_deposits row
+        if (metaTx && seenTonTx.has(metaTx)) continue;
+        if (metaMemo && seenTonMemo.has(metaMemo)) continue;
+        // If we already show any completed TON deposit intents, skip bare ledger copies
+        if (seenTonTx.size > 0 || seenTonMemo.size > 0) {
+          // still allow orphan ledger credits without memo/tx match only when no deps at all
+          if (metaTx || metaMemo) continue;
+          continue;
+        }
+
         items.push({
           id: `ld-${row.id}`,
           kind: "deposit",
@@ -139,15 +186,17 @@ export async function GET(req: NextRequest) {
           amount: Math.abs(Number(row.amount) || 0),
           unit: "GRAM",
           title: "Депозит TON",
-          detail: null,
+          detail: metaMemo ? `memo ${metaMemo.slice(0, 14)}` : null,
           createdAt: row.created_at,
+          txHash: metaTx || null,
+          memo: metaMemo || null,
+          amountGram: Math.abs(Number(row.amount) || 0),
+          amountTon:
+            meta.ton != null ? Number(meta.ton) : null,
         });
       } else if (reason === "refund") {
-        // Hide RPS room-cancel refunds (not real withdrawals)
-        const meta = (row.meta || {}) as Record<string, unknown>;
-        if (meta.action === "cancel" || meta.game === "rps") {
-          continue;
-        }
+        const game = meta.game != null ? String(meta.game) : "";
+        if (game === "rps") continue;
         items.push({
           id: `ld-${row.id}`,
           kind: "withdraw",
