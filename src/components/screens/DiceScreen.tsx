@@ -127,7 +127,8 @@ function DieFace({
     <div
       className={cn(
         "relative grid grid-cols-3 grid-rows-3 place-items-center shrink-0",
-        rolling && "dice-tumble"
+        rolling && "dice-tumble",
+        !rolling && value != null && "dice-land"
       )}
       style={{
         width: size,
@@ -220,7 +221,8 @@ export function DiceScreen({
   const [active, setActive] = useState<DiceRoomPublic | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [amount, setAmount] = useState(1);
+  const [amountStr, setAmountStr] = useState("1");
+  const amount = amountStr === "" ? 0 : Number(amountStr);
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [rollingAnim, setRollingAnim] = useState(false);
   const [lastRoll, setLastRoll] = useState<{
@@ -557,7 +559,7 @@ export function DiceScreen({
           <div className="rounded-[24px] border border-white/[0.08] bg-white/[0.03] p-5 space-y-5">
             <div>
               <div className="text-[12px] text-white/40 mb-2 font-medium">
-                {tr("Stake", "Ставка")}
+                {tr("Stake (GRAM)", "Ставка (GRAM)")}
               </div>
               <div className="flex flex-wrap gap-2 mb-3">
                 {QUICK.map((q) => (
@@ -565,7 +567,7 @@ export function DiceScreen({
                     key={q}
                     type="button"
                     onClick={() => {
-                      setAmount(q);
+                      setAmountStr(String(q));
                       playClickSound();
                     }}
                     className={cn(
@@ -580,11 +582,14 @@ export function DiceScreen({
                 ))}
               </div>
               <input
-                type="number"
-                min={DICE_MIN_BET}
-                step={0.25}
-                value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
+                type="text"
+                inputMode="decimal"
+                value={amountStr}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9.]/g, "");
+                  if (v === "" || /^\d*\.?\d*$/.test(v)) setAmountStr(v);
+                }}
+                placeholder="0"
                 className="w-full h-12 rounded-2xl bg-black/35 border border-white/10 px-4 text-[15px] font-semibold tabular-nums outline-none focus:border-emerald-500/40"
               />
             </div>
@@ -737,18 +742,11 @@ export function DiceScreen({
 
         <div className="px-4 flex-1 flex flex-col min-w-0">
           {/* Meta */}
-          <div className="flex items-center justify-between mb-2 text-[11px] text-white/40">
+          <div className="flex items-center mb-2 text-[11px] text-white/40">
             <span className="tabular-nums">
               {formatGram(active.amount)} GRAM · {active.playerCount}/
               {active.maxPlayers}
               {isPlaying ? ` · R${active.round}` : ""}
-            </span>
-            <span className="text-emerald-200/50 font-medium">
-              {isLobby
-                ? tr("Lobby", "Лобби")
-                : isPlaying
-                  ? tr("Live", "Идёт игра")
-                  : tr("Finished", "Финиш")}
             </span>
           </div>
 
@@ -940,7 +938,7 @@ export function DiceScreen({
           </div>
 
           {/* Actions */}
-          <div className="mt-auto pt-4 space-y-2.5 pb-2">
+          <div className="mt-3 pt-2 space-y-2.5 pb-6">
             {isLobby && active.isHost && (
               <>
                 <button
@@ -1038,30 +1036,12 @@ export function DiceScreen({
         <h1 className="text-[22px] font-bold tracking-tight text-white leading-none">
           Dice
         </h1>
-        <p className="text-[13px] text-white/40 mt-1.5">
+        <p className="text-[13px] text-white/40 mt-1.5 leading-relaxed">
           {tr(
-            "Table 2–6 · highest sum wins · ties re-roll",
-            "Стол 2–6 · побеждает большая сумма · ничья — переброс"
+            "Gather at the table, roll two dice — highest sum takes the pot. Ties re-roll until one winner.",
+            "Соберитесь за столом, бросайте две кости — побеждает большая сумма. При ничьей — переброс до одного победителя."
           )}
         </p>
-        <div className="mt-3 flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-200/90 font-medium">
-            <span className="relative flex h-1.5 w-1.5">
-              {onlineAtTables > 0 ? (
-                <>
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-                </>
-              ) : (
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white/30" />
-              )}
-            </span>
-            {tr("Online", "Онлайн")} {onlineAtTables}
-          </span>
-          <span className="text-[11px] text-white/30">
-            {tr("Fee", "Комиссия")} {Math.round(DICE_HOUSE_EDGE * 100)}%
-          </span>
-        </div>
       </div>
 
       <div className="px-4 flex gap-2 mb-4">

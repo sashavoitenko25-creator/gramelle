@@ -137,55 +137,42 @@ export function GamesScreen({
           />
           <OnlineBadge count={diceOnline} />
           <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
-            <div className="flex items-center gap-2.5">
-              {/* Mini premium dice faces 5 & 6 */}
-              <div
-                className="w-11 h-11 rounded-[14px] border border-white/40 shadow-[0_8px_24px_rgba(0,0,0,0.35)] grid grid-cols-3 grid-rows-3 place-items-center p-[14%]"
-                style={{
-                  background:
-                    "linear-gradient(145deg,#fff 0%,#f4f4f5 50%,#e4e4e7 100%)",
-                }}
-              >
-                {[1, 0, 1, 0, 1, 0, 1, 0, 1].map((on, i) => (
-                  <span
-                    key={i}
-                    className="rounded-full bg-[#12121a]"
-                    style={{
-                      width: 5,
-                      height: 5,
-                      opacity: on ? 1 : 0,
-                    }}
-                  />
-                ))}
-              </div>
-              <div
-                className="w-11 h-11 rounded-[14px] border border-white/40 shadow-[0_8px_24px_rgba(0,0,0,0.35)] grid grid-cols-3 grid-rows-3 place-items-center p-[14%]"
-                style={{
-                  background:
-                    "linear-gradient(145deg,#fff 0%,#f4f4f5 50%,#e4e4e7 100%)",
-                }}
-              >
-                {[1, 0, 1, 1, 0, 1, 1, 0, 1].map((on, i) => (
-                  <span
-                    key={i}
-                    className="rounded-full bg-[#12121a]"
-                    style={{
-                      width: 5,
-                      height: 5,
-                      opacity: on ? 1 : 0,
-                    }}
-                  />
-                ))}
-              </div>
+            <div className="flex items-center gap-3">
+              {[
+                [1, 0, 1, 0, 1, 0, 1, 0, 1],
+                [1, 0, 1, 1, 0, 1, 1, 0, 1],
+              ].map((face, fi) => (
+                <div
+                  key={fi}
+                  className="w-12 h-12 rounded-[15px] border border-white/50 shadow-[0_10px_28px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.9)] grid grid-cols-3 grid-rows-3 place-items-center p-[15%] rotate-[-6deg] group-hover:rotate-0 transition-transform duration-300"
+                  style={{
+                    background:
+                      "linear-gradient(145deg,#ffffff 0%,#f4f4f5 48%,#e4e4e7 100%)",
+                    transform: fi === 1 ? "rotate(8deg)" : undefined,
+                  }}
+                >
+                  {face.map((on, i) => (
+                    <span
+                      key={i}
+                      className="rounded-full bg-[#12121a]"
+                      style={{
+                        width: 5.5,
+                        height: 5.5,
+                        opacity: on ? 1 : 0,
+                      }}
+                    />
+                  ))}
+                </div>
+              ))}
             </div>
             <div className="mt-6">
               <div className="text-[22px] font-bold text-white tracking-tight leading-none">
                 Dice
               </div>
-              <div className="text-[13px] text-white/55 mt-1.5 leading-snug">
+              <div className="text-[13px] text-white/55 mt-1.5 leading-snug max-w-[95%]">
                 {isRu
-                  ? "Стол 2–6 · кости · переброс ничьих"
-                  : "Table 2–6 · dice · tie re-rolls"}
+                  ? "Стол на 2–6 игроков. Две кости — побеждает большая сумма. Ничья? Переброс."
+                  : "Table for 2–6. Two dice — highest sum wins. Tie? Roll again."}
               </div>
             </div>
           </div>

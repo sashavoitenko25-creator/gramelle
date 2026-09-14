@@ -753,7 +753,8 @@ export function RpsScreen({
   const [busy, setBusy] = useState(false);
 
   const [choice, setChoice] = useState<RpsChoice>("rock");
-  const [amount, setAmount] = useState(1);
+  const [amountStr, setAmountStr] = useState("1");
+  const amount = amountStr === "" ? 0 : Number(amountStr);
   const [joinTarget, setJoinTarget] = useState<RpsPublicRoom | null>(null);
   const [joinChoice, setJoinChoice] = useState<RpsChoice>("paper");
 
@@ -1649,7 +1650,7 @@ export function RpsScreen({
                 onClick={() => {
                   playClickSound();
                   haptic("light");
-                  setAmount(a);
+                  setAmountStr(String(a));
                 }}
                 className={cn(
                   "h-9 px-3.5 rounded-xl text-[13px] font-medium border transition btn-press",
@@ -1665,8 +1666,11 @@ export function RpsScreen({
           <input
             type="number"
             inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(Number(e.target.value))}
+            value={amountStr}
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9.]/g, "");
+              if (v === "" || /^\d*\.?\d*$/.test(v)) setAmountStr(v);
+            }}
             min={RPS_MIN_BET}
             max={RPS_MAX_BET}
             step="0.25"

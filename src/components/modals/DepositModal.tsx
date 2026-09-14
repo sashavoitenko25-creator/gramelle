@@ -364,9 +364,15 @@ export function DepositModal({
                 inputMode="decimal"
                 value={tonInput}
                 onChange={(e) => {
-                  setTonInput(e.target.value);
-                  const n = Number(e.target.value.replace(",", "."));
-                  if (Number.isFinite(n)) setTonAmount(+n.toFixed(4));
+                  const raw = e.target.value.replace(",", ".");
+                  if (raw === "" || /^\d*\.?\d*$/.test(raw)) {
+                    setTonInput(raw);
+                    if (raw === "") setTonAmount(0);
+                    else {
+                      const n = Number(raw);
+                      if (Number.isFinite(n)) setTonAmount(+n.toFixed(4));
+                    }
+                  }
                 }}
                 className="flex-1 h-11 rounded-xl bg-black/30 border border-white/10 px-3 text-sm tabular-nums outline-none focus:border-cyan-500/40"
                 placeholder={`Мин. ${MIN_DEPOSIT_TON}`}
