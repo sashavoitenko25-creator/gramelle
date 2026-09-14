@@ -10,12 +10,13 @@ import { TasksScreen } from "@/components/screens/TasksScreen";
 import { GamesScreen } from "@/components/screens/GamesScreen";
 import { RpsScreen } from "@/components/screens/RpsScreen";
 import { FairnessScreen } from "@/components/screens/FairnessScreen";
+import { MaintenanceScreen } from "@/components/screens/MaintenanceScreen";
 import { BottomNav } from "@/components/game/BottomNav";
 import { DepositModal } from "@/components/modals/DepositModal";
 import { HowRefModal } from "@/components/modals/HowRefModal";
 import { Toast } from "@/components/ui/Toast";
 import { WithdrawModal } from "@/components/modals/WithdrawModal";
-import { BOT_USERNAME, SUPPORT_URL } from "@/lib/constants";
+import { BOT_USERNAME, SUPPORT_URL, MAINTENANCE_MODE } from "@/lib/constants";
 import type { Screen } from "@/lib/types";
 import { withdrawReferralSavings, checkTonDeposits } from "@/lib/api";
 import { rpsList } from "@/lib/rpsApi";
@@ -190,6 +191,10 @@ export default function Home() {
     setBalanceFromServer,
     t,
   ]);
+
+  if (MAINTENANCE_MODE) {
+    return <MaintenanceScreen />;
+  }
 
   if (profileLoading) {
     return (

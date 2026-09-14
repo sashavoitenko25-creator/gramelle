@@ -13,6 +13,11 @@ export const COLORS = [
   "#4ade80",
 ];
 
+/** Set NEXT_PUBLIC_MAINTENANCE=1 on Vercel to show maintenance screen for all users */
+export const MAINTENANCE_MODE =
+  process.env.NEXT_PUBLIC_MAINTENANCE === "1" ||
+  process.env.NEXT_PUBLIC_MAINTENANCE === "true";
+
 export const START_BALANCE = 0;
 export const MIN_BET = 0.25;
 export const HOUSE_EDGE = 0.05;

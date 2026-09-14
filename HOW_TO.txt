@@ -1,0 +1,16 @@
+РЕЖИМ ОБСЛУЖИВАНИЯ (maintenance)
+
+ВКЛЮЧИТЬ:
+1. Vercel → Project → Settings → Environment Variables
+2. Добавить: NEXT_PUBLIC_MAINTENANCE = 1
+   (Environment: Production — или все)
+3. Save → Deployments → Redeploy (обязательно, иначе флаг не подхватится)
+
+ВЫКЛЮЧИТЬ:
+1. Vercel → Environment Variables
+2. Удалить NEXT_PUBLIC_MAINTENANCE  ИЛИ  поставить значение 0
+3. Redeploy
+
+Локально (.env.local):
+NEXT_PUBLIC_MAINTENANCE=1
+npm run dev
