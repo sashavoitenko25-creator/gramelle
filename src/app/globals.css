@@ -326,16 +326,16 @@ html.tg-light {
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  /* Align with TG close / collapse / ⋮ row (between previous high and low) */
+  /* Same vertical band as Telegram Close / collapse / ⋮ */
   height: calc(
     max(
       env(safe-area-inset-top, 0px),
       var(--tg-content-safe-area-inset-top, 0px),
       var(--tg-safe-area-inset-top, 0px),
       0px
-    ) + 26px
+    ) + 38px
   );
-  padding-bottom: 6px;
+  padding-bottom: 8px;
   box-sizing: border-box;
   pointer-events: none;
 }
