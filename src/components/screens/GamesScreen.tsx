@@ -5,7 +5,7 @@ import { useI18n } from "@/lib/i18n/context";
 
 interface GamesScreenProps {
   onSelectRps: () => void;
-  onSelectDice?: () => void;
+  onSelectDice: () => void;
   onlineCount?: number;
 }
 
@@ -90,7 +90,7 @@ export function GamesScreen({
 
         <button
           type="button"
-          onClick={() => onSelectDice?.()}
+          onClick={onSelectDice}
           className="group relative overflow-hidden rounded-[28px] text-left btn-press active:scale-[0.98] transition-all duration-200"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-[#065f46] via-[#047857] to-[#0e7490]" />

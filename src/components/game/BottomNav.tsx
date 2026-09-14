@@ -85,7 +85,7 @@ export function BottomNav({ screen, onChange }: BottomNavProps) {
           {items.map((item) => {
             const active =
               screen === item.id ||
-              (item.id === "games" && screen === "rps") ||
+              (item.id === "games" && (screen === "rps" || screen === "dice")) ||
               (item.id === "profile" &&
                 (screen === "referrals" ||
                   screen === "transactions" ||

@@ -248,6 +248,10 @@ export default function Home() {
             haptic("light");
             setScreen("rps");
           }}
+          onSelectDice={() => {
+            haptic("light");
+            setScreen("dice");
+          }}
         />
       )}
 
