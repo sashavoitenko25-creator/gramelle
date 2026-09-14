@@ -166,9 +166,6 @@ export function DiceScreen({ onBack, balance, onBalance, showToast }: Props) {
         if (res.room.winnerTelegramId === telegramId) {
           showToast(isRu ? "Победа!" : "You win!");
         }
-        if (res.balance != null) {
-          /* balance not always returned */
-        }
       }
     } catch (e) {
       hapticError();

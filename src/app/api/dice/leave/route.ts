@@ -26,35 +26,10 @@ export async function POST(req: NextRequest) {
     const photoUrl = auth.user.photo_url || null;
     const telegramId = auth.user.id;
 
-    let result: Record<string, unknown>;
-    if ("leave" === "create") {
-      result = await dice.createTable({
-        telegramId, username, photoUrl,
-        amount: Number(body.amount),
-        maxPlayers: Number(body.maxPlayers ?? 2),
-      });
-    } else if ("leave" === "join") {
-      result = await dice.joinTable({
-        telegramId, username, photoUrl,
-        roomId: String(body.roomId || ""),
-      });
-    } else if ("leave" === "leave") {
-      result = await dice.leaveTable({
-        telegramId, roomId: String(body.roomId || ""),
-      });
-    } else if ("leave" === "start") {
-      result = await dice.startTable({
-        telegramId, roomId: String(body.roomId || ""),
-      });
-    } else if ("leave" === "roll") {
-      result = await dice.rollDice({
-        telegramId, roomId: String(body.roomId || ""),
-      });
-    } else {
-      result = await dice.cancelTable({
-        telegramId, roomId: String(body.roomId || ""),
-      });
-    }
+    const result = await dice.leaveTable({
+      telegramId,
+      roomId: String(body.roomId || ""),
+    });
 
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
