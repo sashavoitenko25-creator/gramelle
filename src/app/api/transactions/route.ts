@@ -42,6 +42,8 @@ export async function GET(req: NextRequest) {
       memo?: string | null;
       amountGram?: number | null;
       amountTon?: number | null;
+      wallet?: string | null;
+      adminNote?: string | null;
     };
 
     const items: Item[] = [];
@@ -67,6 +69,7 @@ export async function GET(req: NextRequest) {
       else if (st === "processing") status = "processing";
       else status = "pending";
 
+      const wallet = w.wallet_address ? String(w.wallet_address) : null;
       items.push({
         id: `wd-${w.id}`,
         kind: "withdraw",
@@ -74,15 +77,17 @@ export async function GET(req: NextRequest) {
         amount: Number(w.amount_ton || w.amount_gram || 0),
         unit: "TON",
         title: "Вывод TON",
-        detail: w.wallet_address
-          ? String(w.wallet_address).slice(0, 8) +
-            "…" +
-            String(w.wallet_address).slice(-6)
-          : w.admin_note || null,
+        detail: wallet
+          ? wallet.slice(0, 8) + "…" + wallet.slice(-6)
+          : w.admin_note
+            ? String(w.admin_note)
+            : null,
         createdAt: w.created_at,
         txHash: w.tx_hash || null,
         amountTon: Number(w.amount_ton || 0) || null,
         amountGram: Number(w.amount_gram || 0) || null,
+        wallet,
+        adminNote: w.admin_note ? String(w.admin_note) : null,
       });
     }
 

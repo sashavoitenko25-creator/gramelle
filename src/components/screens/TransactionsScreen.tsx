@@ -22,6 +22,8 @@ interface TxItem {
   memo?: string | null;
   amountGram?: number | null;
   amountTon?: number | null;
+  wallet?: string | null;
+  adminNote?: string | null;
 }
 
 interface Props {
@@ -298,11 +300,33 @@ export function TransactionsScreen({ onBack }: Props) {
                 </span>
               </div>
 
+              {selected.wallet && (
+                <div>
+                  <div className="text-white/40 mb-1">
+                    {isRu ? "Кошелёк" : "Wallet"}
+                  </div>
+                  <div className="rounded-xl bg-black/30 border border-white/10 px-3 py-2 font-mono text-[11px] text-white/70 break-all">
+                    {selected.wallet}
+                  </div>
+                </div>
+              )}
+
               {selected.memo && (
                 <div>
                   <div className="text-white/40 mb-1">Memo</div>
                   <div className="rounded-xl bg-black/30 border border-white/10 px-3 py-2 font-mono text-[11px] text-cyan-200/90 break-all">
                     {selected.memo}
+                  </div>
+                </div>
+              )}
+
+              {selected.adminNote && (
+                <div>
+                  <div className="text-white/40 mb-1">
+                    {isRu ? "Комментарий" : "Note"}
+                  </div>
+                  <div className="rounded-xl bg-black/30 border border-white/10 px-3 py-2 text-[12px] text-white/60">
+                    {selected.adminNote}
                   </div>
                 </div>
               )}
@@ -334,6 +358,16 @@ export function TransactionsScreen({ onBack }: Props) {
                   : "Transaction hash not available for this entry"}
               </p>
             )}
+
+            {!selected.txHash &&
+              selected.kind === "withdraw" &&
+              selected.status === "pending" && (
+                <p className="mt-4 text-[11px] text-white/35 text-center">
+                  {isRu
+                    ? "Заявка на вывод в обработке. TX появится после отправки."
+                    : "Withdrawal pending. TX will appear after send."}
+                </p>
+              )}
           </div>
         </div>
       )}
