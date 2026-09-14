@@ -15,14 +15,30 @@ export async function apiFetch<T = unknown>(
     headers.set("x-telegram-init-data", initData);
   }
 
-  const res = await fetch(path, { ...options, headers });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(
-      (data as { error?: string }).error || `HTTP ${res.status}`
-    );
+  const controller = new AbortController();
+  const timeoutMs = 18_000;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(path, {
+      ...options,
+      headers,
+      signal: options.signal || controller.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        (data as { error?: string }).error || `HTTP ${res.status}`
+      );
+    }
+    return data as T;
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error("Timeout — slow network, try again");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
   }
-  return data as T;
 }
 
 export async function fetchSession(startParam?: string | null) {

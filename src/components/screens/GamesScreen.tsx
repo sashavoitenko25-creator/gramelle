@@ -37,7 +37,7 @@ export function GamesScreen({
       }
     };
     void tick();
-    const id = setInterval(() => void tick(), 8000);
+    const id = setInterval(() => void tick(), 20000);
     return () => {
       alive = false;
       clearInterval(id);

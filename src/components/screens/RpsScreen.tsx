@@ -849,12 +849,12 @@ export function RpsScreen({
         if (stopped) return;
         const wait =
           mineRef.current?.status === "open" || viewRef.current === "lobby"
-            ? 1200
-            : 3000;
+            ? 2500
+            : 5000;
         timer = setTimeout(tick, wait);
       });
     };
-    timer = setTimeout(tick, 1200);
+    timer = setTimeout(tick, 2000);
     return () => {
       stopped = true;
       if (timer) clearTimeout(timer);
@@ -875,7 +875,7 @@ export function RpsScreen({
       } catch {
         /* ignore */
       }
-    }, 1200);
+    }, 2000);
     return () => clearInterval(id);
   }, [active?.id, view, onReloadBalance, loadHistory]);
 

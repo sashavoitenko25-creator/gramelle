@@ -153,26 +153,46 @@ async function loadRoom(roomId: string): Promise<DiceRoomRow> {
 
 export async function listRooms(viewerTelegramId?: number | null) {
   const db = getAdminClient();
-  const { data: open } = await db
-    .from("dice_rooms")
-    .select("*")
-    .in("status", ["open", "playing"])
-    .order("created_at", { ascending: false })
-    .limit(40);
+  // Parallel room queries
+  const [openRes, recentRes] = await Promise.all([
+    db
+      .from("dice_rooms")
+      .select("*")
+      .in("status", ["open", "playing"])
+      .order("created_at", { ascending: false })
+      .limit(25),
+    db
+      .from("dice_rooms")
+      .select("*")
+      .eq("status", "finished")
+      .order("finished_at", { ascending: false })
+      .limit(12),
+  ]);
 
-  const { data: recent } = await db
-    .from("dice_rooms")
-    .select("*")
-    .eq("status", "finished")
-    .order("finished_at", { ascending: false })
-    .limit(15);
+  const open = (openRes.data || []) as DiceRoomRow[];
+  const recent = (recentRes.data || []) as DiceRoomRow[];
+  const allIds = [...open, ...recent].map((r) => r.id);
+
+  // One query for all players (no N+1)
+  let playersByRoom = new Map<string, DicePlayerRow[]>();
+  if (allIds.length) {
+    const { data: allPlayers } = await db
+      .from("dice_players")
+      .select("*")
+      .in("room_id", allIds)
+      .order("seat", { ascending: true });
+    for (const pl of (allPlayers || []) as DicePlayerRow[]) {
+      const list = playersByRoom.get(pl.room_id) || [];
+      list.push(pl);
+      playersByRoom.set(pl.room_id, list);
+    }
+  }
 
   const rooms: ReturnType<typeof publicRoom>[] = [];
   let mine: ReturnType<typeof publicRoom> | null = null;
 
-  for (const r of open || []) {
-    const row = r as DiceRoomRow;
-    const players = await loadPlayers(row.id);
+  for (const row of open) {
+    const players = playersByRoom.get(row.id) || [];
     const pub = publicRoom(row, players, viewerTelegramId);
     rooms.push(pub);
     if (
@@ -183,12 +203,9 @@ export async function listRooms(viewerTelegramId?: number | null) {
     }
   }
 
-  const recentPub = [];
-  for (const r of recent || []) {
-    const row = r as DiceRoomRow;
-    const players = await loadPlayers(row.id);
-    recentPub.push(publicRoom(row, players, viewerTelegramId));
-  }
+  const recentPub = recent.map((row) =>
+    publicRoom(row, playersByRoom.get(row.id) || [], viewerTelegramId)
+  );
 
   return { rooms, recent: recentPub, mine };
 }

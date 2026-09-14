@@ -93,7 +93,7 @@ export default function Home() {
       }
     };
     void tick();
-    const id = setInterval(() => void tick(), 8000);
+    const id = setInterval(() => void tick(), 15000);
     return () => {
       stopped = true;
       clearInterval(id);
@@ -117,7 +117,7 @@ export default function Home() {
       }
     };
     void run();
-    const id = setInterval(() => void run(), 20_000);
+    const id = setInterval(() => void run(), 45_000);
     const onVis = () => {
       if (document.visibilityState === "visible") void run();
     };

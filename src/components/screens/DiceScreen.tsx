@@ -192,7 +192,7 @@ export function DiceScreen({
 
   useEffect(() => {
     void refresh();
-    const id = setInterval(() => void refresh(), 2800);
+    const id = setInterval(() => void refresh(), 6000);
     return () => clearInterval(id);
   }, [refresh]);
 
@@ -208,7 +208,7 @@ export function DiceScreen({
           }
         })
         .catch(() => {});
-    }, 1200);
+    }, 2500);
     return () => clearInterval(id);
   }, [active?.id, active?.status, onReloadBalance, refresh]);
 
