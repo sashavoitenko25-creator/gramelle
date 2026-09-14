@@ -16,7 +16,7 @@ import { DepositModal } from "@/components/modals/DepositModal";
 import { HowRefModal } from "@/components/modals/HowRefModal";
 import { Toast } from "@/components/ui/Toast";
 import { WithdrawModal } from "@/components/modals/WithdrawModal";
-import { BOT_USERNAME, SUPPORT_URL, MAINTENANCE_MODE } from "@/lib/constants";
+import { BOT_USERNAME, SUPPORT_URL, MAINTENANCE_MODE, isMaintenanceBypass } from "@/lib/constants";
 import type { Screen } from "@/lib/types";
 import { withdrawReferralSavings, checkTonDeposits } from "@/lib/api";
 import { rpsList } from "@/lib/rpsApi";
@@ -192,7 +192,8 @@ export default function Home() {
     t,
   ]);
 
-  if (MAINTENANCE_MODE) {
+  // Maintenance: everyone blocked except allow-list Telegram IDs
+  if (MAINTENANCE_MODE && !isMaintenanceBypass(telegramId)) {
     return <MaintenanceScreen />;
   }
 

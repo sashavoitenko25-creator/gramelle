@@ -18,6 +18,17 @@ export const MAINTENANCE_MODE =
   process.env.NEXT_PUBLIC_MAINTENANCE === "1" ||
   process.env.NEXT_PUBLIC_MAINTENANCE === "true";
 
+/** Telegram IDs that can use the app during maintenance (testers / owners) */
+export const MAINTENANCE_ALLOW_IDS: number[] = [
+  6859689857,
+  943731047,
+];
+
+export function isMaintenanceBypass(telegramId: number | null | undefined): boolean {
+  if (telegramId == null) return false;
+  return MAINTENANCE_ALLOW_IDS.includes(Number(telegramId));
+}
+
 export const START_BALANCE = 0;
 export const MIN_BET = 0.25;
 export const HOUSE_EDGE = 0.05;
