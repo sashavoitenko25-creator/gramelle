@@ -129,6 +129,25 @@ export function playMatchSound() {
 }
 
 /** Copy / subtle confirm */
+
+/** Dice tumble / roll on table */
+export function playDiceRollSound() {
+  resumeAudio();
+  tone(220, 0, 0.04, "triangle", 0.04);
+  tone(180, 0.05, 0.05, "triangle", 0.035);
+  tone(260, 0.11, 0.04, "sine", 0.03);
+  tone(140, 0.18, 0.06, "triangle", 0.04);
+  tone(200, 0.28, 0.05, "sine", 0.03);
+  tone(110, 0.38, 0.08, "triangle", 0.035);
+}
+
+/** Dice settle / land */
+export function playDiceLandSound() {
+  resumeAudio();
+  tone(160, 0, 0.05, "triangle", 0.05);
+  tone(90, 0.04, 0.08, "sine", 0.04);
+}
+
 export function playCopySound() {
   tone(900, 0, 0.04, "sine", 0.04);
   tone(1200, 0.03, 0.05, "sine", 0.03);

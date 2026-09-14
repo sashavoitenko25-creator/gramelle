@@ -138,41 +138,49 @@ export function GamesScreen({
           <OnlineBadge count={diceOnline} />
           <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
             <div className="flex items-center gap-3">
-              {[
-                [1, 0, 1, 0, 1, 0, 1, 0, 1],
-                [1, 0, 1, 1, 0, 1, 1, 0, 1],
-              ].map((face, fi) => (
-                <div
-                  key={fi}
-                  className="w-12 h-12 rounded-[15px] border border-white/50 shadow-[0_10px_28px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.9)] grid grid-cols-3 grid-rows-3 place-items-center p-[15%] rotate-[-6deg] group-hover:rotate-0 transition-transform duration-300"
-                  style={{
-                    background:
-                      "linear-gradient(145deg,#ffffff 0%,#f4f4f5 48%,#e4e4e7 100%)",
-                    transform: fi === 1 ? "rotate(8deg)" : undefined,
-                  }}
-                >
-                  {face.map((on, i) => (
-                    <span
-                      key={i}
-                      className="rounded-full bg-[#12121a]"
-                      style={{
-                        width: 5.5,
-                        height: 5.5,
-                        opacity: on ? 1 : 0,
-                      }}
-                    />
-                  ))}
-                </div>
-              ))}
+              {/* SVG dice — always crisp */}
+              <svg width="52" height="52" viewBox="0 0 52 52" className="drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)] -rotate-6 group-hover:rotate-0 transition-transform duration-300">
+                <defs>
+                  <linearGradient id="dieG1" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#ffffff" />
+                    <stop offset="55%" stopColor="#f4f4f5" />
+                    <stop offset="100%" stopColor="#d4d4d8" />
+                  </linearGradient>
+                </defs>
+                <rect x="1" y="1" width="50" height="50" rx="12" fill="url(#dieG1)" stroke="rgba(255,255,255,0.55)" />
+                {/* face 5 */}
+                <circle cx="14" cy="14" r="4" fill="#12121a" />
+                <circle cx="38" cy="14" r="4" fill="#12121a" />
+                <circle cx="26" cy="26" r="4" fill="#12121a" />
+                <circle cx="14" cy="38" r="4" fill="#12121a" />
+                <circle cx="38" cy="38" r="4" fill="#12121a" />
+              </svg>
+              <svg width="52" height="52" viewBox="0 0 52 52" className="drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)] rotate-6 group-hover:rotate-0 transition-transform duration-300">
+                <defs>
+                  <linearGradient id="dieG2" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#ffffff" />
+                    <stop offset="55%" stopColor="#f4f4f5" />
+                    <stop offset="100%" stopColor="#d4d4d8" />
+                  </linearGradient>
+                </defs>
+                <rect x="1" y="1" width="50" height="50" rx="12" fill="url(#dieG2)" stroke="rgba(255,255,255,0.55)" />
+                {/* face 6 */}
+                <circle cx="14" cy="13" r="3.6" fill="#12121a" />
+                <circle cx="38" cy="13" r="3.6" fill="#12121a" />
+                <circle cx="14" cy="26" r="3.6" fill="#12121a" />
+                <circle cx="38" cy="26" r="3.6" fill="#12121a" />
+                <circle cx="14" cy="39" r="3.6" fill="#12121a" />
+                <circle cx="38" cy="39" r="3.6" fill="#12121a" />
+              </svg>
             </div>
-            <div className="mt-6">
+            <div className="mt-5">
               <div className="text-[22px] font-bold text-white tracking-tight leading-none">
                 Dice
               </div>
-              <div className="text-[13px] text-white/55 mt-1.5 leading-snug max-w-[95%]">
+              <div className="text-[13px] text-white/55 mt-1.5 leading-snug max-w-[92%]">
                 {isRu
-                  ? "Стол на 2–6 игроков. Две кости — побеждает большая сумма. Ничья? Переброс."
-                  : "Table for 2–6. Two dice — highest sum wins. Tie? Roll again."}
+                  ? "Стол 2–6 игроков · две кости · большая сумма забирает банк"
+                  : "Table 2–6 · two dice · highest sum takes the pot"}
               </div>
             </div>
           </div>

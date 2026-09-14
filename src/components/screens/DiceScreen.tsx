@@ -29,6 +29,8 @@ import {
   playMatchSound,
   playSelectSound,
   playCopySound,
+  playDiceRollSound,
+  playDiceLandSound,
   resumeAudio,
 } from "@/lib/sounds";
 import { useI18n } from "@/lib/i18n/context";
@@ -426,11 +428,12 @@ export function DiceScreen({
     setRollingAnim(true);
     setLastRoll(null);
     resumeAudio();
-    playSelectSound();
+    playDiceRollSound();
     haptic("medium");
     try {
       const resPromise = diceRoll(roomId);
-      await new Promise((r) => setTimeout(r, 1200));
+      await new Promise((r) => setTimeout(r, 1400));
+      playDiceLandSound();
       const res = await resPromise;
       const roll = res.roll;
       if (roll && roll.die1 >= 1 && roll.die2 >= 1) {
@@ -751,8 +754,8 @@ export function DiceScreen({
           </div>
 
           {/* Felt table */}
-          <div className="relative mx-auto w-full max-w-[340px] aspect-square shrink-0">
-            <div className="absolute inset-[-5%] rounded-full bg-emerald-500/10 blur-3xl dice-pot-glow pointer-events-none" />
+          <div className="relative mx-auto w-full max-w-[320px] aspect-square shrink-0">
+            <div className="absolute inset-[-4%] rounded-full bg-emerald-500/10 blur-3xl dice-pot-glow pointer-events-none" />
             <div
               className="absolute inset-0 rounded-full overflow-hidden"
               style={{
@@ -812,7 +815,7 @@ export function DiceScreen({
               {seats.map((p, i) => {
                 const n = seats.length || 1;
                 const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
-                const radius = 36;
+                const radius = 31;
                 const left = 50 + radius * Math.cos(angle);
                 const top = 50 + radius * Math.sin(angle);
                 const isTurn =
@@ -826,7 +829,7 @@ export function DiceScreen({
                   <div
                     key={i}
                     className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-                    style={{ left: `${left}%`, top: `${top}%`, width: 76 }}
+                    style={{ left: `${left}%`, top: `${top}%`, width: 62 }}
                   >
                     <div
                       className={cn(
@@ -841,12 +844,12 @@ export function DiceScreen({
                               : "bg-black/25 border-white/[0.06] border-dashed"
                       )}
                     >
-                      <div className="flex justify-center -mt-4 mb-0.5">
+                      <div className="flex justify-center -mt-3 mb-0.5">
                         {p ? (
                           <Avatar
                             name={p.username}
                             photoUrl={p.photoUrl}
-                            size={32}
+                            size={28}
                             dimmed={elim}
                             ring={
                               isTurn
@@ -863,7 +866,7 @@ export function DiceScreen({
                         )}
                       </div>
                       <div className="text-[9px] text-white/55 truncate px-0.5 leading-tight">
-                        {p ? `@${p.username}` : "·"}
+                        {p ? `@${p.username}` : ""}
                       </div>
                       {p &&
                         (p.hasRolled ||
@@ -874,7 +877,7 @@ export function DiceScreen({
                                 rollingAnim && isTurn && isMe ? null : p.die1
                               }
                               rolling={rollingAnim && isTurn && isMe}
-                              size={28}
+                              size={20}
                               highlight={isWin}
                             />
                             <DieFace
@@ -882,7 +885,7 @@ export function DiceScreen({
                                 rollingAnim && isTurn && isMe ? null : p.die2
                               }
                               rolling={rollingAnim && isTurn && isMe}
-                              size={28}
+                              size={20}
                               highlight={isWin}
                             />
                           </div>

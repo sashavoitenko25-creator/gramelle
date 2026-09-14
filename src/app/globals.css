@@ -346,25 +346,28 @@ html.tg-light {
 
 /* ── Dice PvP ─────────────────────────────────────────── */
 @keyframes dice-tumble {
-  0%   { transform: translateY(0) rotate(0deg) scale(1); }
-  15%  { transform: translateY(-12px) rotate(-20deg) scale(1.1); }
-  30%  { transform: translateY(3px) rotate(24deg) scale(0.92); }
-  45%  { transform: translateY(-10px) rotate(-16deg) scale(1.08); }
-  60%  { transform: translateY(2px) rotate(18deg) scale(0.95); }
-  75%  { transform: translateY(-6px) rotate(-12deg) scale(1.05); }
-  100% { transform: translateY(0) rotate(0deg) scale(1); }
+  0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+  12%  { transform: translate(8px, -18px) rotate(55deg) scale(1.12); }
+  24%  { transform: translate(-10px, -6px) rotate(130deg) scale(0.92); }
+  36%  { transform: translate(12px, -22px) rotate(210deg) scale(1.1); }
+  48%  { transform: translate(-8px, -4px) rotate(290deg) scale(0.94); }
+  60%  { transform: translate(6px, -14px) rotate(370deg) scale(1.06); }
+  72%  { transform: translate(-4px, -2px) rotate(430deg) scale(0.97); }
+  84%  { transform: translate(3px, -8px) rotate(490deg) scale(1.03); }
+  100% { transform: translate(0, 0) rotate(540deg) scale(1); }
 }
 .dice-tumble {
-  animation: dice-tumble 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+  animation: dice-tumble 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
   will-change: transform;
 }
 @keyframes dice-land {
-  0%   { transform: scale(1.18); }
-  55%  { transform: scale(0.94); }
-  100% { transform: scale(1); }
+  0%   { transform: translateY(-8px) scale(1.2); }
+  40%  { transform: translateY(2px) scale(0.92); }
+  70%  { transform: translateY(-2px) scale(1.04); }
+  100% { transform: translateY(0) scale(1); }
 }
 .dice-land {
-  animation: dice-land 0.32s ease-out;
+  animation: dice-land 0.4s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 @keyframes dice-seat-pulse {
