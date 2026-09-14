@@ -16,7 +16,7 @@ import {
   gramFromTon,
 } from "@/lib/payments";
 import { createTonPending, checkTonDeposits } from "@/lib/api";
-import { tonAmountToNano } from "@/lib/tonPayload";
+import { tonAmountToNano, tonCommentPayload } from "@/lib/tonPayload";
 import { cn } from "@/lib/utils";
 import { TonIcon } from "@/components/ui/TonIcon";
 import { GramIcon } from "@/components/ui/GramIcon";
@@ -139,7 +139,6 @@ export function DepositModal({
       hapticError();
       return;
     }
-    // Only move to pay UI — do NOT create server intent / history yet
     resumeAudio();
     playClickSound();
     setTonAmount(amt);
@@ -148,6 +147,34 @@ export function DepositModal({
     setExpiresAt(null);
     haptic("light");
     setTonStep("pay");
+    // Pre-create pending intent so memo is ready (and for manual copy)
+    void (async () => {
+      try {
+        if (serverMode) {
+          const pending = await createTonPending(amt);
+          const memo = pending.memo || "";
+          setTonMemo(memo);
+          setExpiresAt(
+            (pending as { expiresAt?: string }).expiresAt ||
+              (pending as { deposit?: { expires_at?: string } }).deposit
+                ?.expires_at ||
+              null
+          );
+        } else {
+          const memo =
+            "gramelle_" +
+            (telegramId || username.toLowerCase().replace(/\s+/g, "")) +
+            "_" +
+            Date.now().toString(36);
+          setTonMemo(memo);
+          setExpiresAt(
+            new Date(Date.now() + TON_PENDING_TTL_SEC * 1000).toISOString()
+          );
+        }
+      } catch {
+        /* pay will retry via ensurePending */
+      }
+    })();
   };
 
   const ensurePending = async (amt: number) => {
@@ -203,16 +230,21 @@ export function DepositModal({
       }
 
       const nano = tonAmountToNano(tonAmount);
+      const payload = tonCommentPayload(memo);
       await tonConnectUI.sendTransaction({
         validUntil: Math.floor(Date.now() / 1000) + 600,
         messages: [
           {
             address: TON_DEPOSIT_ADDRESS,
             amount: nano,
+            // Comment (memo) embedded in body — required for auto-credit
+            payload,
           },
         ],
       });
-      showToast("Memo скопирован. Вставьте его в комментарий перевода в кошельке!");
+      showToast(
+        "Перевод отправлен с memo. Баланс зачислится автоматически после подтверждения в сети."
+      );
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e);
       if (/reject|cancel|abort|user.?reject/i.test(raw)) {
@@ -404,7 +436,7 @@ export function DepositModal({
             </button>
             <p className="text-[11px] text-white/45 text-center leading-snug px-1">
               {serverMode
-                ? "Нажмите «Оплатить» и подтвердите в кошельке — баланс обновится автоматически."
+                ? "Нажмите «Оплатить» — memo подставится в перевод сам. Баланс обновится после подтверждения в сети."
                 : ""}
             </p>
             <button
