@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api";
+import { cacheGet, cacheSet, cacheInvalidate } from "@/lib/clientCache";
 
 export interface DicePlayerPublic {
   seat: number;
@@ -37,16 +38,29 @@ export interface DiceRoomPublic {
   isMyTurn: boolean;
 }
 
-export async function diceList() {
-  return apiFetch<{
+export async function diceList(opts?: { fresh?: boolean }) {
+  const key = "dice:list";
+  if (!opts?.fresh) {
+    const hit = cacheGet<{
+      ok?: boolean;
+      rooms: DiceRoomPublic[];
+      recent: DiceRoomPublic[];
+      mine: DiceRoomPublic | null;
+    }>(key);
+    if (hit) return hit;
+  }
+  const data = await apiFetch<{
     ok?: boolean;
     rooms: DiceRoomPublic[];
     recent: DiceRoomPublic[];
     mine: DiceRoomPublic | null;
   }>("/api/dice/list");
+  cacheSet(key, data, 3500);
+  return data;
 }
 
 export async function diceCreate(amount: number, maxPlayers: number) {
+  cacheInvalidate("dice");
   return apiFetch<{ ok: boolean; room: DiceRoomPublic; balance: number }>(
     "/api/dice/create",
     { method: "POST", body: JSON.stringify({ amount, maxPlayers }) }
@@ -54,6 +68,7 @@ export async function diceCreate(amount: number, maxPlayers: number) {
 }
 
 export async function diceJoin(roomId: string) {
+  cacheInvalidate("dice");
   return apiFetch<{ ok: boolean; room: DiceRoomPublic; balance: number }>(
     "/api/dice/join",
     { method: "POST", body: JSON.stringify({ roomId }) }
@@ -61,6 +76,7 @@ export async function diceJoin(roomId: string) {
 }
 
 export async function diceLeave(roomId: string) {
+  cacheInvalidate("dice");
   return apiFetch<{ ok: boolean; room: DiceRoomPublic | null; balance: number }>(
     "/api/dice/leave",
     { method: "POST", body: JSON.stringify({ roomId }) }
@@ -68,6 +84,7 @@ export async function diceLeave(roomId: string) {
 }
 
 export async function diceStart(roomId: string) {
+  cacheInvalidate("dice");
   return apiFetch<{ ok: boolean; room: DiceRoomPublic }>(
     "/api/dice/start",
     { method: "POST", body: JSON.stringify({ roomId }) }
@@ -75,6 +92,7 @@ export async function diceStart(roomId: string) {
 }
 
 export async function diceRoll(roomId: string) {
+  cacheInvalidate("dice");
   return apiFetch<{
     ok: boolean;
     room: DiceRoomPublic;
@@ -86,6 +104,7 @@ export async function diceRoll(roomId: string) {
 }
 
 export async function diceCancel(roomId: string) {
+  cacheInvalidate("dice");
   return apiFetch<{ ok: boolean; room: DiceRoomPublic; balance: number }>(
     "/api/dice/cancel",
     { method: "POST", body: JSON.stringify({ roomId }) }

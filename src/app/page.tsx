@@ -54,6 +54,8 @@ export default function Home() {
   });
 
   const [screen, setScreen] = useState<Screen>("games");
+  const [visitedRps, setVisitedRps] = useState(false);
+  const [visitedDice, setVisitedDice] = useState(false);
   const [refWithdrawing, setRefWithdrawing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [onlineCount, setOnlineCount] = useState(0);
@@ -93,7 +95,7 @@ export default function Home() {
       }
     };
     void tick();
-    const id = setInterval(() => void tick(), 15000);
+    const id = setInterval(() => void tick(), 30000);
     return () => {
       stopped = true;
       clearInterval(id);
@@ -117,7 +119,7 @@ export default function Home() {
       }
     };
     void run();
-    const id = setInterval(() => void run(), 45_000);
+    const id = setInterval(() => void run(), 90_000);
     const onVis = () => {
       if (document.visibilityState === "visible") void run();
     };
@@ -258,16 +260,19 @@ export default function Home() {
           onlineCount={onlineCount}
           onSelectRps={() => {
             haptic("light");
+            setVisitedRps(true);
             setScreen("rps");
           }}
           onSelectDice={() => {
             haptic("light");
+            setVisitedDice(true);
             setScreen("dice");
           }}
         />
       )}
 
-      {screen === "rps" && (
+      {(screen === "rps" || visitedRps) && (
+        <div className={screen === "rps" ? "contents" : "hidden"} aria-hidden={screen !== "rps"}>
         <RpsScreen
           balance={balance}
           telegramId={telegramId}
@@ -295,10 +300,13 @@ export default function Home() {
             setFairnessPrefill({ hash, seed });
             setScreen("fairness");
           }}
+          isVisible={screen === "rps"}
         />
+        </div>
       )}
 
-      {screen === "dice" && (
+      {(screen === "dice" || visitedDice) && (
+        <div className={screen === "dice" ? "contents" : "hidden"} aria-hidden={screen !== "dice"}>
         <DiceScreen
           balance={balance}
           telegramId={telegramId}
@@ -320,7 +328,9 @@ export default function Home() {
           haptic={haptic}
           hapticSuccess={hapticSuccess}
           hapticError={hapticError}
+          isVisible={screen === "dice"}
         />
+        </div>
       )}
 
 

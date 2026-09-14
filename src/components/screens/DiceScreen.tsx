@@ -47,6 +47,7 @@ interface Props {
   haptic: (type?: "light" | "medium" | "heavy") => void;
   hapticSuccess: () => void;
   hapticError: () => void;
+  isVisible?: boolean;
 }
 
 type View = "lobby" | "create" | "table" | "history";
@@ -144,6 +145,7 @@ export function DiceScreen({
   haptic,
   hapticSuccess,
   hapticError,
+  isVisible = true,
 }: Props) {
   const { t, lang } = useI18n();
   const { setBackButton } = useTelegram();
@@ -191,12 +193,14 @@ export function DiceScreen({
   }, [active?.id]);
 
   useEffect(() => {
+    if (!isVisible) return;
     void refresh();
-    const id = setInterval(() => void refresh(), 6000);
+    const id = setInterval(() => void refresh(), 8000);
     return () => clearInterval(id);
-  }, [refresh]);
+  }, [refresh, isVisible]);
 
   useEffect(() => {
+    if (!isVisible) return;
     if (!active?.id || active.status !== "playing") return;
     const id = setInterval(() => {
       void diceState(active.id)
@@ -210,7 +214,7 @@ export function DiceScreen({
         .catch(() => {});
     }, 2500);
     return () => clearInterval(id);
-  }, [active?.id, active?.status, onReloadBalance, refresh]);
+  }, [isVisible, active?.id, active?.status, onReloadBalance, refresh]);
 
   useEffect(() => {
     const handler = () => {

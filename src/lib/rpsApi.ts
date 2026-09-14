@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api";
+import { cacheGet, cacheSet, cacheInvalidate } from "@/lib/clientCache";
 
 export type RpsChoice = "rock" | "paper" | "scissors";
 
@@ -29,17 +30,31 @@ export interface RpsPublicRoom {
   isCreator: boolean;
 }
 
-export async function rpsList() {
-  return apiFetch<{
+export async function rpsList(opts?: { fresh?: boolean }) {
+  const key = "rps:list";
+  if (!opts?.fresh) {
+    const hit = cacheGet<{
+      ok?: boolean;
+      demo?: boolean;
+      rooms: RpsPublicRoom[];
+      recent: RpsPublicRoom[];
+      mine: RpsPublicRoom | null;
+    }>(key);
+    if (hit) return hit;
+  }
+  const data = await apiFetch<{
     ok?: boolean;
     demo?: boolean;
     rooms: RpsPublicRoom[];
     recent: RpsPublicRoom[];
     mine: RpsPublicRoom | null;
   }>("/api/rps/list");
+  cacheSet(key, data, 3500);
+  return data;
 }
 
 export async function rpsCreate(choice: RpsChoice, amount: number) {
+  cacheInvalidate("rps");
   return apiFetch<{
     ok: boolean;
     room: RpsPublicRoom;
@@ -51,6 +66,7 @@ export async function rpsCreate(choice: RpsChoice, amount: number) {
 }
 
 export async function rpsCancel(roomId: string) {
+  cacheInvalidate("rps");
   return apiFetch<{
     ok: boolean;
     room: RpsPublicRoom;
@@ -62,6 +78,7 @@ export async function rpsCancel(roomId: string) {
 }
 
 export async function rpsJoin(roomId: string, choice: RpsChoice) {
+  cacheInvalidate("rps");
   return apiFetch<{
     ok: boolean;
     room: RpsPublicRoom;
