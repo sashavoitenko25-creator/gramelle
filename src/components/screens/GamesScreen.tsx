@@ -111,10 +111,9 @@ export function GamesScreen({
             }}
           />
           <div className="absolute top-3.5 right-3.5 z-20 flex items-center gap-1.5">
-            <div className="relative flex items-center gap-1 pl-1.5 pr-2 py-1 rounded-full bg-gradient-to-r from-amber-300 via-yellow-300 to-orange-400 border border-white/35 shadow-[0_0_16px_rgba(251,191,36,0.55),0_2px_8px_rgba(0,0,0,0.25)]">
-              <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white/25 text-[9px] leading-none">✨</span>
+            <div className="relative flex items-center px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-300 via-yellow-300 to-orange-400 border border-white/35 shadow-[0_0_16px_rgba(251,191,36,0.55),0_2px_8px_rgba(0,0,0,0.25)]">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-black/85 drop-shadow-[0_1px_0_rgba(255,255,255,0.35)]">
-                New
+                NEW
               </span>
             </div>
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 border border-white/15 backdrop-blur-md">
