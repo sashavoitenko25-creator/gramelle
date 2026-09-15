@@ -721,48 +721,10 @@ export function DiceScreen({
 
   /* ═══════════ HISTORY ═══════════ */
   if (view === "history") {
-    // Prefer personal dice_history; fall back to recent finished rooms
-    const fromPersonal = personalHistory.length > 0;
-    const numbered = fromPersonal
-      ? personalHistory.map((h, i) => ({
-          id: h.room_id,
-          no: personalHistory.length - i,
-          amount: Number(h.amount),
-          pot: Number(h.pot),
-          houseFee: Number(h.house_fee),
-          winnerTelegramId: h.winner_telegram_id,
-          serverSeedHash: h.server_seed_hash || "",
-          serverSeed: h.server_seed,
-          playerCount: h.player_count,
-          players: [
-            {
-              seat: 0,
-              telegramId: h.telegram_id,
-              username: h.username,
-              photoUrl: null as string | null,
-              active: true,
-              die1: h.die1,
-              die2: h.die2,
-              sum: h.sum,
-              hasRolled: true,
-            },
-          ],
-          result: h.result as "win" | "lose",
-          payout: Number(h.payout),
-          createdAt: h.created_at,
-        }))
-      : [...recent].map((r, i) => ({
-          ...r,
-          no: recent.length - i,
-          result: (r.winnerTelegramId === telegramId
-            ? "win"
-            : "lose") as "win" | "lose",
-          payout:
-            r.winnerTelegramId === telegramId
-              ? (r.pot || 0) - (r.houseFee || 0)
-              : 0,
-          createdAt: r.finishedAt || r.createdAt,
-        }));
+    const numbered = [...recent].map((r, i) => ({
+      ...r,
+      no: recent.length - i,
+    }));
     return (
       <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
         {header}
@@ -776,30 +738,16 @@ export function DiceScreen({
             const winner = r.players.find(
               (p) => p.telegramId === r.winnerTelegramId
             );
-            const iWon =
-              ("result" in r && r.result === "win") ||
-              r.winnerTelegramId === telegramId;
-            const iPlayed = fromPersonal
-              ? true
-              : r.players.some((p) => p.telegramId === telegramId);
+            const iWon = r.winnerTelegramId === telegramId;
+            const iPlayed = r.players.some((p) => p.telegramId === telegramId);
             return (
               <div
-                key={`${r.id}-${r.no}`}
+                key={r.id}
                 className="w-full text-left rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3.5"
               >
                 <button
                   type="button"
-                  onClick={() => {
-                    if (fromPersonal) {
-                      void diceState(r.id)
-                        .then((res) => openTable(res.room))
-                        .catch(() =>
-                          showToast(tr("Could not open", "Не удалось открыть"))
-                        );
-                    } else {
-                      openTable(r as unknown as DiceRoomPublic);
-                    }
-                  }}
+                  onClick={() => openTable(r)}
                   className="w-full text-left btn-press"
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
@@ -844,33 +792,27 @@ export function DiceScreen({
                       })}
                     </div>
                     <span className="text-[11px] text-white/35 truncate max-w-[45%]">
-                      {fromPersonal
-                        ? iWon
-                          ? tr("You won", "Вы победили")
-                          : tr("Loss", "Поражение")
-                        : winner
-                          ? tr(
-                              `Winner @${winner.username}`,
-                              `Победитель @${winner.username}`
-                            )
-                          : "—"}
+                      {winner
+                        ? tr(
+                            `Winner @${winner.username}`,
+                            `Победитель @${winner.username}`
+                          )
+                        : "—"}
                     </span>
                   </div>
                 </button>
-                {r.serverSeed &&
-                  r.serverSeedHash &&
-                  onVerifyFairness && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        haptic("light");
-                        onVerifyFairness(r.serverSeedHash, r.serverSeed!);
-                      }}
-                      className="mt-2.5 w-full h-10 rounded-xl bg-cyan-500/12 border border-cyan-400/25 text-cyan-200 text-[12px] font-semibold btn-press"
-                    >
-                      {tr("Verify fairness", "Проверить честность")}
-                    </button>
-                  )}
+                {r.serverSeed && r.serverSeedHash && onVerifyFairness && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptic("light");
+                      onVerifyFairness(r.serverSeedHash, r.serverSeed!);
+                    }}
+                    className="mt-2.5 w-full h-10 rounded-xl bg-cyan-500/12 border border-cyan-400/25 text-cyan-200 text-[12px] font-semibold btn-press"
+                  >
+                    {tr("Verify fairness", "Проверить честность")}
+                  </button>
+                )}
               </div>
             );
           })}

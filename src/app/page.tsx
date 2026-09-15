@@ -79,7 +79,10 @@ export default function Home() {
   const showToast = useCallback((msg: string) => setToast(msg), []);
 
 
-  // Global online — RPS + Dice tables
+  // Online: RPS and Dice separate; top bar = sum (same user in both = 2)
+  const [rpsOnline, setRpsOnline] = useState(0);
+  const [diceOnline, setDiceOnline] = useState(0);
+
   useEffect(() => {
     if (!isReady) return;
     let stopped = false;
@@ -90,35 +93,38 @@ export default function Home() {
           diceList().catch(() => null),
         ]);
         if (stopped) return;
-        const ids = new Set<number>();
+
+        const rpsIds = new Set<number>();
         for (const r of rps?.rooms || []) {
-          if ("creatorTelegramId" in r && r.creatorTelegramId)
-            ids.add(r.creatorTelegramId as number);
-          if ("joinerTelegramId" in r && (r as { joinerTelegramId?: number | null }).joinerTelegramId)
-            ids.add((r as { joinerTelegramId: number }).joinerTelegramId);
+          if (r.creatorTelegramId) rpsIds.add(r.creatorTelegramId);
+          if (r.joinerTelegramId) rpsIds.add(r.joinerTelegramId);
         }
-        if (rps?.mine?.creatorTelegramId) ids.add(rps.mine.creatorTelegramId);
-        if (rps?.mine && (rps.mine as { joinerTelegramId?: number | null }).joinerTelegramId)
-          ids.add((rps.mine as { joinerTelegramId: number }).joinerTelegramId);
+        if (rps?.mine) {
+          if (rps.mine.creatorTelegramId) rpsIds.add(rps.mine.creatorTelegramId);
+          if (rps.mine.joinerTelegramId) rpsIds.add(rps.mine.joinerTelegramId);
+        }
+
+        const diceIds = new Set<number>();
         for (const r of dice?.rooms || []) {
-          for (const pl of r.players || []) ids.add(pl.telegramId);
+          if (r.status !== "open" && r.status !== "playing") continue;
+          for (const pl of r.players || []) diceIds.add(pl.telegramId);
         }
-        if (dice?.mine) {
-          for (const pl of dice.mine.players || []) ids.add(pl.telegramId);
+        if (dice?.mine && (dice.mine.status === "open" || dice.mine.status === "playing")) {
+          for (const pl of dice.mine.players || []) diceIds.add(pl.telegramId);
         }
-        // Fallback: at least open-room count if no player ids
-        const fallback =
-          (rps?.rooms || []).length +
-          (dice?.rooms || []).length +
-          (rps?.mine?.status === "playing" ? 1 : 0) +
-          (dice?.mine?.status === "playing" ? 1 : 0);
-        setOnlineCount(Math.max(ids.size, fallback > 0 && ids.size === 0 ? fallback : ids.size));
+
+        const rpsN = rpsIds.size;
+        const diceN = diceIds.size;
+        setRpsOnline(rpsN);
+        setDiceOnline(diceN);
+        // Sum seats across games — one person in RPS+Dice counts as 2
+        setOnlineCount(rpsN + diceN);
       } catch {
         /* keep */
       }
     };
     void tick();
-    const id = setInterval(() => void tick(), 15000);
+    const id = setInterval(() => void tick(), 5000);
     return () => {
       stopped = true;
       clearInterval(id);
@@ -280,7 +286,8 @@ export default function Home() {
 
       {screen === "games" && (
         <GamesScreen
-          onlineCount={onlineCount}
+          rpsOnline={rpsOnline}
+          diceOnline={diceOnline}
           onSelectRps={() => {
             haptic("light");
             setScreen("rps");

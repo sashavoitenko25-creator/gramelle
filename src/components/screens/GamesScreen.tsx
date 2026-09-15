@@ -1,48 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { ChoiceIcon } from "@/components/rps/RpsIcons";
 import { useI18n } from "@/lib/i18n/context";
-import { diceList } from "@/lib/diceApi";
 
 interface GamesScreenProps {
   onSelectRps: () => void;
   onSelectDice: () => void;
-  onlineCount?: number;
+  rpsOnline?: number;
+  diceOnline?: number;
 }
 
 export function GamesScreen({
   onSelectRps,
   onSelectDice,
-  onlineCount = 0,
+  rpsOnline = 0,
+  diceOnline = 0,
 }: GamesScreenProps) {
   const { t, lang } = useI18n();
   const isRu = lang === "ru";
-  const [diceOnline, setDiceOnline] = useState(0);
-
-  useEffect(() => {
-    let alive = true;
-    const tick = async () => {
-      try {
-        const data = await diceList();
-        const ids = new Set<number>();
-        for (const r of data.rooms || []) {
-          if (r.status === "open" || r.status === "playing") {
-            for (const p of r.players) ids.add(p.telegramId);
-          }
-        }
-        if (alive) setDiceOnline(ids.size);
-      } catch {
-        /* */
-      }
-    };
-    void tick();
-    const id = setInterval(() => void tick(), 20000);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, []);
 
   const OnlineBadge = ({ count }: { count: number }) => (
     <div className="absolute top-3.5 right-3.5 z-20 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 border border-white/15 backdrop-blur-md">
@@ -93,7 +68,7 @@ export function GamesScreen({
               backgroundSize: "28px 28px",
             }}
           />
-          <OnlineBadge count={onlineCount} />
+          <OnlineBadge count={rpsOnline} />
           <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
             <div className="flex items-center -space-x-2.5">
               <div className="w-11 h-11 rounded-full bg-white/[0.14] border-2 border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.3)] z-30 text-white">
@@ -138,8 +113,12 @@ export function GamesScreen({
           <OnlineBadge count={diceOnline} />
           <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
             <div className="flex items-center gap-3">
-              {/* SVG dice — always crisp */}
-              <svg width="52" height="52" viewBox="0 0 52 52" className="drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)] -rotate-6 group-hover:rotate-0 transition-transform duration-300">
+              <svg
+                width="52"
+                height="52"
+                viewBox="0 0 52 52"
+                className="drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)] -rotate-6 group-hover:rotate-0 transition-transform duration-300"
+              >
                 <defs>
                   <linearGradient id="dieG1" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="#ffffff" />
@@ -147,15 +126,27 @@ export function GamesScreen({
                     <stop offset="100%" stopColor="#d4d4d8" />
                   </linearGradient>
                 </defs>
-                <rect x="1" y="1" width="50" height="50" rx="12" fill="url(#dieG1)" stroke="rgba(255,255,255,0.55)" />
-                {/* face 5 */}
+                <rect
+                  x="1"
+                  y="1"
+                  width="50"
+                  height="50"
+                  rx="12"
+                  fill="url(#dieG1)"
+                  stroke="rgba(255,255,255,0.55)"
+                />
                 <circle cx="14" cy="14" r="4" fill="#12121a" />
                 <circle cx="38" cy="14" r="4" fill="#12121a" />
                 <circle cx="26" cy="26" r="4" fill="#12121a" />
                 <circle cx="14" cy="38" r="4" fill="#12121a" />
                 <circle cx="38" cy="38" r="4" fill="#12121a" />
               </svg>
-              <svg width="52" height="52" viewBox="0 0 52 52" className="drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)] rotate-6 group-hover:rotate-0 transition-transform duration-300">
+              <svg
+                width="52"
+                height="52"
+                viewBox="0 0 52 52"
+                className="drop-shadow-[0_10px_20px_rgba(0,0,0,0.4)] rotate-6 group-hover:rotate-0 transition-transform duration-300"
+              >
                 <defs>
                   <linearGradient id="dieG2" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="#ffffff" />
@@ -163,8 +154,15 @@ export function GamesScreen({
                     <stop offset="100%" stopColor="#d4d4d8" />
                   </linearGradient>
                 </defs>
-                <rect x="1" y="1" width="50" height="50" rx="12" fill="url(#dieG2)" stroke="rgba(255,255,255,0.55)" />
-                {/* face 6 */}
+                <rect
+                  x="1"
+                  y="1"
+                  width="50"
+                  height="50"
+                  rx="12"
+                  fill="url(#dieG2)"
+                  stroke="rgba(255,255,255,0.55)"
+                />
                 <circle cx="14" cy="13" r="3.6" fill="#12121a" />
                 <circle cx="38" cy="13" r="3.6" fill="#12121a" />
                 <circle cx="14" cy="26" r="3.6" fill="#12121a" />
