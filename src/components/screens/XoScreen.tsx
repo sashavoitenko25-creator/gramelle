@@ -557,6 +557,7 @@ export function XoScreen({
   if (view === "history") {
     type Card = {
       key: string;
+      roomId: string;
       no: number;
       amount: number;
       potAfterFee: number | null;
@@ -565,13 +566,17 @@ export function XoScreen({
       joinerUsername: string | null;
       creatorPhotoUrl: string | null;
       joinerPhotoUrl: string | null;
+      creatorTelegramId?: number | null;
+      joinerTelegramId?: number | null;
       result?: "win" | "lose" | "draw";
       payout?: number;
       isMine: boolean;
+      room?: XoPublicRoom | null;
     };
 
     const allCards: Card[] = recent.map((r, i) => ({
       key: r.id,
+      roomId: r.id,
       no: r.gameNo != null ? Number(r.gameNo) : recent.length - i,
       amount: r.amount,
       potAfterFee: r.potAfterFee,
@@ -580,15 +585,28 @@ export function XoScreen({
       joinerUsername: r.joinerUsername,
       creatorPhotoUrl: r.creatorPhotoUrl,
       joinerPhotoUrl: r.joinerPhotoUrl,
+      creatorTelegramId: r.creatorTelegramId,
+      joinerTelegramId: r.joinerTelegramId,
       isMine:
         r.creatorTelegramId === telegramId ||
         r.joinerTelegramId === telegramId,
+      room: r,
+      result:
+        r.winnerTelegramId == null
+          ? "draw"
+          : r.winnerTelegramId === telegramId
+            ? "win"
+            : r.creatorTelegramId === telegramId ||
+                r.joinerTelegramId === telegramId
+              ? "lose"
+              : undefined,
     }));
 
     const myCards: Card[] = personalHistory.map((h, i) => {
       const fromRecent = recent.find((r) => r.id === h.room_id);
       return {
         key: h.id,
+        roomId: h.room_id,
         no:
           h.game_no != null
             ? Number(h.game_no)
@@ -602,14 +620,17 @@ export function XoScreen({
             ? null
             : h.result === "win"
               ? telegramId ?? null
-              : null,
+              : fromRecent?.winnerTelegramId ?? null,
         creatorUsername: fromRecent?.creatorUsername || username,
         joinerUsername: fromRecent?.joinerUsername || h.opponent,
         creatorPhotoUrl: fromRecent?.creatorPhotoUrl || photoUrl || null,
         joinerPhotoUrl: fromRecent?.joinerPhotoUrl || null,
+        creatorTelegramId: fromRecent?.creatorTelegramId,
+        joinerTelegramId: fromRecent?.joinerTelegramId,
         result: h.result,
         payout: h.payout,
         isMine: true,
+        room: fromRecent || null,
       };
     });
 
@@ -677,22 +698,46 @@ export function XoScreen({
                   delta = `${formatGram(c.amount)} GRAM`;
                   deltaCls = "text-white/50";
                 }
+                const winnerU =
+                  draw
+                    ? null
+                    : c.winnerTelegramId != null &&
+                        c.creatorTelegramId === c.winnerTelegramId
+                      ? c.creatorUsername
+                      : c.joinerUsername || c.creatorUsername;
                 const wLabel = draw
                   ? tr("Draw", "Ничья")
-                  : iWon
-                    ? `@${(username || "?").replace(/^@/, "")}`
-                    : `@${(c.joinerUsername || c.creatorUsername || "?").replace(/^@/, "")}`;
+                  : `@${(winnerU || "?").replace(/^@/, "")}`;
 
+                const openDetail = async () => {
+                  haptic("light");
+                  if (c.room) {
+                    setActive(c.room);
+                    setView("play");
+                    return;
+                  }
+                  try {
+                    const s = await xoState(c.roomId);
+                    setActive(s.room);
+                    setView("play");
+                  } catch {
+                    showToast(tr("Could not open game", "Не удалось открыть игру"));
+                  }
+                };
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={c.key}
+                    onClick={() => void openDetail()}
                     className={cn(
-                      "w-full text-left rounded-[18px] border px-3.5 py-3 transition",
+                      "w-full text-left rounded-[18px] border px-3.5 py-3 transition btn-press active:scale-[0.99]",
                       iWon
-                        ? "border-emerald-500/30 bg-emerald-500/[0.07]"
+                        ? "border-emerald-500/35 bg-emerald-500/[0.08]"
                         : iLost
-                          ? "border-white/[0.07] bg-white/[0.03]"
-                          : "border-white/[0.07] bg-white/[0.03]"
+                          ? "border-rose-500/35 bg-rose-500/[0.08]"
+                          : draw
+                            ? "border-white/[0.08] bg-white/[0.03]"
+                            : "border-white/[0.07] bg-white/[0.03]"
                     )}
                   >
                     <div className="flex items-start justify-between gap-3 mb-2.5">
@@ -727,8 +772,10 @@ export function XoScreen({
                           photoUrl={c.creatorPhotoUrl}
                           size={30}
                           ring={
-                            iWon && c.creatorUsername.replace(/^@/, "") === (username || "").replace(/^@/, "")
-                              ? "border-emerald-400/80 ring-2 ring-emerald-400/25"
+                            !draw &&
+                            c.winnerTelegramId != null &&
+                            c.creatorTelegramId === c.winnerTelegramId
+                              ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
                               : "border-white/15"
                           }
                         />
@@ -738,10 +785,10 @@ export function XoScreen({
                             photoUrl={c.joinerPhotoUrl}
                             size={30}
                             ring={
-                              iWon &&
-                              c.joinerUsername.replace(/^@/, "") ===
-                                (username || "").replace(/^@/, "")
-                                ? "border-emerald-400/80 ring-2 ring-emerald-400/25"
+                              !draw &&
+                              c.winnerTelegramId != null &&
+                              c.joinerTelegramId === c.winnerTelegramId
+                                ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
                                 : "border-white/15"
                             }
                           />
@@ -752,7 +799,7 @@ export function XoScreen({
                         <Mark symbol="O" size={14} />
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -989,15 +1036,62 @@ export function XoScreen({
           </div>
         </button>
 
+        {mine?.status === "open" && (
+          <div className="mb-4 rounded-[20px] border border-cyan-400/25 bg-gradient-to-br from-cyan-500/[0.1] to-rose-500/[0.08] p-3.5">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setActive(mine);
+                  setView("play");
+                  haptic("light");
+                }}
+                className="w-11 h-11 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center btn-press"
+              >
+                <Mark symbol={mine.creatorSymbol} size={22} thick glow />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActive(mine);
+                  setView("play");
+                  haptic("light");
+                }}
+                className="flex-1 min-w-0 text-left btn-press"
+              >
+                <div className="text-[10px] uppercase tracking-wider text-cyan-200/80 mb-0.5">
+                  {tr("Your game", "Ваша игра")}
+                </div>
+                <div className="text-[15px] font-semibold tabular-nums">
+                  {formatGram(mine.amount)}{" "}
+                  <span className="text-[11px] text-white/40 font-normal">GRAM</span>
+                </div>
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void onCancel(mine.id)}
+                className="h-9 px-3 rounded-xl text-[12px] font-medium bg-white/5 border border-white/10 text-white/70 hover:text-white btn-press disabled:opacity-40"
+              >
+                {t("cancel")}
+              </button>
+            </div>
+            <div className="mt-2.5 flex items-center gap-2 text-[11px] text-white/35">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+              </span>
+              {t("waitingOpponent")}
+            </div>
+          </div>
+        )}
+
+
         <div className="flex items-center justify-between mb-2.5">
           <div className="text-[11px] uppercase tracking-wider text-white/35">
-            {tr("Open tables", "Открытые столы")}
+            {tr("Looking for opponent", "Ищут соперника")}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="text-[11px] text-white/25 tabular-nums">
-              {openRooms.length}
-            </div>
-            <button
+          <button
               type="button"
               onClick={() => {
                 haptic("light");
@@ -1018,7 +1112,6 @@ export function XoScreen({
                 <path d="M12 7v5l3 2" />
               </svg>
             </button>
-          </div>
         </div>
 
         {loading && openRooms.length === 0 ? (
@@ -1029,7 +1122,7 @@ export function XoScreen({
         ) : openRooms.length === 0 ? (
           <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] py-10 text-center">
             <div className="text-[14px] text-white/45 mb-1">
-              {tr("No open tables", "Нет открытых столов")}
+              {tr("No games waiting", "Нет игр в ожидании")}
             </div>
             <div className="text-[12px] text-white/28">
               {tr("Create a game or wait", "Создай игру или подожди")}
@@ -1066,57 +1159,7 @@ export function XoScreen({
           </div>
         )}
 
-        {mine?.status === "open" && (
-          <div className="mb-4 rounded-[20px] border border-fuchsia-400/25 bg-fuchsia-500/[0.08] p-3.5">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setActive(mine);
-                  setView("play");
-                  haptic("light");
-                }}
-                className="w-11 h-11 rounded-2xl bg-fuchsia-500/20 border border-fuchsia-400/30 flex items-center justify-center btn-press"
-              >
-                <Mark symbol={mine.creatorSymbol} size={22} thick glow />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActive(mine);
-                  setView("play");
-                  haptic("light");
-                }}
-                className="flex-1 min-w-0 text-left btn-press"
-              >
-                <div className="text-[10px] uppercase tracking-wider text-fuchsia-300/70 mb-0.5">
-                  {t("yourRoom")}
-                </div>
-                <div className="text-[15px] font-semibold tabular-nums">
-                  {formatGram(mine.amount)}{" "}
-                  <span className="text-[11px] text-white/40 font-normal">GRAM</span>
-                </div>
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  void onCancel(mine.id);
-                }}
-                className="h-9 px-3 rounded-xl text-[12px] font-medium bg-white/5 border border-white/10 text-white/70 hover:text-white btn-press disabled:opacity-40"
-              >
-                {t("cancel")}
-              </button>
-            </div>
-            <div className="mt-2.5 flex items-center gap-2 text-[11px] text-white/35">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-              </span>
-              {t("waitingOpponent")}
-            </div>
-          </div>
-        )}
+
 
 
       </div>

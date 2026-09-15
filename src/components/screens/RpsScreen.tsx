@@ -1292,9 +1292,6 @@ export function RpsScreen({
             <div className="text-[11px] uppercase tracking-wider text-white/35">
               {t("openRooms")}
             </div>
-            <div className="text-[11px] text-white/25 tabular-nums">
-              {openRooms.length}
-            </div>
           </div>
 
           {loading ? (
