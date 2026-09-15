@@ -82,29 +82,37 @@ function Mark({
   symbol,
   size = 28,
   glow,
+  thick,
 }: {
   symbol: XoSymbol | null;
   size?: number;
   glow?: boolean;
+  thick?: boolean;
 }) {
   if (!symbol) return null;
+  const sw = thick ? 3.2 : 2.8;
+  const gid = `m${symbol}${size}${glow ? 1 : 0}${thick ? 1 : 0}`;
   if (symbol === "X") {
     return (
       <svg
         width={size}
         height={size}
         viewBox="0 0 24 24"
-        className={cn(glow && "drop-shadow-[0_0_10px_rgba(251,113,133,0.55)]")}
+        className={cn(
+          glow && "drop-shadow-[0_0_12px_rgba(251,113,133,0.7)]",
+          "shrink-0"
+        )}
       >
         <path
-          d="M6 6l12 12M18 6L6 18"
-          stroke="url(#xg)"
-          strokeWidth="2.6"
+          d="M5.2 5.2l13.6 13.6M18.8 5.2L5.2 18.8"
+          stroke={`url(#${gid})`}
+          strokeWidth={sw}
           strokeLinecap="round"
         />
         <defs>
-          <linearGradient id="xg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#fda4af" />
+          <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#fecdd3" />
+            <stop offset="45%" stopColor="#fb7185" />
             <stop offset="100%" stopColor="#e11d48" />
           </linearGradient>
         </defs>
@@ -116,19 +124,23 @@ function Mark({
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      className={cn(glow && "drop-shadow-[0_0_10px_rgba(34,211,238,0.55)]")}
+      className={cn(
+        glow && "drop-shadow-[0_0_12px_rgba(34,211,238,0.7)]",
+        "shrink-0"
+      )}
     >
       <circle
         cx="12"
         cy="12"
-        r="7"
+        r="7.1"
         fill="none"
-        stroke="url(#og)"
-        strokeWidth="2.6"
+        stroke={`url(#${gid})`}
+        strokeWidth={sw}
       />
       <defs>
-        <linearGradient id="og" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#67e8f9" />
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#a5f3fc" />
+          <stop offset="45%" stopColor="#22d3ee" />
           <stop offset="100%" stopColor="#0891b2" />
         </linearGradient>
       </defs>
@@ -518,7 +530,7 @@ export function XoScreen({
                         : "bg-white/[0.03] border-white/10 opacity-70"
                     )}
                   >
-                    <Mark symbol={s} size={32} glow={symbol === s} />
+                    <Mark symbol={s} size={40} glow={symbol === s} thick />
                   </button>
                 ))}
               </div>
@@ -533,7 +545,7 @@ export function XoScreen({
             onClick={() => void onCreate()}
             className="w-full h-12 rounded-2xl font-semibold text-[15px] bg-gradient-to-r from-rose-500/90 to-cyan-500/90 text-white btn-press disabled:opacity-50 shadow-[0_8px_28px_rgba(244,63,94,0.25)]"
           >
-            {tr("Create table", "Создать стол")}
+            {tr("Create game", "Создать игру")}
           </button>
         </div>
       </div>
@@ -907,18 +919,18 @@ export function XoScreen({
           <div className="absolute inset-0 bg-gradient-to-br from-rose-600 via-fuchsia-700 to-cyan-700" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(251,113,133,0.45),transparent_55%)]" />
           <div className="relative px-5 py-4 flex items-center gap-4">
-            <div className="w-14 h-14 shrink-0 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center">
-              <div className="flex gap-1">
-                <Mark symbol="X" size={18} />
-                <Mark symbol="O" size={18} />
+            <div className="w-14 h-14 shrink-0 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
+              <div className="flex items-center -space-x-0.5">
+                <Mark symbol="X" size={26} glow thick />
+                <Mark symbol="O" size={26} glow thick />
               </div>
             </div>
             <div className="text-left">
               <div className="text-[16px] font-bold text-white">
-                {tr("Create table", "Создать стол")}
+                {tr("Create game", "Создать игру")}
               </div>
-              <div className="text-[12px] text-white/55 mt-0.5">
-                {tr("1v1 · stake GRAM · 5% fee on win", "1 на 1 · ставка GRAM · 5% с банка")}
+              <div className="text-[12px] text-white/60 mt-0.5">
+                {tr("1v1 · stake GRAM", "1 на 1 · ставка GRAM")}
               </div>
             </div>
           </div>
@@ -994,38 +1006,7 @@ export function XoScreen({
           </button>
         )}
 
-        {recent.length > 0 && (
-          <>
-            <div className="text-[12px] font-semibold text-white/40 uppercase tracking-wide mb-2">
-              {tr("Recent", "Недавние")}
-            </div>
-            <div className="space-y-1.5 pb-8">
-              {recent.slice(0, 6).map((r, i) => (
-                <div
-                  key={r.id}
-                  className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2.5 flex items-center justify-between"
-                >
-                  <span className="text-[11px] text-white/35 tabular-nums">
-                    XO#
-                    {r.gameNo != null ? r.gameNo : recent.length - i}
-                  </span>
-                  <span className="text-[11px] text-white/45 truncate max-w-[40%]">
-                    {r.winnerTelegramId == null
-                      ? tr("Draw", "Ничья")
-                      : `@${(
-                          r.winnerTelegramId === r.creatorTelegramId
-                            ? r.creatorUsername
-                            : r.joinerUsername || "?"
-                        ).replace(/^@/, "")}`}
-                  </span>
-                  <span className="text-[11px] tabular-nums text-white/40">
-                    {formatGram(r.amount)} GRAM
-                  </span>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
+
       </div>
     </div>
   );

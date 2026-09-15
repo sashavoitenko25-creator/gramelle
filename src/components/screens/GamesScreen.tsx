@@ -244,8 +244,15 @@ export function GamesScreen({
           </div>
           <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-[52px] h-[52px] rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shadow-[0_10px_20px_rgba(0,0,0,0.35)]">
-                <span className="text-[22px] font-black tracking-tighter text-white/95">XO</span>
+              <div className="relative w-[56px] h-[56px] rounded-2xl bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] -rotate-6 group-hover:rotate-0 transition-transform duration-300">
+                <svg width="28" height="28" viewBox="0 0 24 24" className="drop-shadow-[0_4px_12px_rgba(251,113,133,0.45)]">
+                  <path d="M5.5 5.5l13 13M18.5 5.5l-13 13" stroke="#fda4af" strokeWidth="2.8" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div className="relative w-[56px] h-[56px] rounded-2xl bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] rotate-6 group-hover:rotate-0 transition-transform duration-300 -ml-2">
+                <svg width="28" height="28" viewBox="0 0 24 24" className="drop-shadow-[0_4px_12px_rgba(34,211,238,0.45)]">
+                  <circle cx="12" cy="12" r="7.2" fill="none" stroke="#67e8f9" strokeWidth="2.8" />
+                </svg>
               </div>
             </div>
             <div className="mt-6">
