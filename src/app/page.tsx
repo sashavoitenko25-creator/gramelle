@@ -482,31 +482,39 @@ export default function Home() {
               {lang === "ru" ? (
                 <>
                   <p>
-                    <span className="text-cyan-300 font-medium">1. RPS</span> — создайте
-                    комнату или присоединитесь к ставке
+                    <span className="text-cyan-300 font-medium">1. Баланс</span> —
+                    пополните TON и получите GRAM
                   </p>
                   <p>
-                    <span className="text-cyan-300 font-medium">2. Выбор</span> —
-                    камень / ножницы / бумага
+                    <span className="text-cyan-300 font-medium">2. Игра</span> —
+                    выберите режим, создайте стол или присоединитесь
                   </p>
                   <p>
-                    <span className="text-cyan-300 font-medium">3. Победа</span> —
-                    выигрыш зачисляется на баланс
+                    <span className="text-cyan-300 font-medium">3. PvP</span> —
+                    играете против других игроков, победитель забирает банк
+                  </p>
+                  <p>
+                    <span className="text-cyan-300 font-medium">4. Честность</span> —
+                    у каждой партии есть Hash и Seed — можно проверить самому
                   </p>
                 </>
               ) : (
                 <>
                   <p>
-                    <span className="text-cyan-300 font-medium">1. RPS</span> — create
-                    a room or join a bet
+                    <span className="text-cyan-300 font-medium">1. Balance</span> —
+                    deposit TON and receive GRAM
                   </p>
                   <p>
-                    <span className="text-cyan-300 font-medium">2. Choice</span> —
-                    rock / paper / scissors
+                    <span className="text-cyan-300 font-medium">2. Play</span> —
+                    pick a mode, create a table or join one
                   </p>
                   <p>
-                    <span className="text-cyan-300 font-medium">3. Win</span> —
-                    payout credited to your balance
+                    <span className="text-cyan-300 font-medium">3. PvP</span> —
+                    play against other players — winner takes the pot
+                  </p>
+                  <p>
+                    <span className="text-cyan-300 font-medium">4. Fairness</span> —
+                    every round has Hash and Seed you can verify yourself
                   </p>
                 </>
               )}

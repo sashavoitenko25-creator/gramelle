@@ -5,7 +5,7 @@ import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "Gramelle",
-  description: "Gramelle — PvP RPS on TON",
+  description: "Gramelle — PvP games on TON",
   applicationName: "Gramelle",
   icons: { icon: "/gram-badge.png", apple: "/gram-badge.png" },
 };
