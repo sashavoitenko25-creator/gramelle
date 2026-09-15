@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn, formatGram } from "@/lib/utils";
 import {
   diceCancel,
@@ -238,6 +238,20 @@ export function DiceScreen({
   } | null>(null);
   const [personalHistory, setPersonalHistory] = useState<DiceHistoryItem[]>([]);
 
+  /** Prevents refresh() from overwriting a freshly created/joined table with a stale finished room */
+  const activeIdRef = useRef<string | null>(null);
+  const viewRef = useRef<View>("lobby");
+  useEffect(() => {
+    activeIdRef.current = active?.id ?? null;
+  }, [active?.id]);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+
+  const setActiveRoom = useCallback((room: DiceRoomPublic | null) => {
+    activeIdRef.current = room?.id ?? null;
+    setActive(room);
+  }, []);
 
   const copyText = useCallback(
     (v: string) => {
@@ -259,33 +273,57 @@ export function DiceScreen({
       setRooms(data.rooms || []);
       setRecent(data.recent || []);
       setMine(data.mine || null);
-      if (active?.id) {
-        const still =
-          (data.rooms || []).find((r) => r.id === active.id) ||
-          (data.mine?.id === active.id ? data.mine : null) ||
-          (data.recent || []).find((r) => r.id === active.id);
-        if (still) setActive(still);
+
+      const id = activeIdRef.current;
+      if (!id) return;
+
+      // Never pull a finished room over an open/playing table we're in
+      const fromOpen =
+        (data.rooms || []).find((r) => r.id === id) ||
+        (data.mine?.id === id ? data.mine : null);
+
+      if (fromOpen) {
+        setActive(fromOpen);
+        return;
+      }
+
+      // Only use recent (finished) if we're still looking at that same finished table
+      const fromRecent = (data.recent || []).find((r) => r.id === id);
+      if (fromRecent && viewRef.current === "table") {
+        // Confirm via state so we don't flash wrong table
+        try {
+          const { room } = await diceState(id);
+          if (activeIdRef.current === id) setActive(room);
+        } catch {
+          if (activeIdRef.current === id) setActive(fromRecent);
+        }
       }
     } catch {
       /* */
     } finally {
       setLoading(false);
     }
-  }, [active?.id]);
+  }, []);
 
+  // Lobby list — faster poll
   useEffect(() => {
     if (!isVisible) return;
     void refresh();
-    const id = setInterval(() => void refresh(), 5000);
+    const ms = viewRef.current === "table" ? 3500 : 2500;
+    const id = setInterval(() => void refresh(), ms);
     return () => clearInterval(id);
-  }, [refresh, isVisible]);
+  }, [refresh, isVisible, view]);
 
+  // Live table — fast state poll while playing or open lobby at table
   useEffect(() => {
-    if (!isVisible || !active?.id || active.status !== "playing") return;
+    if (!isVisible || !active?.id) return;
+    if (active.status !== "playing" && active.status !== "open") return;
     const roomId = active.id;
-    const id = setInterval(() => {
+    let stopped = false;
+    const tick = () => {
       void diceState(roomId)
         .then((r) => {
+          if (stopped || activeIdRef.current !== roomId) return;
           setActive(r.room);
           if (r.room.status === "finished") {
             void onReloadBalance?.();
@@ -293,8 +331,13 @@ export function DiceScreen({
           }
         })
         .catch(() => {});
-    }, 1400);
-    return () => clearInterval(id);
+    };
+    tick();
+    const id = setInterval(tick, 900);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+    };
   }, [active?.id, active?.status, onReloadBalance, refresh, isVisible]);
 
 
@@ -314,7 +357,7 @@ export function DiceScreen({
       if (view === "table") {
         setView("lobby");
         if (active?.status === "finished" || active?.status === "cancelled") {
-          setActive(null);
+          setActiveRoom(null);
           setLastRoll(null);
         }
         return;
@@ -376,12 +419,13 @@ export function DiceScreen({
     try {
       const res = await diceCreate(amount, maxPlayers);
       onBalanceUpdate(res.balance);
-      setActive(res.room);
       setLastRoll(null);
+      setActiveRoom(res.room);
       setView("table");
       playMatchSound();
       hapticSuccess();
-      await refresh();
+      // Refresh lobby lists without risking stale active overwrite
+      void refresh();
     } catch (e) {
       playErrorSound();
       hapticError();
@@ -400,12 +444,12 @@ export function DiceScreen({
     try {
       const res = await diceJoin(roomId);
       onBalanceUpdate(res.balance);
-      setActive(res.room);
       setLastRoll(null);
+      setActiveRoom(res.room);
       setView("table");
       playMatchSound();
       hapticSuccess();
-      await refresh();
+      void refresh();
     } catch (e) {
       playErrorSound();
       hapticError();
@@ -422,7 +466,7 @@ export function DiceScreen({
     playClickSound();
     try {
       const res = await diceStart(active.id);
-      setActive(res.room);
+      setActiveRoom(res.room);
       setLastRoll(null);
       playMatchSound();
       hapticSuccess();
@@ -458,7 +502,7 @@ export function DiceScreen({
           setLastRoll({ die1: me.die1, die2: me.die2, sum: me.sum || me.die1 + me.die2 });
         }
       }
-      setActive(res.room);
+      setActiveRoom(res.room);
       setRollingAnim(false);
       if (res.room.status === "finished") {
         const net = (res.room.pot || 0) - (res.room.houseFee || 0);
@@ -492,7 +536,7 @@ export function DiceScreen({
     try {
       const res = await diceCancel(active.id);
       onBalanceUpdate(res.balance);
-      setActive(null);
+      setActiveRoom(null);
       setLastRoll(null);
       setView("lobby");
       playClickSound();
@@ -511,7 +555,7 @@ export function DiceScreen({
     try {
       const res = await diceLeave(active.id);
       onBalanceUpdate(res.balance);
-      setActive(null);
+      setActiveRoom(null);
       setLastRoll(null);
       setView("lobby");
       await refresh();
@@ -525,9 +569,15 @@ export function DiceScreen({
   const openTable = (room: DiceRoomPublic) => {
     playClickSound();
     haptic("light");
-    setActive(room);
     setLastRoll(null);
+    setActiveRoom(room);
     setView("table");
+    // Fresh state immediately
+    void diceState(room.id)
+      .then((r) => {
+        if (activeIdRef.current === room.id) setActiveRoom(r.room);
+      })
+      .catch(() => {});
   };
 
   /* ── header ── */
@@ -1144,7 +1194,7 @@ export function DiceScreen({
               <button
                 type="button"
                 onClick={() => {
-                  setActive(null);
+                  setActiveRoom(null);
                   setLastRoll(null);
                   setView("lobby");
                   void refresh();
