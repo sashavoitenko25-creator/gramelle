@@ -590,6 +590,30 @@ export async function makeMove(opts: {
   return { room: publicRoom(normalize(updated as XoRoomRow), telegramId) };
 }
 
+async function timeoutOneRoom(room: XoRoomRow): Promise<XoRoomRow | null> {
+  if (room.status !== "playing" || !room.joiner_telegram_id) return null;
+  if (!room.turn_deadline) return null;
+  if (new Date(room.turn_deadline).getTime() > Date.now()) return null;
+
+  const db = getAdminClient();
+  const loserSym = room.turn_symbol;
+  const winnerSym: XoSymbol = loserSym === "X" ? "O" : "X";
+  const winnerId = symbolOwner(room, winnerSym);
+
+  const { data: updated, error } = await db
+    .from("xo_rooms")
+    .update({
+      winner_telegram_id: winnerId,
+      finish_reason: "timeout",
+    })
+    .eq("id", room.id)
+    .eq("status", "playing")
+    .select("*")
+    .maybeSingle();
+  if (error || !updated) return null;
+  return settleFinished(normalize(updated as XoRoomRow));
+}
+
 export async function getRoomState(
   roomId: string,
   viewerTelegramId?: number | null
@@ -601,7 +625,20 @@ export async function getRoomState(
     .eq("id", roomId)
     .maybeSingle();
   if (!data) return null;
-  return publicRoom(normalize(data as XoRoomRow), viewerTelegramId);
+  let room = normalize(data as XoRoomRow);
+  if (
+    room.status === "playing" &&
+    room.turn_deadline &&
+    new Date(room.turn_deadline).getTime() <= Date.now()
+  ) {
+    try {
+      const settled = await timeoutOneRoom(room);
+      if (settled) room = settled;
+    } catch {
+      /* ignore */
+    }
+  }
+  return publicRoom(room, viewerTelegramId);
 }
 
 export async function getXoHistory(telegramId: number, limit = 30) {
@@ -641,25 +678,8 @@ export async function processXoTimeouts(limit = 30): Promise<{
 
   for (const raw of rows) {
     try {
-      const room = normalize(raw);
-      if (!room.joiner_telegram_id) continue;
-      const loserSym = room.turn_symbol;
-      const winnerSym: XoSymbol = loserSym === "X" ? "O" : "X";
-      const winnerId = symbolOwner(room, winnerSym);
-
-      const { data: updated, error: uErr } = await db
-        .from("xo_rooms")
-        .update({
-          winner_telegram_id: winnerId,
-          finish_reason: "timeout",
-        })
-        .eq("id", room.id)
-        .eq("status", "playing")
-        .select("*")
-        .maybeSingle();
-      if (uErr || !updated) continue;
-      await settleFinished(normalize(updated as XoRoomRow));
-      finished.push(room.id);
+      const settled = await timeoutOneRoom(normalize(raw));
+      if (settled) finished.push(settled.id);
     } catch {
       /* continue */
     }

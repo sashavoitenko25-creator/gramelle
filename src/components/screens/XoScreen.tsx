@@ -208,6 +208,7 @@ export function XoScreen({
   const viewRef = useRef(view);
   viewRef.current = view;
   const activeIdRef = useRef<string | null>(null);
+  const resultSoundPlayed = useRef<string | null>(null);
 
   useEffect(() => {
     activeIdRef.current = active?.id ?? null;
@@ -254,11 +255,14 @@ export function XoScreen({
           if (r.room.status === "finished") {
             void onReloadBalance?.();
             void refresh();
-            const iWon = r.room.winnerTelegramId === telegramId;
-            const draw = r.room.winnerTelegramId == null;
-            if (draw) playMatchSound();
-            else if (iWon) playWinSound();
-            else playLoseSound();
+            if (resultSoundPlayed.current !== r.room.id) {
+              resultSoundPlayed.current = r.room.id;
+              const iWon = r.room.winnerTelegramId === telegramId;
+              const draw = r.room.winnerTelegramId == null;
+              if (draw) playMatchSound();
+              else if (iWon) playWinSound();
+              else playLoseSound();
+            }
           }
         })
         .catch(() => {});
@@ -322,6 +326,30 @@ export function XoScreen({
     if (!active?.turnDeadline || active.status !== "playing") return null;
     return Math.max(0, Math.ceil((new Date(active.turnDeadline).getTime() - nowTs) / 1000));
   }, [active?.turnDeadline, active?.status, nowTs]);
+
+  useEffect(() => {
+    if (!active?.id || active.status !== "playing") return;
+    if (turnLeftSec !== 0) return;
+    const roomId = active.id;
+    void xoState(roomId)
+      .then((r) => {
+        if (activeIdRef.current !== roomId) return;
+        setActive(r.room);
+        if (r.room.status === "finished") {
+          void onReloadBalance?.();
+          void refresh();
+          if (resultSoundPlayed.current !== r.room.id) {
+            resultSoundPlayed.current = r.room.id;
+            const iWon = r.room.winnerTelegramId === telegramId;
+            const draw = r.room.winnerTelegramId == null;
+            if (draw) playMatchSound();
+            else if (iWon) playWinSound();
+            else playLoseSound();
+          }
+        }
+      })
+      .catch(() => {});
+  }, [turnLeftSec, active?.id, active?.status, onReloadBalance, refresh, telegramId]);
 
   const onCreate = async () => {
     if (busy) return;
@@ -407,15 +435,20 @@ export function XoScreen({
       setActive(res.room);
       if (res.room.status === "finished") {
         void onReloadBalance?.();
-        const iWon = res.room.winnerTelegramId === telegramId;
-        const draw = res.room.winnerTelegramId == null;
-        if (draw) playMatchSound();
-        else if (iWon) {
-          playWinSound();
+        if (resultSoundPlayed.current !== res.room.id) {
+          resultSoundPlayed.current = res.room.id;
+          const iWon = res.room.winnerTelegramId === telegramId;
+          const draw = res.room.winnerTelegramId == null;
+          if (draw) playMatchSound();
+          else if (iWon) {
+            playWinSound();
+            hapticSuccess();
+          } else {
+            playLoseSound();
+            hapticError();
+          }
+        } else if (res.room.winnerTelegramId === telegramId) {
           hapticSuccess();
-        } else {
-          playLoseSound();
-          hapticError();
         }
       }
       void refresh();
@@ -794,10 +827,6 @@ export function XoScreen({
                           />
                         )}
                       </div>
-                      <div className="flex items-center gap-1 opacity-80">
-                        <Mark symbol="X" size={14} />
-                        <Mark symbol="O" size={14} />
-                      </div>
                     </div>
                   </button>
                 );
@@ -844,10 +873,14 @@ export function XoScreen({
             </div>
             <div className="flex flex-col items-center justify-center px-2 min-w-[72px]">
               <div className="text-[9px] uppercase tracking-[0.14em] text-white/30 font-medium">
-                {tr("Stake", "Ставка")}
+                {tr("Bank", "Банк")}
               </div>
               <div className="text-[15px] font-bold tabular-nums text-white/85 leading-tight mt-0.5">
-                {formatGram(active.amount)}
+                {formatGram(
+                  active.status === "open"
+                    ? active.amount
+                    : active.amount * 2
+                )}
               </div>
               <div className="text-[9px] text-white/30 font-medium tracking-wide">GRAM</div>
             </div>
@@ -936,17 +969,6 @@ export function XoScreen({
             </div>
           )}
 
-          {active.status === "open" && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void onCancel()}
-              className="mb-5 w-full h-11 rounded-2xl border border-white/10 text-[13px] text-white/50 btn-press disabled:opacity-40"
-            >
-              {tr("Cancel game", "Отменить игру")}
-            </button>
-          )}
-
           <div className="mx-auto w-full max-w-[320px] grid grid-cols-3 gap-2.5">
             {board.map((cell, i) => {
               const isWin = won.includes(i);
@@ -974,6 +996,17 @@ export function XoScreen({
               );
             })}
           </div>
+
+          {active.status === "open" && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void onCancel()}
+              className="mt-6 w-full h-12 rounded-2xl font-semibold bg-white/10 border border-white/12 text-white/70 btn-press disabled:opacity-40"
+            >
+              {tr("Cancel game", "Отменить игру")}
+            </button>
+          )}
 
           {finished && (
             <button
