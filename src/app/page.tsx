@@ -10,6 +10,7 @@ import { TasksScreen } from "@/components/screens/TasksScreen";
 import { GamesScreen } from "@/components/screens/GamesScreen";
 import { RpsScreen } from "@/components/screens/RpsScreen";
 import { DiceScreen } from "@/components/screens/DiceScreen";
+import { XoScreen } from "@/components/screens/XoScreen";
 import { FairnessScreen } from "@/components/screens/FairnessScreen";
 import { MaintenanceScreen } from "@/components/screens/MaintenanceScreen";
 import { BottomNav } from "@/components/game/BottomNav";
@@ -22,6 +23,7 @@ import type { Screen } from "@/lib/types";
 import { withdrawReferralSavings, checkTonDeposits } from "@/lib/api";
 import { rpsList } from "@/lib/rpsApi";
 import { diceList } from "@/lib/diceApi";
+import { xoList } from "@/lib/xoApi";
 import { useI18n } from "@/lib/i18n/context";
 import { playSuccessSound, playErrorSound, resumeAudio } from "@/lib/sounds";
 
@@ -82,15 +84,17 @@ export default function Home() {
   // Online: RPS and Dice separate; top bar = sum (same user in both = 2)
   const [rpsOnline, setRpsOnline] = useState(0);
   const [diceOnline, setDiceOnline] = useState(0);
+  const [xoOnline, setXoOnline] = useState(0);
 
   useEffect(() => {
     if (!isReady) return;
     let stopped = false;
     const tick = async () => {
       try {
-        const [rps, dice] = await Promise.all([
+        const [rps, dice, xo] = await Promise.all([
           rpsList().catch(() => null),
           diceList().catch(() => null),
+          xoList().catch(() => null),
         ]);
         if (stopped) return;
 
@@ -113,12 +117,23 @@ export default function Home() {
           for (const pl of dice.mine.players || []) diceIds.add(pl.telegramId);
         }
 
+        const xoIds = new Set<number>();
+        for (const r of xo?.rooms || []) {
+          if (r.creatorTelegramId) xoIds.add(r.creatorTelegramId);
+          if (r.joinerTelegramId) xoIds.add(r.joinerTelegramId);
+        }
+        if (xo?.mine) {
+          if (xo.mine.creatorTelegramId) xoIds.add(xo.mine.creatorTelegramId);
+          if (xo.mine.joinerTelegramId) xoIds.add(xo.mine.joinerTelegramId);
+        }
+
         const rpsN = rpsIds.size;
         const diceN = diceIds.size;
+        const xoN = xoIds.size;
         setRpsOnline(rpsN);
         setDiceOnline(diceN);
-        // Sum seats across games — one person in RPS+Dice counts as 2
-        setOnlineCount(rpsN + diceN);
+        setXoOnline(xoN);
+        setOnlineCount(rpsN + diceN + xoN);
       } catch {
         /* keep */
       }
@@ -296,6 +311,11 @@ export default function Home() {
             haptic("light");
             setScreen("dice");
           }}
+          xoOnline={xoOnline}
+          onSelectXo={() => {
+            haptic("light");
+            setScreen("xo");
+          }}
         />
       )}
 
@@ -391,7 +411,33 @@ export default function Home() {
         />
       )}
 
-      {screen === "fairness" && (
+            {screen === "xo" && (
+        <XoScreen
+          balance={balance}
+          telegramId={telegramId}
+          username={username}
+          photoUrl={profile?.photo_url}
+          serverMode={serverMode}
+          onBack={() => setScreen("games")}
+          onDeposit={() => {
+            haptic("light");
+            setDepositOpen(true);
+          }}
+          onBalanceUpdate={(b) => setBalanceFromServer(b)}
+          onReloadBalance={() => {
+            void reloadProfile();
+            setTimeout(() => void reloadProfile(), 500);
+            setTimeout(() => void reloadProfile(), 1500);
+          }}
+          showToast={showToast}
+          haptic={haptic}
+          hapticSuccess={hapticSuccess}
+          hapticError={hapticError}
+          isVisible={screen === "xo"}
+        />
+      )}
+
+{screen === "fairness" && (
         <FairnessScreen
           initialHash={fairnessPrefill?.hash}
           initialSeed={fairnessPrefill?.seed}

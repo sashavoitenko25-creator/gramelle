@@ -19,6 +19,7 @@ export type Screen =
   | "games"
   | "rps"
   | "dice"
+  | "xo"
   | "profile"
   | "referrals"
   | "transactions"

@@ -1,0 +1,24 @@
+Gramelle XO (Tic-Tac-Toe) — что сделать вручную
+
+1) Supabase → SQL Editor → выполнить файл:
+   supabase/xo.sql
+
+2) Распаковать ZIP поверх корня проекта (рядом с package.json)
+
+3) git add / commit / push → Vercel deploy
+
+4) (Рекомендуется) Cron раз в 1 мин на:
+   GET/POST /api/xo/process
+   с заголовком Authorization: Bearer $CRON_SECRET
+   (таймаут хода 45с → forfeit)
+
+5) Протестировать двумя аккаунтами из Telegram
+
+Связки уже в коде:
+- ledger (bet / win / refund)
+- house fee 5% + creditHouse
+- payReferralFromHouseFee (как RPS)
+- ban, rate limit, Telegram auth
+- online counters
+- game_no sequence
+- history Все / Мои игры
