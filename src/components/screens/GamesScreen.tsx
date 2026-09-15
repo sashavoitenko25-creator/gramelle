@@ -110,9 +110,29 @@ export function GamesScreen({
               backgroundSize: "20px 20px",
             }}
           />
-          <OnlineBadge count={diceOnline} />
-          <div className="absolute top-3.5 left-3.5 z-20 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 border border-amber-300/40 shadow-[0_0_12px_rgba(251,191,36,0.45)]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-black/90">New</span>
+          <div className="absolute top-3.5 right-3.5 z-20 flex items-center gap-1.5">
+            <div className="relative flex items-center gap-1 pl-1.5 pr-2 py-1 rounded-full bg-gradient-to-r from-amber-300 via-yellow-300 to-orange-400 border border-white/35 shadow-[0_0_16px_rgba(251,191,36,0.55),0_2px_8px_rgba(0,0,0,0.25)]">
+              <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white/25 text-[9px] leading-none">✨</span>
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-black/85 drop-shadow-[0_1px_0_rgba(255,255,255,0.35)]">
+                New
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 border border-white/15 backdrop-blur-md">
+              <span className="relative flex h-1.5 w-1.5">
+                {diceOnline > 0 ? (
+                  <>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                  </>
+                ) : (
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white/35" />
+                )}
+              </span>
+              <span className="text-[11px] font-semibold text-white/90 tabular-nums">
+                {t("online").charAt(0).toUpperCase() + t("online").slice(1)}{" "}
+                {diceOnline > 99 ? "99+" : diceOnline}
+              </span>
+            </div>
           </div>
           <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
             <div className="flex items-center gap-3">
