@@ -789,14 +789,18 @@ export function XoScreen({
                 <div className="text-[12px] font-semibold truncate">
                   @{active.creatorUsername.replace(/^@/, "")}
                 </div>
-                <div className="text-[10px] text-white/35 flex items-center gap-1">
-                  <Mark symbol={active.creatorSymbol} size={12} />
-                  <span>{active.creatorSymbol}</span>
+                <div className="mt-0.5 flex items-center">
+                  <Mark symbol={active.creatorSymbol} size={16} thick />
                 </div>
               </div>
             </div>
-            <div className="text-[11px] text-white/30 tabular-nums px-2">
-              {formatGram(active.amount)} GRAM
+            <div className="flex flex-col items-center px-2">
+              <div className="h-9 px-3.5 rounded-full glass border border-white/[0.12] flex items-center gap-1.5 shadow-[0_4px_16px_rgba(0,0,0,0.25)]">
+                <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
+                  {formatGram(active.amount)}
+                </span>
+                <span className="text-[10px] text-white/40 font-medium">GRAM</span>
+              </div>
             </div>
             <div className="flex items-center gap-2 min-w-0 flex-row-reverse">
               <Avatar
@@ -818,29 +822,22 @@ export function XoScreen({
                     ? `@${active.joinerUsername.replace(/^@/, "")}`
                     : tr("Waiting…", "Ожидание…")}
                 </div>
-                <div className="text-[10px] text-white/35 flex items-center gap-1 justify-end">
-                  <span>
-                    {active.creatorSymbol === "X" ? "O" : "X"}
-                  </span>
-                  <Mark
-                    symbol={active.creatorSymbol === "X" ? "O" : "X"}
-                    size={12}
-                  />
-                </div>
+                {active.joinerUsername ? (
+                  <div className="mt-0.5 flex items-center justify-end">
+                    <Mark
+                      symbol={active.creatorSymbol === "X" ? "O" : "X"}
+                      size={16}
+                      thick
+                    />
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
 
           {active.status === "open" && (
-            <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-center text-[13px] text-amber-100/90">
+            <div className="mb-4 text-center text-[13px] text-white/45 tracking-wide">
               {tr("Waiting for opponent…", "Ждём соперника…")}
-              <button
-                type="button"
-                onClick={() => void onCancel()}
-                className="mt-2 block w-full text-[12px] text-white/50 underline"
-              >
-                {tr("Cancel & refund", "Отменить и вернуть ставку")}
-              </button>
             </div>
           )}
 
@@ -917,6 +914,17 @@ export function XoScreen({
               );
             })}
           </div>
+
+          {active.status === "open" && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void onCancel()}
+              className="mt-auto pt-6 w-full h-11 rounded-2xl border border-white/10 text-[13px] text-white/45 btn-press disabled:opacity-40"
+            >
+              {tr("Cancel game", "Отменить игру")}
+            </button>
+          )}
 
           {finished && (
             <button
@@ -1041,10 +1049,8 @@ export function XoScreen({
                     @{r.creatorUsername.replace(/^@/, "")}
                   </div>
                   <div className="text-[11px] text-white/40 flex items-center gap-1.5 mt-0.5">
-                    <Mark symbol={r.creatorSymbol} size={12} />
-                    <span>
-                      {tr("plays", "играет")} {r.creatorSymbol}
-                    </span>
+                    <span>{tr("chose", "выбрал")}</span>
+                    <Mark symbol={r.creatorSymbol} size={14} thick />
                   </div>
                 </div>
                 <div className="text-right">
