@@ -377,11 +377,12 @@ export function XoScreen({
     }
   };
 
-  const onCancel = async () => {
-    if (!active || busy) return;
+  const onCancel = async (roomId?: string) => {
+    const id = roomId || active?.id;
+    if (!id || busy) return;
     setBusy(true);
     try {
-      const res = await xoCancel(active.id);
+      const res = await xoCancel(id);
       onBalanceUpdate(res.balance);
       setActive(null);
       setView("lobby");
@@ -794,13 +795,14 @@ export function XoScreen({
                 </div>
               </div>
             </div>
-            <div className="flex flex-col items-center px-2">
-              <div className="h-9 px-3.5 rounded-full glass border border-white/[0.12] flex items-center gap-1.5 shadow-[0_4px_16px_rgba(0,0,0,0.25)]">
-                <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
-                  {formatGram(active.amount)}
-                </span>
-                <span className="text-[10px] text-white/40 font-medium">GRAM</span>
+            <div className="flex flex-col items-center justify-center px-2 min-w-[72px]">
+              <div className="text-[9px] uppercase tracking-[0.14em] text-white/30 font-medium">
+                {tr("Stake", "Ставка")}
               </div>
+              <div className="text-[15px] font-bold tabular-nums text-white/85 leading-tight mt-0.5">
+                {formatGram(active.amount)}
+              </div>
+              <div className="text-[9px] text-white/30 font-medium tracking-wide">GRAM</div>
             </div>
             <div className="flex items-center gap-2 min-w-0 flex-row-reverse">
               <Avatar
@@ -836,7 +838,7 @@ export function XoScreen({
           </div>
 
           {active.status === "open" && (
-            <div className="mb-4 text-center text-[13px] text-white/45 tracking-wide">
+            <div className="mb-3 text-center text-[13px] text-white/45 tracking-wide">
               {tr("Waiting for opponent…", "Ждём соперника…")}
             </div>
           )}
@@ -887,6 +889,17 @@ export function XoScreen({
             </div>
           )}
 
+          {active.status === "open" && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void onCancel()}
+              className="mb-5 w-full h-11 rounded-2xl border border-white/10 text-[13px] text-white/50 btn-press disabled:opacity-40"
+            >
+              {tr("Cancel game", "Отменить игру")}
+            </button>
+          )}
+
           <div className="mx-auto w-full max-w-[320px] grid grid-cols-3 gap-2.5">
             {board.map((cell, i) => {
               const isWin = won.includes(i);
@@ -914,17 +927,6 @@ export function XoScreen({
               );
             })}
           </div>
-
-          {active.status === "open" && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void onCancel()}
-              className="mt-auto pt-6 w-full h-11 rounded-2xl border border-white/10 text-[13px] text-white/45 btn-press disabled:opacity-40"
-            >
-              {tr("Cancel game", "Отменить игру")}
-            </button>
-          )}
 
           {finished && (
             <button
@@ -1065,18 +1067,55 @@ export function XoScreen({
         )}
 
         {mine?.status === "open" && (
-          <button
-            type="button"
-            onClick={() => {
-              setActive(mine);
-              setView("play");
-            }}
-            className="w-full mb-4 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-left"
-          >
-            <div className="text-[12px] font-semibold text-amber-100">
-              {tr("Your open table", "Ваш открытый стол")} · {formatGram(mine.amount)} GRAM
+          <div className="mb-4 rounded-[20px] border border-fuchsia-400/25 bg-fuchsia-500/[0.08] p-3.5">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setActive(mine);
+                  setView("play");
+                  haptic("light");
+                }}
+                className="w-11 h-11 rounded-2xl bg-fuchsia-500/20 border border-fuchsia-400/30 flex items-center justify-center btn-press"
+              >
+                <Mark symbol={mine.creatorSymbol} size={22} thick glow />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActive(mine);
+                  setView("play");
+                  haptic("light");
+                }}
+                className="flex-1 min-w-0 text-left btn-press"
+              >
+                <div className="text-[10px] uppercase tracking-wider text-fuchsia-300/70 mb-0.5">
+                  {t("yourRoom")}
+                </div>
+                <div className="text-[15px] font-semibold tabular-nums">
+                  {formatGram(mine.amount)}{" "}
+                  <span className="text-[11px] text-white/40 font-normal">GRAM</span>
+                </div>
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  void onCancel(mine.id);
+                }}
+                className="h-9 px-3 rounded-xl text-[12px] font-medium bg-white/5 border border-white/10 text-white/70 hover:text-white btn-press disabled:opacity-40"
+              >
+                {t("cancel")}
+              </button>
             </div>
-          </button>
+            <div className="mt-2.5 flex items-center gap-2 text-[11px] text-white/35">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+              </span>
+              {t("waitingOpponent")}
+            </div>
+          </div>
         )}
 
 

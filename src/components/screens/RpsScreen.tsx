@@ -1722,11 +1722,11 @@ export function RpsScreen({
                 {formatGram(joinTarget.amount)} GRAM
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-[18px] font-bold text-gradient-cyan tabular-nums leading-none">
+            <div className="text-right pl-3 border-l border-white/[0.08]">
+              <div className="text-[16px] font-semibold tabular-nums text-white/85 leading-none">
                 {formatGram(joinTarget.amount)}
               </div>
-              <div className="text-[10px] text-white/30 mt-1">GRAM</div>
+              <div className="text-[10px] text-white/35 mt-1">GRAM</div>
             </div>
           </div>
           {mine?.status === "open" && (
