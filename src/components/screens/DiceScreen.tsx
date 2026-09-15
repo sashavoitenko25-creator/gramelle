@@ -237,6 +237,7 @@ export function DiceScreen({
     sum: number;
   } | null>(null);
   const [personalHistory, setPersonalHistory] = useState<DiceHistoryItem[]>([]);
+  const [histTab, setHistTab] = useState<"all" | "my">("all");
 
   /** Prevents refresh() from overwriting a freshly created/joined table with a stale finished room */
   const activeIdRef = useRef<string | null>(null);
@@ -608,9 +609,12 @@ export function DiceScreen({
               haptic("light");
               onDeposit();
             }}
-            className="h-9 w-9 rounded-full glass border border-white/[0.1] flex items-center justify-center text-cyan-300 text-lg font-light btn-press"
+            className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400/25 to-violet-500/25 border border-cyan-400/30 flex items-center justify-center text-cyan-200 btn-press shadow-[0_0_16px_rgba(34,211,238,0.25)]"
+            aria-label="Deposit"
           >
-            +
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
           </button>
         )}
       </div>
@@ -734,7 +738,6 @@ export function DiceScreen({
       houseFee: r.houseFee,
       winnerTelegramId: r.winnerTelegramId,
       players: r.players,
-      finishedAt: r.finishedAt || r.createdAt,
     }));
     const myRows = personalHistory.map((h, i) => ({
       kind: "my" as const,
@@ -750,9 +753,7 @@ export function DiceScreen({
       winnerTelegramId: h.winner_telegram_id,
       payout: h.payout,
       result: h.result,
-      finishedAt: h.created_at,
     }));
-    const rows = histTab === "all" ? allRows : myRows;
 
     return (
       <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
@@ -789,122 +790,134 @@ export function DiceScreen({
               {lang === "ru" ? "Мои игры" : "My games"}
             </button>
           </div>
-          {rows.length === 0 ? (
+          {histTab === "all" ? (
+            allRows.length === 0 ? (
+              <div className="text-center text-white/35 text-sm py-16">
+                {tr("No games yet", "Пока нет партий")}
+              </div>
+            ) : (
+              <div className="space-y-2 pb-6">
+                {allRows.map((r) => {
+                  const winner = r.players.find(
+                    (p) => p.telegramId === r.winnerTelegramId
+                  );
+                  const iWon = r.winnerTelegramId === telegramId;
+                  const iPlayed = r.players.some(
+                    (p) => p.telegramId === telegramId
+                  );
+                  return (
+                    <div
+                      key={r.id}
+                      className="w-full text-left rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3.5"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openTable(r.room)}
+                        className="w-full text-left btn-press"
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="text-[11px] font-semibold text-white/40 tabular-nums">
+                            DICE#{r.no}
+                          </span>
+                          <div
+                            className={cn(
+                              "text-[13px] font-semibold tabular-nums",
+                              iWon
+                                ? "text-emerald-300"
+                                : iPlayed
+                                  ? "text-red-300/80"
+                                  : "text-white/40"
+                            )}
+                          >
+                            {iWon
+                              ? `+${formatGram((r.pot || 0) - (r.houseFee || 0))}`
+                              : iPlayed
+                                ? `−${formatGram(r.amount)}`
+                                : formatGram(r.amount)}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex -space-x-2">
+                            {r.players.slice(0, 5).map((p) => {
+                              const isW = p.telegramId === r.winnerTelegramId;
+                              return (
+                                <div key={p.telegramId} className="relative">
+                                  <Avatar
+                                    name={p.username}
+                                    photoUrl={p.photoUrl}
+                                    size={30}
+                                    ring={
+                                      isW
+                                        ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
+                                        : undefined
+                                    }
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <span className="text-[11px] text-white/35 truncate max-w-[45%]">
+                            {winner
+                              ? tr(
+                                  `Winner @${winner.username}`,
+                                  `Победитель @${winner.username}`
+                                )
+                              : "—"}
+                          </span>
+                        </div>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          ) : myRows.length === 0 ? (
             <div className="text-center text-white/35 text-sm py-16">
               {tr("No games yet", "Пока нет партий")}
             </div>
           ) : (
             <div className="space-y-2 pb-6">
-              {histTab === "all"
-                ? allRows.map((r) => {
-                    const winner = r.players.find(
-                      (p) => p.telegramId === r.winnerTelegramId
-                    );
-                    const iWon = r.winnerTelegramId === telegramId;
-                    const iPlayed = r.players.some(
-                      (p) => p.telegramId === telegramId
-                    );
-                    return (
+              {myRows.map((h) => {
+                const iWon = h.result === "win";
+                return (
+                  <div
+                    key={h.id}
+                    className={cn(
+                      "w-full text-left rounded-2xl border p-3.5",
+                      iWon
+                        ? "border-emerald-500/35 bg-emerald-500/[0.08]"
+                        : "border-rose-500/35 bg-rose-500/[0.08]"
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-[11px] font-semibold text-white/40 tabular-nums">
+                        DICE#{h.no}
+                      </span>
                       <div
-                        key={r.id}
-                        className="w-full text-left rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3.5"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => openTable(r.room)}
-                          className="w-full text-left btn-press"
-                        >
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="text-[11px] font-semibold text-white/40 tabular-nums">
-                              DICE#{r.no}
-                            </span>
-                            <div
-                              className={cn(
-                                "text-[13px] font-semibold tabular-nums",
-                                iWon
-                                  ? "text-emerald-300"
-                                  : iPlayed
-                                    ? "text-red-300/80"
-                                    : "text-white/40"
-                              )}
-                            >
-                              {iWon
-                                ? `+${formatGram((r.pot || 0) - (r.houseFee || 0))}`
-                                : iPlayed
-                                  ? `−${formatGram(r.amount)}`
-                                  : formatGram(r.amount)}
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex -space-x-2">
-                              {r.players.slice(0, 5).map((p) => {
-                                const isW = p.telegramId === r.winnerTelegramId;
-                                return (
-                                  <div key={p.telegramId} className="relative">
-                                    <Avatar
-                                      name={p.username}
-                                      photoUrl={p.photoUrl}
-                                      size={28}
-                                      ring={
-                                        isW
-                                          ? "border-emerald-400/60"
-                                          : "border-white/15"
-                                      }
-                                    />
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            <div className="text-[11px] text-white/35 truncate max-w-[40%]">
-                              {winner
-                                ? `@${winner.username.replace(/^@/, "")}`
-                                : "—"}
-                            </div>
-                          </div>
-                        </button>
-                      </div>
-                    );
-                  })
-                : myRows.map((h) => {
-                    const iWon = h.result === "win";
-                    return (
-                      <div
-                        key={h.id}
                         className={cn(
-                          "w-full text-left rounded-2xl border p-3.5",
-                          iWon
-                            ? "border-emerald-500/35 bg-emerald-500/[0.08]"
-                            : "border-rose-500/35 bg-rose-500/[0.08]"
+                          "text-[13px] font-semibold tabular-nums",
+                          iWon ? "text-emerald-300" : "text-red-300/80"
                         )}
                       >
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <span className="text-[11px] font-semibold text-white/40 tabular-nums">
-                            DICE#{h.no}
-                          </span>
-                          <div
-                            className={cn(
-                              "text-[13px] font-semibold tabular-nums",
-                              iWon ? "text-emerald-300" : "text-red-300/80"
-                            )}
-                          >
-                            {iWon
-                              ? `+${formatGram(h.payout)}`
-                              : `−${formatGram(h.amount)}`}
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between gap-2 text-[11px] text-white/40">
-                          <span>
-                            {h.hist.player_count} {lang === "ru" ? "игроков" : "players"}
-                          </span>
-                          <span>
-                            {h.hist.sum != null
-                              ? `${h.hist.die1}+${h.hist.die2}=${h.hist.sum}`
-                              : ""}
-                          </span>
-                        </div>
+                        {iWon
+                          ? `+${formatGram(h.payout)}`
+                          : `−${formatGram(h.amount)}`}
                       </div>
-                    );
-                  })}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 text-[11px] text-white/40">
+                      <span>
+                        {h.hist.player_count}{" "}
+                        {lang === "ru" ? "игроков" : "players"}
+                      </span>
+                      <span>
+                        {h.hist.sum != null
+                          ? `${h.hist.die1}+${h.hist.die2}=${h.hist.sum}`
+                          : ""}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
