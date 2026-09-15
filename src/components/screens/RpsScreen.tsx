@@ -1385,7 +1385,11 @@ export function RpsScreen({
                 <GlobalHistoryRow
                   key={r.id}
                   room={r}
-                  no={recent.length - i}
+                  no={
+                    r.gameNo != null && Number.isFinite(Number(r.gameNo))
+                      ? Number(r.gameNo)
+                      : recent.length - i
+                  }
                   telegramId={telegramId}
                   lang={lang}
                   onOpen={() => {
