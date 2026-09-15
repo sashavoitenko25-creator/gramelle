@@ -686,10 +686,12 @@ export function XoScreen({
                   <div
                     key={c.key}
                     className={cn(
-                      "w-full rounded-[18px] border px-3.5 py-3",
+                      "w-full text-left rounded-[18px] border px-3.5 py-3 transition",
                       iWon
                         ? "border-emerald-500/30 bg-emerald-500/[0.07]"
-                        : "border-white/[0.07] bg-white/[0.03]"
+                        : iLost
+                          ? "border-white/[0.07] bg-white/[0.03]"
+                          : "border-white/[0.07] bg-white/[0.03]"
                     )}
                   >
                     <div className="flex items-start justify-between gap-3 mb-2.5">
@@ -708,15 +710,46 @@ export function XoScreen({
                           </span>
                         </div>
                       </div>
-                      <div className={cn("shrink-0 text-[13px] font-bold tabular-nums", deltaCls)}>
+                      <div
+                        className={cn(
+                          "shrink-0 text-[13px] font-bold tabular-nums tracking-tight",
+                          deltaCls
+                        )}
+                      >
                         {delta}
                       </div>
                     </div>
-                    <div className="flex -space-x-2">
-                      <Avatar name={c.creatorUsername} photoUrl={c.creatorPhotoUrl} size={30} />
-                      {c.joinerUsername && (
-                        <Avatar name={c.joinerUsername} photoUrl={c.joinerPhotoUrl} size={30} />
-                      )}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex -space-x-2">
+                        <Avatar
+                          name={c.creatorUsername}
+                          photoUrl={c.creatorPhotoUrl}
+                          size={30}
+                          ring={
+                            iWon && c.creatorUsername.replace(/^@/, "") === (username || "").replace(/^@/, "")
+                              ? "border-emerald-400/80 ring-2 ring-emerald-400/25"
+                              : "border-white/15"
+                          }
+                        />
+                        {c.joinerUsername && (
+                          <Avatar
+                            name={c.joinerUsername}
+                            photoUrl={c.joinerPhotoUrl}
+                            size={30}
+                            ring={
+                              iWon &&
+                              c.joinerUsername.replace(/^@/, "") ===
+                                (username || "").replace(/^@/, "")
+                                ? "border-emerald-400/80 ring-2 ring-emerald-400/25"
+                                : "border-white/15"
+                            }
+                          />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 opacity-80">
+                        <Mark symbol="X" size={14} />
+                        <Mark symbol="O" size={14} />
+                      </div>
                     </div>
                   </div>
                 );
@@ -914,49 +947,83 @@ export function XoScreen({
             haptic("light");
             setView("create");
           }}
-          className="w-full relative overflow-hidden rounded-[22px] mb-4 btn-press active:scale-[0.98]"
+          className="w-full relative overflow-hidden rounded-[22px] mb-4 btn-press active:scale-[0.98] transition-transform"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-rose-600 via-fuchsia-700 to-cyan-700" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(251,113,133,0.45),transparent_55%)]" />
           <div className="relative px-5 py-4 flex items-center gap-4">
-            <div className="w-14 h-14 shrink-0 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
-              <div className="flex items-center -space-x-0.5">
-                <Mark symbol="X" size={26} glow thick />
-                <Mark symbol="O" size={26} glow thick />
-              </div>
+            <div className="w-14 h-14 shrink-0 rounded-2xl bg-white/15 border border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.3)]">
+              <svg
+                width="26"
+                height="26"
+                viewBox="0 0 24 24"
+                fill="none"
+                className="text-white"
+              >
+                <path
+                  d="M12 5v14M5 12h14"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+              </svg>
             </div>
-            <div className="text-left">
-              <div className="text-[16px] font-bold text-white">
+            <div className="flex-1 text-left">
+              <div className="text-[16px] font-bold text-white tracking-tight">
                 {tr("Create game", "Создать игру")}
               </div>
-              <div className="text-[12px] text-white/60 mt-0.5">
-                {tr("1v1 · stake GRAM", "1 на 1 · ставка GRAM")}
+              <div className="text-[12px] text-white/55 mt-0.5">
+                {t("createRoomDesc")}
               </div>
             </div>
           </div>
         </button>
 
-        <div className="flex items-center justify-between mb-2 px-0.5">
-          <div className="text-[12px] font-semibold text-white/40 uppercase tracking-wide">
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="text-[11px] uppercase tracking-wider text-white/35">
             {tr("Open tables", "Открытые столы")}
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              haptic("light");
-              setView("history");
-            }}
-            className="text-[12px] text-cyan-300/90 font-medium"
-          >
-            {t("history")}
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="text-[11px] text-white/25 tabular-nums">
+              {openRooms.length}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                haptic("light");
+                setView("history");
+              }}
+              className="w-8 h-8 rounded-xl glass border border-white/[0.08] flex items-center justify-center text-white/45 hover:text-white/80 transition btn-press"
+              aria-label={t("history")}
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {loading && openRooms.length === 0 ? (
-          <div className="text-center text-white/30 text-sm py-10">…</div>
+          <div className="space-y-2">
+            <div className="h-[72px] w-full rounded-2xl bg-white/[0.04] animate-pulse" />
+            <div className="h-[72px] w-full rounded-2xl bg-white/[0.04] animate-pulse" />
+          </div>
         ) : openRooms.length === 0 ? (
-          <div className="text-center text-white/30 text-sm py-10">
-            {tr("No open tables", "Нет открытых столов")}
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] py-10 text-center">
+            <div className="text-[14px] text-white/45 mb-1">
+              {tr("No open tables", "Нет открытых столов")}
+            </div>
+            <div className="text-[12px] text-white/28">
+              {tr("Create a game or wait", "Создай игру или подожди")}
+            </div>
           </div>
         ) : (
           <div className="space-y-2 mb-6">
