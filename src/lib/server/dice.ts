@@ -9,6 +9,8 @@ import {
   DICE_MAX_PLAYERS,
   DICE_MIN_BET,
   DICE_MIN_PLAYERS,
+  DICE_OPEN_STALE_MIN,
+  DICE_TURN_SEC,
 } from "@/lib/diceConstants";
 
 export type DiceRoomRow = {
@@ -20,6 +22,7 @@ export type DiceRoomRow = {
   phase: "lobby" | "rolling" | "finished";
   round: number;
   turn_seat: number | null;
+  turn_deadline?: string | null;
   server_seed: string;
   server_seed_hash: string;
   pot: number | null;
@@ -104,6 +107,7 @@ export function publicRoom(
     hostTelegramId: room.host_telegram_id,
     round: room.round,
     turnSeat: room.turn_seat,
+    turnDeadline: room.turn_deadline || null,
     serverSeedHash: room.server_seed_hash,
     serverSeed: revealed ? room.server_seed : null,
     pot: room.pot != null ? Number(room.pot) : null,
@@ -152,6 +156,48 @@ async function loadRoom(roomId: string): Promise<DiceRoomRow> {
   if (error || !data) throw new Error("Table not found");
   return data as DiceRoomRow;
 }
+
+
+function turnDeadlineIso(from = new Date()): string {
+  return new Date(from.getTime() + DICE_TURN_SEC * 1000).toISOString();
+}
+
+async function writeDiceHistory(
+  room: DiceRoomRow,
+  players: DicePlayerRow[],
+  winnerTelegramId: number,
+  pot: number,
+  fee: number,
+  payout: number
+) {
+  const db = getAdminClient();
+  const rows = players.map((pl) => {
+    const won = pl.telegram_id === winnerTelegramId;
+    return {
+      room_id: room.id,
+      telegram_id: pl.telegram_id,
+      username: pl.username,
+      amount: Number(room.amount),
+      pot,
+      house_fee: fee,
+      payout: won ? payout : 0,
+      result: won ? "win" : "lose",
+      server_seed: room.server_seed,
+      server_seed_hash: room.server_seed_hash,
+      winner_telegram_id: winnerTelegramId,
+      player_count: players.length,
+      die1: pl.die1,
+      die2: pl.die2,
+      sum: pl.sum,
+    };
+  });
+  try {
+    await db.from("dice_history").insert(rows);
+  } catch {
+    /* table may not exist yet — non-fatal */
+  }
+}
+
 
 export async function listRooms(viewerTelegramId?: number | null) {
   const db = getAdminClient();
@@ -514,6 +560,7 @@ export async function startTable(opts: {
       phase: "rolling",
       round: 1,
       turn_seat: turnSeat,
+      turn_deadline: turnDeadlineIso(),
       pot,
       house_fee: houseFee,
       started_at: new Date().toISOString(),
@@ -546,7 +593,7 @@ async function advanceAfterRoll(
     const next = seats[0] ?? room.turn_seat;
     const { data } = await db
       .from("dice_rooms")
-      .update({ turn_seat: next })
+      .update({ turn_seat: next, turn_deadline: turnDeadlineIso() })
       .eq("id", room.id)
       .select("*")
       .single();
@@ -598,6 +645,15 @@ async function advanceAfterRoll(
       }
     } catch {}
 
+    await writeDiceHistory(
+      room,
+      players,
+      winner.telegram_id,
+      pot,
+      fee,
+      payout
+    );
+
     const { data } = await db
       .from("dice_rooms")
       .update({
@@ -605,6 +661,7 @@ async function advanceAfterRoll(
         phase: "finished",
         winner_telegram_id: winner.telegram_id,
         turn_seat: null,
+        turn_deadline: null,
         finished_at: new Date().toISOString(),
       })
       .eq("id", room.id)
@@ -635,6 +692,7 @@ async function advanceAfterRoll(
     .update({
       round: room.round + 1,
       turn_seat: nextSeats[0],
+      turn_deadline: turnDeadlineIso(),
       phase: "rolling",
     })
     .eq("id", room.id)
@@ -701,3 +759,162 @@ export async function getState(
   const players = await loadPlayers(roomId);
   return { room: publicRoom(room, players, viewerTelegramId) };
 }
+
+
+/** Personal history rows */
+export async function getDiceHistory(telegramId: number, limit = 30) {
+  const db = getAdminClient();
+  try {
+    const { data, error } = await db
+      .from("dice_history")
+      .select("*")
+      .eq("telegram_id", telegramId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
+/** Server auto-roll for AFK player on turn_seat */
+async function autoRollForTurn(roomId: string): Promise<boolean> {
+  const db = getAdminClient();
+  const room = await loadRoom(roomId);
+  if (room.status !== "playing" || room.phase !== "rolling") return false;
+  if (room.turn_seat == null) return false;
+
+  const players = await loadPlayers(roomId);
+  const me = players.find((p) => p.seat === room.turn_seat && p.active);
+  if (!me || me.has_rolled) return false;
+
+  const pair = rollPair(
+    room.server_seed,
+    room.id,
+    room.round,
+    me.seat,
+    me.telegram_id
+  );
+
+  const { error } = await db
+    .from("dice_players")
+    .update({
+      die1: pair.die1,
+      die2: pair.die2,
+      sum: pair.sum,
+      has_rolled: true,
+    })
+    .eq("id", me.id)
+    .eq("has_rolled", false);
+
+  if (error) return false;
+
+  const afterPlayers = await loadPlayers(roomId);
+  await advanceAfterRoll(room, afterPlayers);
+  return true;
+}
+
+async function forceCancelOpen(roomId: string): Promise<boolean> {
+  const db = getAdminClient();
+  const room = await loadRoom(roomId);
+  if (room.status !== "open") return false;
+
+  const players = await loadPlayers(roomId);
+  const amount = Number(room.amount);
+
+  for (const pl of players) {
+    try {
+      await creditBalance(pl.telegram_id, amount, "refund", {
+        game: "dice",
+        room_id: roomId,
+        action: "stale_cancel",
+      });
+    } catch {
+      /* continue */
+    }
+  }
+
+  await db
+    .from("dice_rooms")
+    .update({
+      status: "cancelled",
+      phase: "finished",
+      turn_seat: null,
+      turn_deadline: null,
+      finished_at: new Date().toISOString(),
+    })
+    .eq("id", roomId)
+    .eq("status", "open");
+
+  return true;
+}
+
+/**
+ * Cron: AFK auto-roll + cancel stale open tables.
+ */
+export async function processStuckDiceRooms(limit = 40): Promise<{
+  checked: number;
+  autoRolled: string[];
+  cancelled: string[];
+}> {
+  const db = getAdminClient();
+  const nowIso = new Date().toISOString();
+  const staleBefore = new Date(
+    Date.now() - DICE_OPEN_STALE_MIN * 60 * 1000
+  ).toISOString();
+
+  const autoRolled: string[] = [];
+  const cancelled: string[] = [];
+  let checked = 0;
+
+  // Overdue turns (column may be missing until SQL migration)
+  try {
+    const { data: overdue } = await db
+      .from("dice_rooms")
+      .select("id")
+      .eq("status", "playing")
+      .eq("phase", "rolling")
+      .lte("turn_deadline", nowIso)
+      .order("turn_deadline", { ascending: true })
+      .limit(limit);
+
+    for (const row of overdue || []) {
+      checked++;
+      try {
+        const ok = await autoRollForTurn(row.id);
+        if (ok) autoRolled.push(row.id);
+      } catch {
+        /* next */
+      }
+    }
+  } catch {
+    /* turn_deadline column missing */
+  }
+
+  // Stale open tables
+  try {
+    const { data: stale } = await db
+      .from("dice_rooms")
+      .select("id")
+      .eq("status", "open")
+      .lt("created_at", staleBefore)
+      .order("created_at", { ascending: true })
+      .limit(limit);
+
+    for (const row of stale || []) {
+      checked++;
+      try {
+        const ok = await forceCancelOpen(row.id);
+        if (ok) cancelled.push(row.id);
+      } catch {
+        /* next */
+      }
+    }
+  } catch {
+    /* */
+  }
+
+  return { checked, autoRolled, cancelled };
+}
+

@@ -1,5 +1,4 @@
 import { apiFetch } from "@/lib/api";
-import { cacheGet, cacheSet, cacheInvalidate } from "@/lib/clientCache";
 
 export interface DicePlayerPublic {
   seat: number;
@@ -22,6 +21,7 @@ export interface DiceRoomPublic {
   hostTelegramId: number;
   round: number;
   turnSeat: number | null;
+  turnDeadline: string | null;
   serverSeedHash: string;
   serverSeed: string | null;
   pot: number | null;
@@ -38,29 +38,16 @@ export interface DiceRoomPublic {
   isMyTurn: boolean;
 }
 
-export async function diceList(opts?: { fresh?: boolean }) {
-  const key = "dice:list";
-  if (!opts?.fresh) {
-    const hit = cacheGet<{
-      ok?: boolean;
-      rooms: DiceRoomPublic[];
-      recent: DiceRoomPublic[];
-      mine: DiceRoomPublic | null;
-    }>(key);
-    if (hit) return hit;
-  }
-  const data = await apiFetch<{
+export async function diceList() {
+  return apiFetch<{
     ok?: boolean;
     rooms: DiceRoomPublic[];
     recent: DiceRoomPublic[];
     mine: DiceRoomPublic | null;
   }>("/api/dice/list");
-  cacheSet(key, data, 3500);
-  return data;
 }
 
 export async function diceCreate(amount: number, maxPlayers: number) {
-  cacheInvalidate("dice");
   return apiFetch<{ ok: boolean; room: DiceRoomPublic; balance: number }>(
     "/api/dice/create",
     { method: "POST", body: JSON.stringify({ amount, maxPlayers }) }
@@ -68,7 +55,6 @@ export async function diceCreate(amount: number, maxPlayers: number) {
 }
 
 export async function diceJoin(roomId: string) {
-  cacheInvalidate("dice");
   return apiFetch<{ ok: boolean; room: DiceRoomPublic; balance: number }>(
     "/api/dice/join",
     { method: "POST", body: JSON.stringify({ roomId }) }
@@ -76,7 +62,6 @@ export async function diceJoin(roomId: string) {
 }
 
 export async function diceLeave(roomId: string) {
-  cacheInvalidate("dice");
   return apiFetch<{ ok: boolean; room: DiceRoomPublic | null; balance: number }>(
     "/api/dice/leave",
     { method: "POST", body: JSON.stringify({ roomId }) }
@@ -84,7 +69,6 @@ export async function diceLeave(roomId: string) {
 }
 
 export async function diceStart(roomId: string) {
-  cacheInvalidate("dice");
   return apiFetch<{ ok: boolean; room: DiceRoomPublic }>(
     "/api/dice/start",
     { method: "POST", body: JSON.stringify({ roomId }) }
@@ -92,7 +76,6 @@ export async function diceStart(roomId: string) {
 }
 
 export async function diceRoll(roomId: string) {
-  cacheInvalidate("dice");
   return apiFetch<{
     ok: boolean;
     room: DiceRoomPublic;
@@ -104,7 +87,6 @@ export async function diceRoll(roomId: string) {
 }
 
 export async function diceCancel(roomId: string) {
-  cacheInvalidate("dice");
   return apiFetch<{ ok: boolean; room: DiceRoomPublic; balance: number }>(
     "/api/dice/cancel",
     { method: "POST", body: JSON.stringify({ roomId }) }
@@ -114,5 +96,31 @@ export async function diceCancel(roomId: string) {
 export async function diceState(roomId: string) {
   return apiFetch<{ ok: boolean; room: DiceRoomPublic }>(
     `/api/dice/state?id=${encodeURIComponent(roomId)}`
+  );
+}
+
+export interface DiceHistoryItem {
+  id: string;
+  room_id: string;
+  telegram_id: number;
+  username: string;
+  amount: number;
+  pot: number;
+  house_fee: number;
+  payout: number;
+  result: "win" | "lose";
+  server_seed: string | null;
+  server_seed_hash: string | null;
+  winner_telegram_id: number | null;
+  player_count: number;
+  die1: number | null;
+  die2: number | null;
+  sum: number | null;
+  created_at: string;
+}
+
+export async function diceHistory(limit = 30) {
+  return apiFetch<{ ok?: boolean; items: DiceHistoryItem[] }>(
+    `/api/dice/history?limit=${limit}`
   );
 }

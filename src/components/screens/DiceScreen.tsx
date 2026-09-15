@@ -11,8 +11,10 @@ import {
   diceRoll,
   diceStart,
   diceState,
+  diceHistory,
   type DicePlayerPublic,
   type DiceRoomPublic,
+  type DiceHistoryItem,
 } from "@/lib/diceApi";
 import {
   DICE_HOUSE_EDGE,
@@ -234,6 +236,8 @@ export function DiceScreen({
     die2: number;
     sum: number;
   } | null>(null);
+  const [personalHistory, setPersonalHistory] = useState<DiceHistoryItem[]>([]);
+
 
   const copyText = useCallback(
     (v: string) => {
@@ -292,6 +296,14 @@ export function DiceScreen({
     }, 1400);
     return () => clearInterval(id);
   }, [active?.id, active?.status, onReloadBalance, refresh, isVisible]);
+
+
+  useEffect(() => {
+    if (view !== "history") return;
+    void diceHistory(40)
+      .then((r) => setPersonalHistory(r.items || []))
+      .catch(() => {});
+  }, [view]);
 
   useEffect(() => {
     const handler = () => {
@@ -659,10 +671,48 @@ export function DiceScreen({
 
   /* ═══════════ HISTORY ═══════════ */
   if (view === "history") {
-    const numbered = [...recent].map((r, i) => ({
-      ...r,
-      no: recent.length - i,
-    }));
+    // Prefer personal dice_history; fall back to recent finished rooms
+    const fromPersonal = personalHistory.length > 0;
+    const numbered = fromPersonal
+      ? personalHistory.map((h, i) => ({
+          id: h.room_id,
+          no: personalHistory.length - i,
+          amount: Number(h.amount),
+          pot: Number(h.pot),
+          houseFee: Number(h.house_fee),
+          winnerTelegramId: h.winner_telegram_id,
+          serverSeedHash: h.server_seed_hash || "",
+          serverSeed: h.server_seed,
+          playerCount: h.player_count,
+          players: [
+            {
+              seat: 0,
+              telegramId: h.telegram_id,
+              username: h.username,
+              photoUrl: null as string | null,
+              active: true,
+              die1: h.die1,
+              die2: h.die2,
+              sum: h.sum,
+              hasRolled: true,
+            },
+          ],
+          result: h.result as "win" | "lose",
+          payout: Number(h.payout),
+          createdAt: h.created_at,
+        }))
+      : [...recent].map((r, i) => ({
+          ...r,
+          no: recent.length - i,
+          result: (r.winnerTelegramId === telegramId
+            ? "win"
+            : "lose") as "win" | "lose",
+          payout:
+            r.winnerTelegramId === telegramId
+              ? (r.pot || 0) - (r.houseFee || 0)
+              : 0,
+          createdAt: r.finishedAt || r.createdAt,
+        }));
     return (
       <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
         {header}
@@ -676,16 +726,30 @@ export function DiceScreen({
             const winner = r.players.find(
               (p) => p.telegramId === r.winnerTelegramId
             );
-            const iWon = r.winnerTelegramId === telegramId;
-            const iPlayed = r.players.some((p) => p.telegramId === telegramId);
+            const iWon =
+              ("result" in r && r.result === "win") ||
+              r.winnerTelegramId === telegramId;
+            const iPlayed = fromPersonal
+              ? true
+              : r.players.some((p) => p.telegramId === telegramId);
             return (
               <div
-                key={r.id}
+                key={`${r.id}-${r.no}`}
                 className="w-full text-left rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3.5"
               >
                 <button
                   type="button"
-                  onClick={() => openTable(r)}
+                  onClick={() => {
+                    if (fromPersonal) {
+                      void diceState(r.id)
+                        .then((res) => openTable(res.room))
+                        .catch(() =>
+                          showToast(tr("Could not open", "Не удалось открыть"))
+                        );
+                    } else {
+                      openTable(r as unknown as DiceRoomPublic);
+                    }
+                  }}
                   className="w-full text-left btn-press"
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
@@ -730,9 +794,16 @@ export function DiceScreen({
                       })}
                     </div>
                     <span className="text-[11px] text-white/35 truncate max-w-[45%]">
-                      {winner
-                        ? tr(`Winner @${winner.username}`, `Победитель @${winner.username}`)
-                        : "—"}
+                      {fromPersonal
+                        ? iWon
+                          ? tr("You won", "Вы победили")
+                          : tr("Loss", "Поражение")
+                        : winner
+                          ? tr(
+                              `Winner @${winner.username}`,
+                              `Победитель @${winner.username}`
+                            )
+                          : "—"}
                     </span>
                   </div>
                 </button>
@@ -781,12 +852,17 @@ export function DiceScreen({
 
         <div className="px-4 flex-1 flex flex-col min-w-0">
           {/* Meta */}
-          <div className="flex items-center mb-2 text-[11px] text-white/40">
+          <div className="flex items-center justify-between mb-2 text-[11px] text-white/40">
             <span className="tabular-nums">
               {formatGram(active.amount)} GRAM · {active.playerCount}/
               {active.maxPlayers}
               {isPlaying ? ` · R${active.round}` : ""}
             </span>
+            {isPlaying && active.isMyTurn && (
+              <span className="text-amber-200/80 font-medium">
+                {tr("Your turn", "Ваш ход")}
+              </span>
+            )}
           </div>
 
           {/* Felt table */}
