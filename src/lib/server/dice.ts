@@ -764,7 +764,7 @@ export async function getState(
 }
 
 
-/** Personal history rows */
+/** Personal history rows (+ players for UI parity with All tab) */
 export async function getDiceHistory(telegramId: number, limit = 30) {
   const db = getAdminClient();
   try {
@@ -775,7 +775,43 @@ export async function getDiceHistory(telegramId: number, limit = 30) {
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) throw error;
-    return data || [];
+    const rows = data || [];
+    if (!rows.length) return [];
+
+    const roomIds = [...new Set(rows.map((r: { room_id: string }) => r.room_id))];
+    const { data: allPlayers } = await db
+      .from("dice_players")
+      .select("*")
+      .in("room_id", roomIds)
+      .order("seat", { ascending: true });
+
+    const byRoom = new Map<string, DicePlayerRow[]>();
+    for (const pl of (allPlayers || []) as DicePlayerRow[]) {
+      const list = byRoom.get(pl.room_id) || [];
+      list.push(pl);
+      byRoom.set(pl.room_id, list);
+    }
+
+    return rows.map((h: Record<string, unknown>) => {
+      const players = byRoom.get(String(h.room_id)) || [];
+      const winnerId = h.winner_telegram_id as number | null;
+      const winner = players.find((p) => p.telegram_id === winnerId);
+      return {
+        ...h,
+        players: players.map((p) => ({
+          seat: p.seat,
+          telegramId: p.telegram_id,
+          username: p.username,
+          photoUrl: p.photo_url,
+          active: p.active,
+          die1: p.die1,
+          die2: p.die2,
+          sum: p.sum,
+          hasRolled: p.has_rolled,
+        })),
+        winnerUsername: winner?.username || null,
+      };
+    });
   } catch {
     return [];
   }

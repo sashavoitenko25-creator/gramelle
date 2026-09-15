@@ -119,6 +119,8 @@ export interface DiceHistoryItem {
   sum: number | null;
   created_at: string;
   game_no?: number | null;
+  players?: DicePlayerPublic[];
+  winnerUsername?: string | null;
 }
 
 export async function diceHistory(limit = 30) {

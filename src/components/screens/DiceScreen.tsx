@@ -725,35 +725,196 @@ export function DiceScreen({
 
   /* ═══════════ HISTORY ═══════════ */
   if (view === "history") {
-    const allRows = [...recent].map((r, i) => ({
-      kind: "all" as const,
-      id: r.id,
+    type HistCard = {
+      key: string;
+      no: number;
+      amount: number;
+      pot: number | null;
+      houseFee: number | null;
+      winnerTelegramId: number | null;
+      players: DicePlayerPublic[];
+      room?: DiceRoomPublic;
+      payout?: number;
+      result?: "win" | "lose";
+      die1?: number | null;
+      die2?: number | null;
+      sum?: number | null;
+    };
+
+    const allCards: HistCard[] = recent.map((r, i) => ({
+      key: r.id,
       no:
         r.gameNo != null && Number.isFinite(Number(r.gameNo))
           ? Number(r.gameNo)
           : recent.length - i,
-      room: r,
       amount: r.amount,
       pot: r.pot,
       houseFee: r.houseFee,
       winnerTelegramId: r.winnerTelegramId,
       players: r.players,
+      room: r,
     }));
-    const myRows = personalHistory.map((h, i) => ({
-      kind: "my" as const,
-      id: h.id,
-      no:
-        h.game_no != null && Number.isFinite(Number(h.game_no))
-          ? Number(h.game_no)
-          : personalHistory.length - i,
-      hist: h,
-      amount: h.amount,
-      pot: h.pot,
-      houseFee: h.house_fee,
-      winnerTelegramId: h.winner_telegram_id,
-      payout: h.payout,
-      result: h.result,
-    }));
+
+    const myCards: HistCard[] = personalHistory.map((h, i) => {
+      const fromRecent = recent.find((r) => r.id === h.room_id);
+      const players: DicePlayerPublic[] =
+        fromRecent?.players ||
+        h.players ||
+        [];
+      return {
+        key: h.id,
+        no:
+          h.game_no != null && Number.isFinite(Number(h.game_no))
+            ? Number(h.game_no)
+            : fromRecent?.gameNo != null
+              ? Number(fromRecent.gameNo)
+              : personalHistory.length - i,
+        amount: h.amount,
+        pot: h.pot,
+        houseFee: h.house_fee,
+        winnerTelegramId: h.winner_telegram_id,
+        players,
+        room: fromRecent,
+        payout: h.payout,
+        result: h.result,
+        die1: h.die1,
+        die2: h.die2,
+        sum: h.sum,
+      };
+    });
+
+    const cards = histTab === "all" ? allCards : myCards;
+
+    const renderCard = (c: HistCard) => {
+      const winner = c.players.find(
+        (p) => p.telegramId === c.winnerTelegramId
+      );
+      const iPlayed =
+        c.players.some((p) => p.telegramId === telegramId) ||
+        c.result != null;
+      const iWon =
+        c.result === "win" ||
+        (c.winnerTelegramId != null && c.winnerTelegramId === telegramId);
+      const iLost = iPlayed && !iWon && c.winnerTelegramId != null;
+
+      let deltaLabel = formatGram(c.amount);
+      let deltaClass = "text-white/45";
+      if (iWon) {
+        const net =
+          c.payout != null && c.payout > 0
+            ? c.payout
+            : Math.max(0, (c.pot || 0) - (c.houseFee || 0));
+        deltaLabel = `+${formatGram(net)} GRAM`;
+        deltaClass = "text-emerald-300";
+      } else if (iLost || c.result === "lose") {
+        deltaLabel = `−${formatGram(c.amount)} GRAM`;
+        deltaClass = "text-rose-300/90";
+      } else if (iPlayed) {
+        deltaLabel = `${formatGram(c.amount)} GRAM`;
+      } else {
+        deltaLabel = `${formatGram(c.amount)} GRAM`;
+      }
+
+      const winnerName = winner
+        ? winner.username.replace(/^@/, "")
+        : null;
+
+      const body = (
+        <>
+          <div className="flex items-start justify-between gap-3 mb-2.5">
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold tracking-wide text-white/35 tabular-nums">
+                DICE#{c.no}
+              </div>
+              {winnerName ? (
+                <div className="mt-1.5 flex items-center gap-1.5 min-w-0">
+                  <span className="text-[10px] uppercase tracking-wide text-white/30 shrink-0">
+                    {lang === "ru" ? "Победитель" : "Winner"}
+                  </span>
+                  <span className="text-[12px] font-semibold text-white/80 truncate">
+                    @{winnerName}
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-1.5 text-[12px] text-white/30">
+                  {c.players.length
+                    ? `${c.players.length} ${lang === "ru" ? "игроков" : "players"}`
+                    : "—"}
+                </div>
+              )}
+            </div>
+            <div
+              className={cn(
+                "shrink-0 text-[13px] font-bold tabular-nums tracking-tight",
+                deltaClass
+              )}
+            >
+              {deltaLabel}
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex -space-x-2">
+              {(c.players.length ? c.players : []).slice(0, 6).map((p) => {
+                const isW = p.telegramId === c.winnerTelegramId;
+                return (
+                  <div key={p.telegramId} className="relative">
+                    <Avatar
+                      name={p.username}
+                      photoUrl={p.photoUrl}
+                      size={30}
+                      ring={
+                        isW
+                          ? "border-emerald-400/80 ring-2 ring-emerald-400/25"
+                          : "border-white/15"
+                      }
+                    />
+                  </div>
+                );
+              })}
+              {!c.players.length && (
+                <div className="text-[11px] text-white/25 py-1">
+                  {lang === "ru" ? "Нет аватаров" : "No avatars"}
+                </div>
+              )}
+            </div>
+            {(c.sum != null || (c.die1 != null && c.die2 != null)) && (
+              <div className="text-[11px] font-medium tabular-nums text-white/35">
+                {c.die1 != null && c.die2 != null
+                  ? `${c.die1}+${c.die2}=${c.sum ?? c.die1 + c.die2}`
+                  : `Σ ${c.sum}`}
+              </div>
+            )}
+          </div>
+        </>
+      );
+
+      const shellClass = cn(
+        "w-full text-left rounded-[18px] border px-3.5 py-3 transition",
+        iWon
+          ? "border-emerald-500/30 bg-emerald-500/[0.07]"
+          : iLost || c.result === "lose"
+            ? "border-white/[0.07] bg-white/[0.03]"
+            : "border-white/[0.07] bg-white/[0.03]"
+      );
+
+      if (c.room) {
+        return (
+          <button
+            key={c.key}
+            type="button"
+            onClick={() => openTable(c.room!)}
+            className={cn(shellClass, "btn-press active:scale-[0.99]")}
+          >
+            {body}
+          </button>
+        );
+      }
+      return (
+        <div key={c.key} className={shellClass}>
+          {body}
+        </div>
+      );
+    };
 
     return (
       <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
@@ -790,135 +951,12 @@ export function DiceScreen({
               {lang === "ru" ? "Мои игры" : "My games"}
             </button>
           </div>
-          {histTab === "all" ? (
-            allRows.length === 0 ? (
-              <div className="text-center text-white/35 text-sm py-16">
-                {tr("No games yet", "Пока нет партий")}
-              </div>
-            ) : (
-              <div className="space-y-2 pb-6">
-                {allRows.map((r) => {
-                  const winner = r.players.find(
-                    (p) => p.telegramId === r.winnerTelegramId
-                  );
-                  const iWon = r.winnerTelegramId === telegramId;
-                  const iPlayed = r.players.some(
-                    (p) => p.telegramId === telegramId
-                  );
-                  return (
-                    <div
-                      key={r.id}
-                      className="w-full text-left rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3.5"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => openTable(r.room)}
-                        className="w-full text-left btn-press"
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <span className="text-[11px] font-semibold text-white/40 tabular-nums">
-                            DICE#{r.no}
-                          </span>
-                          <div
-                            className={cn(
-                              "text-[13px] font-semibold tabular-nums",
-                              iWon
-                                ? "text-emerald-300"
-                                : iPlayed
-                                  ? "text-red-300/80"
-                                  : "text-white/40"
-                            )}
-                          >
-                            {iWon
-                              ? `+${formatGram((r.pot || 0) - (r.houseFee || 0))}`
-                              : iPlayed
-                                ? `−${formatGram(r.amount)}`
-                                : formatGram(r.amount)}
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex -space-x-2">
-                            {r.players.slice(0, 5).map((p) => {
-                              const isW = p.telegramId === r.winnerTelegramId;
-                              return (
-                                <div key={p.telegramId} className="relative">
-                                  <Avatar
-                                    name={p.username}
-                                    photoUrl={p.photoUrl}
-                                    size={30}
-                                    ring={
-                                      isW
-                                        ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
-                                        : undefined
-                                    }
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <span className="text-[11px] text-white/35 truncate max-w-[45%]">
-                            {winner
-                              ? tr(
-                                  `Winner @${winner.username}`,
-                                  `Победитель @${winner.username}`
-                                )
-                              : "—"}
-                          </span>
-                        </div>
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )
-          ) : myRows.length === 0 ? (
+          {cards.length === 0 ? (
             <div className="text-center text-white/35 text-sm py-16">
               {tr("No games yet", "Пока нет партий")}
             </div>
           ) : (
-            <div className="space-y-2 pb-6">
-              {myRows.map((h) => {
-                const iWon = h.result === "win";
-                return (
-                  <div
-                    key={h.id}
-                    className={cn(
-                      "w-full text-left rounded-2xl border p-3.5",
-                      iWon
-                        ? "border-emerald-500/35 bg-emerald-500/[0.08]"
-                        : "border-rose-500/35 bg-rose-500/[0.08]"
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-[11px] font-semibold text-white/40 tabular-nums">
-                        DICE#{h.no}
-                      </span>
-                      <div
-                        className={cn(
-                          "text-[13px] font-semibold tabular-nums",
-                          iWon ? "text-emerald-300" : "text-red-300/80"
-                        )}
-                      >
-                        {iWon
-                          ? `+${formatGram(h.payout)}`
-                          : `−${formatGram(h.amount)}`}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-2 text-[11px] text-white/40">
-                      <span>
-                        {h.hist.player_count}{" "}
-                        {lang === "ru" ? "игроков" : "players"}
-                      </span>
-                      <span>
-                        {h.hist.sum != null
-                          ? `${h.hist.die1}+${h.hist.die2}=${h.hist.sum}`
-                          : ""}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <div className="space-y-2.5 pb-6">{cards.map(renderCard)}</div>
           )}
         </div>
       </div>
