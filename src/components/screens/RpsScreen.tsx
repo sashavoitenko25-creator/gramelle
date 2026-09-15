@@ -85,6 +85,7 @@ type HistItem = {
   server_seed_hash?: string;
   creator_choice_hash?: string;
   created_at: string;
+  game_no?: number | null;
 };
 
 /* ─── SFX ──────────────────────────────────────────────── */
@@ -163,14 +164,20 @@ function clipHash(h: string, head = 6, tail = 4) {
   return `${h.slice(0, head)}…${h.slice(-tail)}`;
 }
 
-/** Stable RPS #N from chronological order (oldest = #1) */
+/** Prefer permanent DB game_no; fallback chronological within list */
 function numberHistory(items: HistItem[]): (HistItem & { no: number })[] {
   const asc = [...items].sort(
     (a, b) =>
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
-  const map = new Map(asc.map((h, i) => [h.id, i + 1]));
-  return items.map((h) => ({ ...h, no: map.get(h.id) ?? 1 }));
+  const fallback = new Map(asc.map((h, i) => [h.id, i + 1]));
+  return items.map((h) => ({
+    ...h,
+    no:
+      h.game_no != null && Number.isFinite(Number(h.game_no))
+        ? Number(h.game_no)
+        : fallback.get(h.id) ?? 1,
+  }));
 }
 
 async function sha256Hex(text: string): Promise<string> {
@@ -1450,7 +1457,11 @@ export function RpsScreen({
                   <GlobalHistoryRow
                     key={r.id}
                     room={r}
-                    no={recent.length - i}
+                    no={
+                      r.gameNo != null && Number.isFinite(Number(r.gameNo))
+                        ? Number(r.gameNo)
+                        : recent.length - i
+                    }
                     telegramId={telegramId}
                     lang={lang}
                     onOpen={() => {

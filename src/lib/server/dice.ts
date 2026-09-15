@@ -31,6 +31,7 @@ export type DiceRoomRow = {
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
+  game_no?: number | null;
 };
 
 export type DicePlayerRow = {
@@ -132,6 +133,7 @@ export function publicRoom(
     isSeated,
     mySeat,
     isMyTurn,
+    gameNo: room.game_no != null ? Number(room.game_no) : null,
   };
 }
 
@@ -189,6 +191,7 @@ async function writeDiceHistory(
       die1: pl.die1,
       die2: pl.die2,
       sum: pl.sum,
+      game_no: room.game_no != null ? Number(room.game_no) : null,
     };
   });
   try {

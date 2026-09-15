@@ -31,6 +31,7 @@ export interface RpsRoomRow {
   joined_at?: string | null;
   finished_at?: string | null;
   reveal_at?: string | null;
+  game_no?: number | null;
 }
 
 export const RPS_MIN_BET = MIN_BET;
@@ -110,6 +111,7 @@ export function publicRoom(room: RpsRoomRow, viewerTelegramId?: number | null) {
     revealAt: room.reveal_at || null,
     isMine: isCreator || isJoiner,
     isCreator,
+    gameNo: room.game_no != null ? Number(room.game_no) : null,
   };
 }
 
@@ -446,6 +448,7 @@ export async function finishRoom(roomId: string): Promise<RpsRoomRow | null> {
   const creatorChoice = finished.creator_choice;
   const joinerChoice = finished.joiner_choice!;
 
+  const gameNo = finished.game_no != null ? Number(finished.game_no) : null;
   const rows = [
     {
       room_id: roomId,
@@ -469,6 +472,7 @@ export async function finishRoom(roomId: string): Promise<RpsRoomRow | null> {
       server_seed: finished.server_seed,
       server_seed_hash: finished.server_seed_hash,
       creator_choice_hash: finished.creator_choice_hash,
+      game_no: gameNo,
     },
     {
       room_id: roomId,
@@ -492,6 +496,7 @@ export async function finishRoom(roomId: string): Promise<RpsRoomRow | null> {
       server_seed: finished.server_seed,
       server_seed_hash: finished.server_seed_hash,
       creator_choice_hash: finished.creator_choice_hash,
+      game_no: gameNo,
     },
   ];
 

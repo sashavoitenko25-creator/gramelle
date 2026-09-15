@@ -111,6 +111,9 @@ export function GamesScreen({
             }}
           />
           <OnlineBadge count={diceOnline} />
+          <div className="absolute top-3.5 left-3.5 z-20 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 border border-amber-300/40 shadow-[0_0_12px_rgba(251,191,36,0.45)]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-black/90">New</span>
+          </div>
           <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
             <div className="flex items-center gap-3">
               <svg

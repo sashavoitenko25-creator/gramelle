@@ -36,6 +36,7 @@ export interface DiceRoomPublic {
   isSeated: boolean;
   mySeat: number | null;
   isMyTurn: boolean;
+  gameNo?: number | null;
 }
 
 export async function diceList() {
@@ -117,6 +118,7 @@ export interface DiceHistoryItem {
   die2: number | null;
   sum: number | null;
   created_at: string;
+  game_no?: number | null;
 }
 
 export async function diceHistory(limit = 30) {

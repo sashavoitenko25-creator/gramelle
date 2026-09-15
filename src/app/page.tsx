@@ -124,7 +124,7 @@ export default function Home() {
       }
     };
     void tick();
-    const id = setInterval(() => void tick(), 5000);
+    const id = setInterval(() => void tick(), 2000);
     return () => {
       stopped = true;
       clearInterval(id);

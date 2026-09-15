@@ -28,6 +28,7 @@ export interface RpsPublicRoom {
   revealAt: string | null;
   isMine: boolean;
   isCreator: boolean;
+  gameNo?: number | null;
 }
 
 export async function rpsList(opts?: { fresh?: boolean }) {
