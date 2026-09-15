@@ -657,6 +657,28 @@ async function advanceAfterRoll(
       payout
     );
 
+    let gameNoAssign: number | null =
+      room.game_no != null ? Number(room.game_no) : null;
+    if (gameNoAssign == null) {
+      try {
+        const { data: seq } = await db.rpc("dice_next_game_no");
+        if (seq != null) gameNoAssign = Number(seq);
+      } catch {
+        try {
+          const { data: mx } = await db
+            .from("dice_rooms")
+            .select("game_no")
+            .not("game_no", "is", null)
+            .order("game_no", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          gameNoAssign = mx?.game_no != null ? Number(mx.game_no) + 1 : 1;
+        } catch {
+          gameNoAssign = 1;
+        }
+      }
+    }
+
     const { data } = await db
       .from("dice_rooms")
       .update({
@@ -666,10 +688,20 @@ async function advanceAfterRoll(
         turn_seat: null,
         turn_deadline: null,
         finished_at: new Date().toISOString(),
+        game_no: gameNoAssign,
       })
       .eq("id", room.id)
       .select("*")
       .single();
+    // writeDiceHistory already used room.game_no — refresh
+    if (data && gameNoAssign != null) {
+      try {
+        await db
+          .from("dice_history")
+          .update({ game_no: gameNoAssign })
+          .eq("room_id", room.id);
+      } catch {}
+    }
     return data as DiceRoomRow;
   }
 

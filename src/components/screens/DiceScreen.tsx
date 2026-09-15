@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { cn, formatGram } from "@/lib/utils";
+import { cn, formatGram, parseAmountInput, sanitizeAmountInput } from "@/lib/utils";
 import {
   diceCancel,
   diceCreate,
@@ -228,7 +228,7 @@ export function DiceScreen({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [amountStr, setAmountStr] = useState("1");
-  const amount = amountStr === "" ? 0 : Number(amountStr);
+  const amount = amountStr === "" ? 0 : parseAmountInput(amountStr);
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [rollingAnim, setRollingAnim] = useState(false);
   const [lastRoll, setLastRoll] = useState<{
@@ -657,8 +657,8 @@ export function DiceScreen({
                 inputMode="decimal"
                 value={amountStr}
                 onChange={(e) => {
-                  const v = e.target.value.replace(/[^0-9.]/g, "");
-                  if (v === "" || /^\d*\.?\d*$/.test(v)) setAmountStr(v);
+                  const v = sanitizeAmountInput(e.target.value);
+                  setAmountStr(v);
                 }}
                 placeholder="0"
                 className="w-full h-12 rounded-2xl bg-black/35 border border-white/10 px-4 text-[15px] font-semibold tabular-nums outline-none focus:border-emerald-500/40"

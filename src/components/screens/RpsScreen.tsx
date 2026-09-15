@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { cn, formatGram, formatTime } from "@/lib/utils";
+import {cn, formatGram, formatTime, parseAmountInput, sanitizeAmountInput} from "@/lib/utils";
 import {
   rpsCancel,
   rpsCreate,
@@ -761,7 +761,7 @@ export function RpsScreen({
 
   const [choice, setChoice] = useState<RpsChoice>("rock");
   const [amountStr, setAmountStr] = useState("1");
-  const amount = amountStr === "" ? 0 : Number(amountStr);
+  const amount = amountStr === "" ? 0 : parseAmountInput(amountStr);
   const [joinTarget, setJoinTarget] = useState<RpsPublicRoom | null>(null);
   const [joinChoice, setJoinChoice] = useState<RpsChoice>("paper");
 
@@ -1676,16 +1676,12 @@ export function RpsScreen({
             ))}
           </div>
           <input
-            type="number"
+            type="text"
             inputMode="decimal"
             value={amountStr}
             onChange={(e) => {
-              const v = e.target.value.replace(/[^0-9.]/g, "");
-              if (v === "" || /^\d*\.?\d*$/.test(v)) setAmountStr(v);
+              setAmountStr(sanitizeAmountInput(e.target.value));
             }}
-            min={RPS_MIN_BET}
-            max={RPS_MAX_BET}
-            step="0.25"
             className="w-full h-12 rounded-2xl bg-white/[0.04] border border-white/[0.1] px-4 text-[16px] font-semibold tabular-nums outline-none focus:border-fuchsia-400/40 transition"
           />
           <div className="text-[11px] text-white/28 mt-2 mb-6">

@@ -9,7 +9,7 @@ import {
   MAX_WITHDRAW_TON,
   DAILY_WITHDRAW_LIMIT_TON,
 } from "@/lib/constants";
-import { formatGram } from "@/lib/utils";
+import {formatGram, parseAmountInput, sanitizeAmountInput} from "@/lib/utils";
 import { GramIcon } from "@/components/ui/GramIcon";
 import {
   playSuccessSound,
@@ -53,7 +53,7 @@ export function WithdrawModal({
   const [wallet, setWallet] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const val = Number(amount) || 0;
+  const val = parseAmountInput(amount) || 0;
   const can =
     wagerRemaining <= 0.0001 &&
     val >= MIN_WITHDRAW_TON &&
@@ -143,7 +143,7 @@ export function WithdrawModal({
           step="0.1"
           placeholder={`Мин. ${MIN_WITHDRAW_TON}`}
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => setAmount(sanitizeAmountInput(e.target.value))}
           className="w-full h-12 rounded-2xl bg-black/30 border border-white/10 px-4 text-base tabular-nums mb-1 outline-none focus:border-cyan-500/40"
         />
         <p className="text-[11px] text-white/35 mb-1">

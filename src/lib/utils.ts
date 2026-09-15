@@ -30,3 +30,30 @@ export function formatTime(date: Date, lang: "ru" | "en" = "ru"): string {
   if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
+
+/** Accept "1,2" / "1.2" / " 1,20 " → number. Empty → NaN. */
+export function parseAmountInput(raw: string): number {
+  const s = String(raw ?? "").trim().replace(/\s+/g, "").replace(",", ".");
+  if (!s) return NaN;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+/** Keep only valid decimal typing chars (digits, one dot or comma). */
+export function sanitizeAmountInput(raw: string): string {
+  let s = String(raw ?? "").replace(/[^0-9.,]/g, "");
+  // unify: allow one separator
+  const comma = s.indexOf(",");
+  const dot = s.indexOf(".");
+  if (comma >= 0 && dot >= 0) {
+    // keep first separator, drop the other type
+    if (comma < dot) s = s.replace(/\./g, "");
+    else s = s.replace(/,/g, "");
+  }
+  const sep = s.includes(",") ? "," : s.includes(".") ? "." : null;
+  if (sep) {
+    const i = s.indexOf(sep);
+    s = s.slice(0, i + 1) + s.slice(i + 1).replace(/[.,]/g, "");
+  }
+  return s;
+}

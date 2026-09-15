@@ -261,6 +261,7 @@ export async function createRoom(opts: {
       board: emptyBoard(),
       turn_symbol: "X",
       move_log: [],
+      game_no: null,
     })
     .select("*")
     .single();
@@ -380,6 +381,36 @@ async function settleFinished(room: XoRoomRow): Promise<XoRoomRow> {
   const winnerId = room.winner_telegram_id ?? null;
   const finishReason = room.finish_reason || (winnerId == null ? "draw" : "win");
 
+  // Permanent number only for finished games (cancelled rooms no longer consume seq)
+  let gameNoAssign: number | null =
+    room.game_no != null ? Number(room.game_no) : null;
+  if (gameNoAssign == null) {
+    try {
+      const { data: seq } = await getAdminClient().rpc("xo_next_game_no");
+      if (seq != null) gameNoAssign = Number(seq);
+    } catch {
+      try {
+        const { data: seqRows } = await getAdminClient().rpc("xo_next_game_no");
+        if (seqRows != null) gameNoAssign = Number(seqRows);
+      } catch {}
+    }
+  }
+  if (gameNoAssign == null) {
+    // fallback: max+1
+    try {
+      const { data: mx } = await getAdminClient()
+        .from("xo_rooms")
+        .select("game_no")
+        .not("game_no", "is", null)
+        .order("game_no", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      gameNoAssign = mx?.game_no != null ? Number(mx.game_no) + 1 : 1;
+    } catch {
+      gameNoAssign = 1;
+    }
+  }
+
   const { data: claimed, error } = await getAdminClient()
     .from("xo_rooms")
     .update({
@@ -389,6 +420,7 @@ async function settleFinished(room: XoRoomRow): Promise<XoRoomRow> {
       finished_at: new Date().toISOString(),
       finish_reason: finishReason,
       turn_deadline: null,
+      game_no: gameNoAssign,
     })
     .eq("id", roomId)
     .eq("status", "playing")

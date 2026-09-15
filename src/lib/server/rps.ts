@@ -204,6 +204,7 @@ export async function createRoom(opts: {
       amount,
       server_seed: serverSeed,
       server_seed_hash: hashSeed(serverSeed),
+      game_no: null,
     })
     .select("*")
     .single();
@@ -379,11 +380,33 @@ export async function finishRoom(roomId: string): Promise<RpsRoomRow | null> {
     return r; // too early
   }
 
+  let gameNoAssign: number | null = r.game_no != null ? Number(r.game_no) : null;
+  if (gameNoAssign == null) {
+    try {
+      const { data: seq } = await db.rpc("rps_next_game_no");
+      if (seq != null) gameNoAssign = Number(seq);
+    } catch {
+      try {
+        const { data: mx } = await db
+          .from("rps_rooms")
+          .select("game_no")
+          .not("game_no", "is", null)
+          .order("game_no", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        gameNoAssign = mx?.game_no != null ? Number(mx.game_no) + 1 : 1;
+      } catch {
+        gameNoAssign = 1;
+      }
+    }
+  }
+
   const { data: claimed, error } = await db
     .from("rps_rooms")
     .update({
       status: "finished",
       finished_at: new Date().toISOString(),
+      game_no: gameNoAssign,
     })
     .eq("id", roomId)
     .eq("status", "playing")

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { cn, formatGram } from "@/lib/utils";
+import { cn, formatGram, parseAmountInput, sanitizeAmountInput } from "@/lib/utils";
 import {
   xoCancel,
   xoCreate,
@@ -199,7 +199,7 @@ export function XoScreen({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [amountStr, setAmountStr] = useState("1");
-  const amount = amountStr === "" ? 0 : Number(amountStr);
+  const amount = amountStr === "" ? 0 : parseAmountInput(amountStr);
   const [symbol, setSymbol] = useState<XoSymbol>("X");
   const [personalHistory, setPersonalHistory] = useState<XoHistoryItem[]>([]);
   const [histTab, setHistTab] = useState<"all" | "my">("all");
@@ -539,7 +539,7 @@ export function XoScreen({
               </div>
               <input
                 value={amountStr}
-                onChange={(e) => setAmountStr(e.target.value.replace(/[^0-9.]/g, ""))}
+                onChange={(e) => setAmountStr(sanitizeAmountInput(e.target.value))}
                 className="w-full h-12 rounded-2xl bg-black/35 border border-white/10 px-4 text-[16px] font-semibold tabular-nums outline-none focus:border-cyan-400/40"
                 inputMode="decimal"
               />
