@@ -33,6 +33,17 @@ type Phase = "lobby" | "lock" | "release" | "fall" | "finish";
 
 type Peg = { x: number; y: number; r: number; kind: string };
 type Wall = { x1: number; y1: number; x2: number; y2: number };
+type SimBall = {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  r: number;
+  telegramId: number;
+  username: string;
+  photoUrl: string | null;
+};
 
 function hash01(s: string): number {
   let h = 2166136261;
