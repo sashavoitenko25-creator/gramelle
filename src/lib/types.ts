@@ -24,6 +24,7 @@ export type Screen =
   | "referrals"
   | "transactions"
   | "tasks"
-  | "fairness";
+  | "fairness"
+  | "race";
 
 export type DepositMethod = "ton";

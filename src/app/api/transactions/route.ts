@@ -202,7 +202,7 @@ export async function GET(req: NextRequest) {
       } else if (reason === "refund") {
         const game = meta.game != null ? String(meta.game) : "";
         // Game stake refunds (draw / cancel) — skip so they don't show as "rejected"
-        if (game === "rps" || game === "xo" || game === "dice") continue;
+        if (game === "rps" || game === "xo" || game === "dice" || game === "race") continue;
         items.push({
           id: `ld-${row.id}`,
           kind: "withdraw",

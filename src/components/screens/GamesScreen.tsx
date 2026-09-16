@@ -7,18 +7,22 @@ interface GamesScreenProps {
   onSelectRps: () => void;
   onSelectDice: () => void;
   onSelectXo?: () => void;
+  onSelectRace?: () => void;
   rpsOnline?: number;
   diceOnline?: number;
   xoOnline?: number;
+  raceOnline?: number;
 }
 
 export function GamesScreen({
   onSelectRps,
   onSelectDice,
   onSelectXo,
+  onSelectRace,
   rpsOnline = 0,
   diceOnline = 0,
   xoOnline = 0,
+  raceOnline = 0,
 }: GamesScreenProps) {
   const { t, lang } = useI18n();
   const isRu = lang === "ru";
@@ -257,6 +261,59 @@ export function GamesScreen({
             </div>
           </div>
         </button>
+
+        {/* Race — Live */}
+        <button
+          type="button"
+          onClick={() => onSelectRace?.()}
+          className="group relative overflow-hidden rounded-[28px] text-left btn-press active:scale-[0.98] transition-all duration-200"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0e7490] via-[#6d28d9] to-[#db2777]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_15%_20%,rgba(34,211,238,0.4),transparent_55%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_100%_0%,rgba(232,121,249,0.28),transparent_50%)]" />
+          <div className="absolute top-3.5 right-3.5 z-20 flex items-center gap-1.5">
+            <div className="relative flex items-center px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-300 via-yellow-300 to-orange-400 border border-white/35 shadow-[0_0_16px_rgba(251,191,36,0.55),0_2px_8px_rgba(0,0,0,0.25)]">
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-black/85">
+                LIVE
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 border border-white/15 backdrop-blur-md">
+              <span className="relative flex h-1.5 w-1.5">
+                {raceOnline > 0 ? (
+                  <>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                  </>
+                ) : (
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white/35" />
+                )}
+              </span>
+              <span className="text-[11px] font-semibold text-white/90 tabular-nums">
+                {t("online").charAt(0).toUpperCase() + t("online").slice(1)}{" "}
+                {raceOnline > 99 ? "99+" : raceOnline}
+              </span>
+            </div>
+          </div>
+          <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
+            <div className="flex items-center gap-2">
+              <div className="relative w-[52px] h-[52px] rounded-2xl bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] -rotate-6 group-hover:rotate-0 transition-transform duration-300">
+                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-cyan-300 to-cyan-500 shadow-[0_0_12px_rgba(34,211,238,0.7)]" />
+              </div>
+              <div className="relative w-[52px] h-[52px] rounded-2xl bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] rotate-6 group-hover:rotate-0 transition-transform duration-300 -ml-1">
+                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-fuchsia-300 to-pink-500 shadow-[0_0_12px_rgba(236,72,153,0.7)]" />
+              </div>
+            </div>
+            <div className="mt-6">
+              <div className="text-[22px] font-bold text-white tracking-tight leading-none">
+                {t("race")}
+              </div>
+              <div className="text-[13px] text-white/55 mt-1.5 leading-snug">
+                {t("raceDesc")}
+              </div>
+            </div>
+          </div>
+        </button>
+
 
       </div>
     </div>

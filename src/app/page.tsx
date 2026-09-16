@@ -11,6 +11,7 @@ import { GamesScreen } from "@/components/screens/GamesScreen";
 import { RpsScreen } from "@/components/screens/RpsScreen";
 import { DiceScreen } from "@/components/screens/DiceScreen";
 import { XoScreen } from "@/components/screens/XoScreen";
+import { RaceScreen } from "@/components/screens/RaceScreen";
 import { FairnessScreen } from "@/components/screens/FairnessScreen";
 import { MaintenanceScreen } from "@/components/screens/MaintenanceScreen";
 import { BottomNav } from "@/components/game/BottomNav";
@@ -316,6 +317,10 @@ export default function Home() {
             haptic("light");
             setScreen("xo");
           }}
+          onSelectRace={() => {
+            haptic("light");
+            setScreen("race");
+          }}
         />
       )}
 
@@ -437,7 +442,26 @@ export default function Home() {
         />
       )}
 
-{screen === "fairness" && (
+      {screen === "race" && telegramId != null && (
+        <RaceScreen
+          balance={balance}
+          telegramId={telegramId}
+          username={username}
+          onBack={() => setScreen("games")}
+          onBalanceUpdate={(b) => setBalanceFromServer(b)}
+          onReloadBalance={reloadProfile}
+          onDeposit={() => {
+            haptic("light");
+            setDepositOpen(true);
+          }}
+          haptic={haptic}
+          hapticSuccess={hapticSuccess}
+          hapticError={hapticError}
+          showToast={showToast}
+        />
+      )}
+
+      {screen === "fairness" && (
         <FairnessScreen
           initialHash={fairnessPrefill?.hash}
           initialSeed={fairnessPrefill?.seed}

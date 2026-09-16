@@ -409,3 +409,9 @@ html.tg-light {
 .dice-pot-glow {
   animation: dice-pot-glow 2.4s ease-in-out infinite;
 }
+
+
+@keyframes race-orbit {
+  from { transform: rotate(var(--orbit-angle, 0deg)) translateY(-42%) rotate(calc(-1 * var(--orbit-angle, 0deg))); }
+  to { transform: rotate(calc(var(--orbit-angle, 0deg) + 360deg)) translateY(-42%) rotate(calc(-1 * (var(--orbit-angle, 0deg) + 360deg))); }
+}
