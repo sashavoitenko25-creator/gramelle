@@ -41,6 +41,7 @@ type SimBall = {
   vy: number;
   r: number;
   seat: number;
+  finishRank: number | null;
   telegramId: number;
   username: string;
   photoUrl: string | null;
