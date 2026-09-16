@@ -27,6 +27,7 @@ export interface RaceRoomPublic {
   winnerBallId: string | null;
   houseFee: number | null;
   finishOrder: string[] | null;
+  mapId: string | null;
   gameNo: number | null;
   createdAt: string;
   startedAt: string | null;
@@ -36,6 +37,14 @@ export interface RaceRoomPublic {
   balls: RaceBallPublic[];
   myBallCount: number;
   isHost: boolean;
+}
+
+export async function raceActive() {
+  return apiFetch<{
+    ok?: boolean;
+    room: RaceRoomPublic | null;
+    idle?: boolean;
+  }>("/api/race/active");
 }
 
 export async function raceList() {

@@ -4,15 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn, formatGram } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 import { useTelegram } from "@/hooks/useTelegram";
-import { RACE_MIN_BALL } from "@/lib/raceConstants";
+import { RACE_MAPS, RACE_MIN_BALL } from "@/lib/raceConstants";
 import {
+  raceActive,
   raceBuy,
   raceCancel,
   raceCreate,
   raceHistory,
-  raceList,
   raceProcess,
-  raceState,
   type RaceRoomPublic,
 } from "@/lib/raceApi";
 
@@ -30,141 +29,363 @@ interface RaceScreenProps {
   showToast: (msg: string) => void;
 }
 
-type View = "lobby" | "room" | "history";
+type Phase = "lobby" | "lock" | "release" | "fall" | "finish";
 
-function HashRow({
+function HashChip({
   label,
   value,
   onCopy,
 }: {
   label: string;
-  value: string | null | undefined;
+  value?: string | null;
   onCopy: (v: string) => void;
 }) {
   if (!value) return null;
-  const short = value.length > 18 ? `${value.slice(0, 10)}…${value.slice(-6)}` : value;
+  const short =
+    value.length > 14 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
   return (
     <button
       type="button"
       onClick={() => onCopy(value)}
-      className="w-full flex items-center justify-between gap-2 text-left"
+      className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-black/35 border border-white/10 text-[10px] font-mono text-cyan-200/85"
     >
-      <span className="text-[10px] uppercase tracking-wider text-white/35">{label}</span>
-      <span className="text-[11px] font-mono text-cyan-300/80 truncate">{short}</span>
+      <span className="text-white/35 uppercase tracking-wider">{label}</span>
+      {short}
     </button>
   );
 }
 
-/** Premium ring + track visualization */
-function RaceArena({
+function pegLayout(mapId: string | null, w: number, h: number) {
+  const pegs: { x: number; y: number; r: number }[] = [];
+  const style = RACE_MAPS.find((m) => m.id === mapId)?.pegs || "staggered";
+  const top = h * 0.38;
+  const bottom = h * 0.82;
+  const rows = style === "dense" ? 9 : style === "funnel" ? 7 : 6;
+
+  for (let row = 0; row < rows; row++) {
+    const t = row / Math.max(rows - 1, 1);
+    const y = top + t * (bottom - top);
+    let cols = 5;
+    let inset = 0.12;
+    if (style === "funnel") {
+      cols = 3 + Math.floor(t * 5);
+      inset = 0.08 + t * 0.12;
+    } else if (style === "dense") {
+      cols = 7;
+      inset = 0.08;
+    } else if (style === "lanes") {
+      cols = 4;
+      inset = 0.18;
+    } else if (style === "zigzag") {
+      cols = 5;
+      inset = 0.1 + (row % 2) * 0.06;
+    } else {
+      cols = 5 + (row % 2);
+      inset = 0.1 + (row % 2) * 0.04;
+    }
+    for (let c = 0; c < cols; c++) {
+      const u = cols === 1 ? 0.5 : c / (cols - 1);
+      const x = w * (inset + u * (1 - 2 * inset));
+      pegs.push({ x, y, r: style === "dense" ? 3.2 : 4 });
+    }
+  }
+  return pegs;
+}
+
+/** Full-bleed race stage with camera */
+function RaceStage({
   room,
   phase,
+  followBallId,
+  telegramId,
 }: {
-  room: RaceRoomPublic;
-  phase: "idle" | "spin" | "open" | "fall" | "done";
+  room: RaceRoomPublic | null;
+  phase: Phase;
+  followBallId: string | null;
+  telegramId: number;
 }) {
-  const balls = room.balls;
+  const balls = room?.balls || [];
   const n = Math.max(balls.length, 1);
+  const mapId = room?.mapId || null;
+  const mapMeta = RACE_MAPS.find((m) => m.id === mapId);
+
+  // Camera: 0 = ring focus, 1 = track follow
+  const cam =
+    phase === "lobby" || phase === "lock"
+      ? { scale: 1.15, ty: 0 }
+      : phase === "release"
+        ? { scale: 0.92, ty: 8 }
+        : phase === "fall"
+          ? { scale: 0.78, ty: 42 }
+          : { scale: 0.72, ty: 55 };
+
+  const W = 320;
+  const H = 520;
+  const pegs = useMemo(() => pegLayout(mapId, W, H), [mapId]);
+
+  const followIdx = Math.max(
+    0,
+    balls.findIndex((b) => b.id === followBallId)
+  );
 
   return (
-    <div className="relative w-full aspect-[3/4] max-h-[52vh] mx-auto">
-      {/* ambient */}
-      <div className="absolute inset-0 rounded-[28px] overflow-hidden border border-white/[0.08] bg-gradient-to-b from-[#0a0a14] via-[#0c1020] to-[#06060a]">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(34,211,238,0.12),transparent_55%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_100%,rgba(167,139,250,0.1),transparent_50%)]" />
+    <div className="relative w-full overflow-hidden rounded-[28px] border border-white/[0.1] shadow-[0_20px_60px_rgba(0,0,0,0.55)]">
+      <div
+        className="relative aspect-[3/4.2] bg-[#05050a] transition-transform duration-[1400ms] ease-out will-change-transform"
+        style={{
+          transform: `scale(${cam.scale}) translateY(${cam.ty}px)`,
+          transformOrigin: "50% 18%",
+        }}
+      >
+        {/* deep space bg */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0b1020] via-[#080814] to-[#030308]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_50%_at_50%_-10%,rgba(34,211,238,0.18),transparent_55%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_40%_at_50%_100%,rgba(168,85,247,0.14),transparent_50%)]" />
+        <div
+          className="absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.5) 1px, transparent 0)",
+            backgroundSize: "18px 18px",
+          }}
+        />
 
-        {/* top gate / curtain */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 w-[72px] h-[28px] overflow-hidden">
-          <div
-            className={cn(
-              "absolute inset-0 rounded-b-2xl bg-gradient-to-b from-amber-300/90 to-amber-600/80 border border-amber-200/40 shadow-[0_0_24px_rgba(251,191,36,0.45)] transition-transform duration-1000 ease-in-out origin-top",
-              phase === "open" || phase === "fall" || phase === "done"
-                ? "translate-y-[-110%]"
-                : "translate-y-0"
-            )}
-          />
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/20" />
+        {/* map name */}
+        {(phase === "release" || phase === "fall" || phase === "finish") &&
+          mapMeta && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 px-3 py-1 rounded-full bg-black/50 border border-white/15 backdrop-blur-md text-[10px] font-semibold tracking-wide text-white/70">
+              {mapMeta.name.ru}
+            </div>
+          )}
+
+        {/* pot */}
+        <div className="absolute top-3 right-3 z-30 px-2.5 py-1 rounded-full bg-black/45 border border-cyan-400/25 backdrop-blur-md text-[11px] font-bold tabular-nums text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.2)]">
+          {formatGram(room?.pot || 0)} <span className="text-white/35 font-medium">GRAM</span>
         </div>
 
-        {/* spinning containment ring */}
-        <div className="absolute top-[8%] left-1/2 -translate-x-1/2 w-[78%] aspect-square">
-          <div
-            className={cn(
-              "absolute inset-0 rounded-full border-[3px] border-cyan-400/30 shadow-[0_0_40px_rgba(34,211,238,0.15),inset_0_0_40px_rgba(34,211,238,0.06)]",
-              phase === "spin" || phase === "idle" ? "animate-[spin_8s_linear_infinite]" : "",
-              phase === "open" ? "animate-[spin_2.5s_linear_infinite]" : ""
-            )}
+        {/* SVG world */}
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="absolute inset-0 w-full h-full"
+          preserveAspectRatio="xMidYMid slice"
+        >
+          <defs>
+            <radialGradient id="ballGlow" cx="30%" cy="30%" r="70%">
+              <stop offset="0%" stopColor="#fff" stopOpacity="0.55" />
+              <stop offset="40%" stopColor="#fff" stopOpacity="0.1" />
+              <stop offset="100%" stopColor="#000" stopOpacity="0.3" />
+            </radialGradient>
+            <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.9" />
+              <stop offset="50%" stopColor="#a78bfa" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#f472b6" stopOpacity="0.85" />
+            </linearGradient>
+            <linearGradient id="finishGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#34d399" stopOpacity="0.0" />
+              <stop offset="50%" stopColor="#34d399" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#34d399" stopOpacity="0.1" />
+            </linearGradient>
+            <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="2.5" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          {/* containment ring */}
+          <g
             style={{
-              background:
-                "conic-gradient(from 0deg, transparent 0 8%, rgba(34,211,238,0.15) 8% 12%, transparent 12% 100%)",
+              transformOrigin: `${W / 2}px ${H * 0.22}px`,
+              animation:
+                phase === "lobby" || phase === "lock"
+                  ? "race-spin 7s linear infinite"
+                  : phase === "release"
+                    ? "race-spin 2.2s linear infinite"
+                    : "none",
             }}
-          />
-          <div className="absolute inset-[10%] rounded-full border border-white/[0.06]" />
-          {/* orbiting balls */}
+          >
+            <circle
+              cx={W / 2}
+              cy={H * 0.22}
+              r={78}
+              fill="none"
+              stroke="url(#ringGrad)"
+              strokeWidth="3.5"
+              opacity="0.85"
+              filter="url(#softGlow)"
+            />
+            <circle
+              cx={W / 2}
+              cy={H * 0.22}
+              r={78}
+              fill="none"
+              stroke="rgba(255,255,255,0.12)"
+              strokeWidth="1"
+              strokeDasharray="6 10"
+            />
+            {/* aperture gap marker (top) */}
+            <path
+              d={`M ${W / 2 - 16} ${H * 0.22 - 78} A 78 78 0 0 1 ${W / 2 + 16} ${H * 0.22 - 78}`}
+              fill="none"
+              stroke="#fbbf24"
+              strokeWidth="5"
+              strokeLinecap="round"
+              opacity={phase === "release" || phase === "fall" || phase === "finish" ? 0.15 : 0.95}
+              filter="url(#softGlow)"
+            />
+          </g>
+
+          {/* curtain / gate at top */}
+          <g>
+            <rect
+              x={W / 2 - 28}
+              y={H * 0.22 - 96}
+              width={56}
+              height={22}
+              rx={8}
+              fill="url(#ringGrad)"
+              opacity={
+                phase === "release" || phase === "fall" || phase === "finish"
+                  ? 0.12
+                  : 0.9
+              }
+              style={{
+                transform:
+                  phase === "release" || phase === "fall" || phase === "finish"
+                    ? "translateY(-28px)"
+                    : "translateY(0)",
+                transition: "transform 1.1s cubic-bezier(.2,.8,.2,1), opacity 0.8s",
+              }}
+            />
+          </g>
+
+          {/* balls in ring / falling */}
           {balls.map((b, i) => {
-            const angle = (i / n) * 360;
-            const delay = (i % 7) * 0.12;
-            const rank = b.finishRank;
-            const fallDelay =
-              rank != null ? (rank - 1) * 0.35 : i * 0.15;
+            const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+            const rx = W / 2 + Math.cos(angle) * 52;
+            const ry = H * 0.22 + Math.sin(angle) * 52;
+            const rank = b.finishRank ?? i + 1;
+            const fallT =
+              phase === "fall" || phase === "finish"
+                ? Math.min(1, 0.15 + (rank - 1) * 0.08)
+                : 0;
+            // fall path with slight horizontal drift from seat
+            const drift = ((b.seat * 17) % 40) - 20;
+            const fallX = W / 2 + drift * fallT;
+            const fallY =
+              H * 0.22 + fallT * (H * 0.55 + (rank - 1) * 6);
+            const isFollow = b.id === followBallId || b.telegramId === telegramId;
+            const cx =
+              phase === "fall" || phase === "finish" || phase === "release"
+                ? fallX
+                : rx;
+            const cy =
+              phase === "fall" || phase === "finish"
+                ? fallY
+                : phase === "release"
+                  ? H * 0.22 + 8
+                  : ry;
+            const r = isFollow ? 7.5 : 6;
+
             return (
-              <div
-                key={b.id}
-                className={cn(
-                  "absolute left-1/2 top-1/2 w-4 h-4 -ml-2 -mt-2 rounded-full shadow-[0_0_12px_currentColor] transition-all duration-700",
-                  phase === "fall" || phase === "done" ? "opacity-90" : "opacity-100"
+              <g key={b.id} filter="url(#softGlow)">
+                {isFollow && (phase === "fall" || phase === "finish") && (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={r + 6}
+                    fill="none"
+                    stroke={b.color}
+                    strokeWidth="1.2"
+                    opacity="0.45"
+                  >
+                    <animate
+                      attributeName="r"
+                      values={`${r + 4};${r + 10};${r + 4}`}
+                      dur="1.2s"
+                      repeatCount="indefinite"
+                    />
+                    <animate
+                      attributeName="opacity"
+                      values="0.5;0.15;0.5"
+                      dur="1.2s"
+                      repeatCount="indefinite"
+                    />
+                  </circle>
                 )}
-                style={{
-                  color: b.color,
-                  background: `radial-gradient(circle at 30% 30%, #fff8, ${b.color})`,
-                  boxShadow: `0 0 14px ${b.color}99`,
-                  transform:
-                    phase === "fall" || phase === "done"
-                      ? `translate(-50%, ${120 + (rank != null ? rank * 28 : i * 20)}px) scale(0.95)`
-                      : `rotate(${angle}deg) translateY(-42%) rotate(-${angle}deg)`,
-                  transitionDelay:
-                    phase === "fall" || phase === "done" ? `${fallDelay}s` : `${delay}s`,
-                  animation:
-                    phase === "spin" || phase === "idle"
-                      ? `race-orbit 6s linear infinite`
-                      : undefined,
-                  // @ts-expect-error css var
-                  "--orbit-angle": `${angle}deg`,
-                }}
-              />
+                <circle cx={cx} cy={cy} r={r} fill={b.color} opacity="0.95">
+                  {(phase === "lobby" || phase === "lock") && (
+                    <animateTransform
+                      attributeName="transform"
+                      type="rotate"
+                      from={`0 ${W / 2} ${H * 0.22}`}
+                      to={`360 ${W / 2} ${H * 0.22}`}
+                      dur="7s"
+                      repeatCount="indefinite"
+                    />
+                  )}
+                </circle>
+                <circle cx={cx - 1.5} cy={cy - 1.5} r={r * 0.35} fill="#fff" opacity="0.45" />
+              </g>
             );
           })}
-        </div>
 
-        {/* pegs / obstacles */}
-        <div className="absolute top-[48%] left-0 right-0 bottom-[18%] pointer-events-none">
-          {[0, 1, 2, 3, 4].map((row) => (
-            <div
-              key={row}
-              className="flex justify-center gap-5 mb-3"
-              style={{ paddingLeft: row % 2 ? 18 : 0 }}
-            >
-              {Array.from({ length: 5 + (row % 2) }).map((_, j) => (
-                <div
-                  key={j}
-                  className="w-2.5 h-2.5 rounded-full bg-white/25 shadow-[0_0_8px_rgba(255,255,255,0.15)]"
-                />
-              ))}
-            </div>
-          ))}
-        </div>
+          {/* obstacle pegs — only after release */}
+          {(phase === "release" || phase === "fall" || phase === "finish") &&
+            pegs.map((p, i) => (
+              <circle
+                key={i}
+                cx={p.x}
+                cy={p.y}
+                r={p.r}
+                fill="rgba(255,255,255,0.22)"
+                stroke="rgba(255,255,255,0.12)"
+                strokeWidth="0.5"
+              />
+            ))}
 
-        {/* finish line */}
-        <div className="absolute bottom-4 left-4 right-4 h-10 rounded-xl border border-dashed border-emerald-400/40 bg-emerald-500/10 flex items-center justify-center">
-          <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-emerald-300/80">
+          {/* finish band */}
+          <rect
+            x={24}
+            y={H * 0.88}
+            width={W - 48}
+            height={28}
+            rx={10}
+            fill="url(#finishGrad)"
+            stroke="rgba(52,211,153,0.45)"
+            strokeWidth="1.5"
+            strokeDasharray="6 4"
+          />
+          <text
+            x={W / 2}
+            y={H * 0.88 + 18}
+            textAnchor="middle"
+            fill="rgba(167,243,208,0.85)"
+            fontSize="11"
+            fontWeight="700"
+            letterSpacing="3"
+          >
             FINISH
-          </span>
-        </div>
+          </text>
+        </svg>
 
-        {/* pot badge */}
-        <div className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-full glass border border-white/10 text-[11px] font-semibold text-cyan-200 tabular-nums">
-          {formatGram(room.pot)} GRAM
-        </div>
+        {/* empty state */}
+        {balls.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="text-center px-6">
+              <div className="text-[15px] font-semibold text-white/70 mb-1">
+                Race Live
+              </div>
+              <div className="text-[12px] text-white/35 leading-relaxed">
+                Купи шарик — он появится в кольце.
+                <br />
+                Со 2-го игрока пойдёт таймер.
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -185,20 +406,26 @@ export function RaceScreen({
   const { t, lang } = useI18n();
   const { setBackButton } = useTelegram();
   const tr = (en: string, ru: string) => (lang === "ru" ? ru : en);
-  const [view, setView] = useState<View>("lobby");
-  const [rooms, setRooms] = useState<RaceRoomPublic[]>([]);
-  const [recent, setRecent] = useState<RaceRoomPublic[]>([]);
-  const [active, setActive] = useState<RaceRoomPublic | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const [room, setRoom] = useState<RaceRoomPublic | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showHist, setShowHist] = useState(false);
   const [history, setHistory] = useState<
-    Awaited<ReturnType<typeof raceHistory>>["items"]
+    Awaited<ReturnType<typeof import("@/lib/raceApi").raceHistory>>["items"]
   >([]);
-  const [animPhase, setAnimPhase] = useState<
-    "idle" | "spin" | "open" | "fall" | "done"
-  >("idle");
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const animStarted = useRef<string | null>(null);
+  const [phase, setPhase] = useState<Phase>("lobby");
+  const animKey = useRef<string>("");
+
+  const followBallId = useMemo(() => {
+    if (!room) return null;
+    const mine = room.balls.filter((b) => b.telegramId === telegramId);
+    if (!mine.length) return room.balls[0]?.id ?? null;
+    // follow best (lowest rank) or first mine
+    const ranked = [...mine].sort(
+      (a, b) => (a.finishRank ?? 99) - (b.finishRank ?? 99)
+    );
+    return ranked[0].id;
+  }, [room, telegramId]);
 
   const copyText = useCallback(
     (v: string) => {
@@ -206,104 +433,103 @@ export function RaceScreen({
       haptic("light");
       showToast(tr("Copied", "Скопировано"));
     },
-    [haptic, showToast, tr]
+    [haptic, showToast, lang]
   );
 
   const refresh = useCallback(async () => {
     try {
-      const res = await raceList();
-      setRooms(res.rooms || []);
-      setRecent(res.recent || []);
-      if (res.mine && view === "lobby") {
-        // keep lobby list; optional auto-enter not forced
-      }
-      if (active?.id) {
-        const st = await raceState(active.id);
-        setActive(st.room);
-      }
+      const res = await raceActive();
+      setRoom(res.room);
     } catch {
       /* */
-    } finally {
-      setLoading(false);
     }
-  }, [active?.id, view]);
+  }, []);
 
   useEffect(() => {
     void refresh();
-    pollRef.current = setInterval(() => void refresh(), 2000);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
+    const id = setInterval(() => void refresh(), 1500);
+    return () => clearInterval(id);
   }, [refresh]);
 
   useEffect(() => {
-    const handler =
-      view === "lobby"
-        ? onBack
-        : () => {
-            setView("lobby");
-            setActive(null);
-            setAnimPhase("idle");
-          };
-    setBackButton(handler);
+    setBackButton(showHist ? () => setShowHist(false) : onBack);
     return () => setBackButton(null);
-  }, [view, onBack, setBackButton]);
+  }, [onBack, setBackButton, showHist]);
 
-  // Animation + auto process when countdown ends
+  // Phase machine from room status
   useEffect(() => {
-    if (!active) return;
-    if (active.status === "countdown" || active.status === "open") {
-      setAnimPhase("spin");
+    if (!room) {
+      setPhase("lobby");
+      return;
     }
-    if (
-      active.status === "countdown" &&
-      active.secsLeft != null &&
-      active.secsLeft <= 0
-    ) {
-      void raceProcess(active.id)
-        .then((r) => {
-          if (r.room) setActive(r.room);
+    if (room.status === "open") {
+      setPhase("lobby");
+      animKey.current = "";
+      return;
+    }
+    if (room.status === "countdown") {
+      setPhase(
+        room.secsLeft != null && room.secsLeft <= 5 ? "lock" : "lobby"
+      );
+      if (room.secsLeft != null && room.secsLeft <= 0) {
+        void raceProcess(room.id).then((r) => {
+          if (r.room) setRoom(r.room);
           onReloadBalance();
-        })
-        .catch(() => {});
+        });
+      }
+      return;
     }
-    if (active.status === "racing" || active.status === "finished") {
-      const key = `${active.id}:${active.status}`;
-      if (animStarted.current !== key) {
-        animStarted.current = key;
-        setAnimPhase("open");
-        const t1 = setTimeout(() => setAnimPhase("fall"), 900);
+    if (room.status === "racing" || room.status === "finished") {
+      const key = `${room.id}:${room.status}`;
+      if (animKey.current !== key) {
+        animKey.current = key;
+        setPhase("release");
+        const t1 = setTimeout(() => setPhase("fall"), 1100);
         const t2 = setTimeout(() => {
-          setAnimPhase("done");
-          if (active.status === "racing") {
-            void raceProcess(active.id).then((r) => {
-              if (r.room) setActive(r.room);
+          setPhase("finish");
+          if (room.status === "racing") {
+            void raceProcess(room.id).then((r) => {
+              if (r.room) setRoom(r.room);
               onReloadBalance();
             });
+          } else {
+            onReloadBalance();
           }
-        }, 4500);
+        }, 9000);
         return () => {
           clearTimeout(t1);
           clearTimeout(t2);
         };
       }
     }
-  }, [active, onReloadBalance]);
+  }, [room, onReloadBalance]);
 
-  const onCreate = async () => {
+  const ensureAndBuy = async (count: number) => {
     if (busy) return;
-    if (balance < RACE_MIN_BALL) {
+    const price = room?.ballPrice ?? RACE_MIN_BALL;
+    const total = price * count;
+    if (balance < total) {
       onDeposit?.();
       return;
     }
     setBusy(true);
     try {
-      const res = await raceCreate(RACE_MIN_BALL);
-      onBalanceUpdate(res.balance);
-      setActive(res.room);
-      setView("room");
+      if (!room || room.status === "finished" || room.status === "cancelled") {
+        const created = await raceCreate(RACE_MIN_BALL);
+        onBalanceUpdate(created.balance);
+        let r = created.room;
+        if (count > 1) {
+          const more = await raceBuy(r.id, count - 1);
+          onBalanceUpdate(more.balance);
+          r = more.room;
+        }
+        setRoom(r);
+      } else {
+        const res = await raceBuy(room.id, count);
+        onBalanceUpdate(res.balance);
+        setRoom(res.room);
+      }
       hapticSuccess();
-      void refresh();
     } catch (e) {
       hapticError();
       showToast(e instanceof Error ? e.message : "Error");
@@ -312,38 +538,14 @@ export function RaceScreen({
     }
   };
 
-  const onBuy = async (roomId: string, count = 1) => {
-    if (busy) return;
-    const cost = RACE_MIN_BALL * count;
-    if (balance < cost) {
-      onDeposit?.();
-      return;
-    }
+  const onCancel = async () => {
+    if (!room || busy) return;
     setBusy(true);
     try {
-      const res = await raceBuy(roomId, count);
-      onBalanceUpdate(res.balance);
-      setActive(res.room);
-      setView("room");
-      hapticSuccess();
-      void refresh();
-    } catch (e) {
-      hapticError();
-      showToast(e instanceof Error ? e.message : "Error");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onCancel = async (roomId: string) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await raceCancel(roomId);
-      haptic("light");
-      setActive(null);
-      setView("lobby");
+      await raceCancel(room.id);
+      setRoom(null);
       onReloadBalance();
+      haptic("light");
       void refresh();
     } catch (e) {
       hapticError();
@@ -361,52 +563,24 @@ export function RaceScreen({
     } catch {
       setHistory([]);
     }
-    setView("history");
+    setShowHist(true);
   };
 
-  const header = (
-    <div className="px-4 pt-3 pb-3 flex items-center gap-3">
-      <div className="flex-1 min-w-0">
-        {view !== "lobby" && (
-          <div className="text-[15px] font-semibold tracking-tight truncate">
-            {view === "history"
-              ? t("history")
-              : tr("Race", "Гонка")}
-          </div>
-        )}
-      </div>
-      <div className="flex items-center shrink-0">
-        <div className="flex items-center h-9 rounded-full glass border border-white/[0.12] shadow-[0_4px_20px_rgba(0,0,0,0.3)] overflow-hidden">
-          <div className="flex items-center gap-1.5 pl-3 pr-2">
-            <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
-              {formatGram(balance)}
-            </span>
-            <span className="text-[10px] text-white/35 font-medium">GRAM</span>
-          </div>
-          {onDeposit && (
-            <button
-              type="button"
-              onClick={() => {
-                haptic("light");
-                onDeposit();
-              }}
-              className="h-full px-2.5 flex items-center justify-center text-cyan-200/90 hover:text-cyan-100 hover:bg-cyan-400/15 border-l border-white/[0.1] transition-colors btn-press"
-              aria-label="Deposit"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  const winner = room?.balls.find((b) => b.id === room.winnerBallId);
+  const canBuy =
+    !room ||
+    room.canBuy ||
+    room.status === "finished" ||
+    room.status === "cancelled" ||
+    (!room.status && true);
 
-  if (view === "history") {
+  if (showHist) {
     return (
       <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-        {header}
+        <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+          <div className="text-[15px] font-semibold">{t("history")}</div>
+          <BalancePill balance={balance} onDeposit={onDeposit} haptic={haptic} />
+        </div>
         <div className="px-4 space-y-2 flex-1 overflow-y-auto">
           {history.length === 0 ? (
             <div className="text-center text-white/35 text-sm py-12">
@@ -418,23 +592,14 @@ export function RaceScreen({
                 key={h.roomId}
                 className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3.5"
               >
-                <div className="flex justify-between items-start gap-2">
-                  <div>
-                    <div className="text-[13px] font-semibold">
-                      Race {h.gameNo != null ? `#${h.gameNo}` : ""}
-                    </div>
-                    <div className="text-[11px] text-white/40 mt-0.5">
-                      {h.myBalls} {tr("balls", "шар.")} · pot {formatGram(h.pot)}
-                    </div>
+                <div className="flex justify-between">
+                  <div className="text-[13px] font-semibold">
+                    Race {h.gameNo != null ? `#${h.gameNo}` : ""}
                   </div>
                   <div
                     className={cn(
                       "text-[13px] font-semibold tabular-nums",
-                      h.result === "win"
-                        ? "text-emerald-400"
-                        : h.result === "cancel"
-                          ? "text-white/45"
-                          : "text-rose-400/90"
+                      h.result === "win" ? "text-emerald-400" : "text-white/45"
                     )}
                   >
                     {h.result === "win"
@@ -444,11 +609,9 @@ export function RaceScreen({
                         : `−${formatGram(h.spent)}`}
                   </div>
                 </div>
-                <div className="mt-2 rounded-xl bg-black/25 border border-white/10 px-2.5 py-1.5 space-y-1">
-                  <HashRow label="Hash" value={h.serverSeedHash} onCopy={copyText} />
-                  {h.serverSeed && (
-                    <HashRow label="Seed" value={h.serverSeed} onCopy={copyText} />
-                  )}
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <HashChip label="Hash" value={h.serverSeedHash} onCopy={copyText} />
+                  <HashChip label="Seed" value={h.serverSeed} onCopy={copyText} />
                 </div>
               </div>
             ))
@@ -458,254 +621,185 @@ export function RaceScreen({
     );
   }
 
-  if (view === "room" && active) {
-    const winner = active.balls.find((b) => b.id === active.winnerBallId);
-    return (
-      <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-        {header}
-        <div className="px-4 flex-1 overflow-y-auto space-y-3">
-          <RaceArena room={active} phase={animPhase} />
-
-          {/* status strip */}
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-[12px] text-white/50">
-                {active.status === "open" &&
-                  tr("Waiting for players…", "Ждём игроков…")}
-                {active.status === "countdown" && (
-                  <span className="text-amber-300 font-semibold tabular-nums">
-                    {tr("Starts in", "Старт через")}{" "}
-                    {active.secsLeft ?? "—"}s
-                    {active.secsLeft != null &&
-                      active.secsLeft <= 5 &&
-                      ` · ${tr("buys locked", "покупки закрыты")}`}
-                  </span>
-                )}
-                {(active.status === "racing" || animPhase === "fall") &&
-                  tr("Balls are racing!", "Шарики летят!")}
-                {active.status === "finished" && animPhase === "done" && (
-                  <span className="text-emerald-300 font-semibold">
-                    {tr("Winner", "Победитель")}: @{winner?.username || "—"}
-                  </span>
-                )}
-              </div>
-              <div className="text-[12px] text-white/40">
-                {active.ballCount} {tr("balls", "шар.")} · {active.uniquePlayers}{" "}
-                {tr("players", "игр.")}
-              </div>
-            </div>
-            <div className="mt-2 rounded-xl bg-black/25 border border-white/10 px-2.5 py-1.5 space-y-1">
-              <HashRow label="Hash" value={active.serverSeedHash} onCopy={copyText} />
-              {active.serverSeed && (
-                <HashRow label="Seed" value={active.serverSeed} onCopy={copyText} />
-              )}
-            </div>
+  return (
+    <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
+      {/* top bar */}
+      <div className="px-4 pt-3 pb-2 flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="text-[15px] font-semibold tracking-tight">
+            {tr("Race", "Гонка")}
           </div>
+          <div className="text-[11px] text-white/40">
+            {room?.status === "countdown" && room.secsLeft != null
+              ? `${tr("Starts in", "Старт через")} ${room.secsLeft}s`
+              : room?.status === "racing" || phase === "fall"
+                ? tr("Racing…", "Гонка идёт…")
+                : room?.status === "finished" && phase === "finish"
+                  ? `${tr("Winner", "Победитель")}: @${winner?.username || "—"}`
+                  : tr("Live lobby · buy a ball", "Live-лобби · купи шарик")}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => void openHistory()}
+          className="w-9 h-9 rounded-xl glass border border-white/[0.08] flex items-center justify-center text-white/45 btn-press"
+          aria-label={t("history")}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+        </button>
+        <BalancePill balance={balance} onDeposit={onDeposit} haptic={haptic} />
+      </div>
 
-          {/* my balls + buy */}
-          {active.canBuy && (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void onBuy(active.id, 1)}
-                className="flex-1 h-12 rounded-2xl btn-primary text-sm font-semibold btn-press disabled:opacity-40"
-              >
-                {tr("Buy ball", "Купить шарик")} · {formatGram(active.ballPrice)}
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void onBuy(active.id, 3)}
-                className="h-12 px-4 rounded-2xl btn-secondary border border-white/10 text-sm btn-press disabled:opacity-40"
-              >
-                ×3
-              </button>
-            </div>
-          )}
+      <div className="px-4 flex-1 overflow-y-auto space-y-3 pb-4">
+        <RaceStage
+          room={room}
+          phase={phase}
+          followBallId={followBallId}
+          telegramId={telegramId}
+        />
 
-          {active.status === "open" && active.isHost && active.uniquePlayers < 2 && (
+        {/* status + fairness */}
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 space-y-2">
+          <div className="flex items-center justify-between text-[12px]">
+            <span className="text-white/45">
+              {room?.ballCount || 0} {tr("balls", "шар.")} ·{" "}
+              {room?.uniquePlayers || 0} {tr("players", "игр.")}
+            </span>
+            {phase === "lock" && (
+              <span className="text-amber-300 font-semibold text-[11px]">
+                {tr("Buys locked", "Покупки закрыты")}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <HashChip label="Hash" value={room?.serverSeedHash} onCopy={copyText} />
+            <HashChip label="Seed" value={room?.serverSeed} onCopy={copyText} />
+          </div>
+        </div>
+
+        {/* buy controls */}
+        {(phase === "lobby" || !room || room.status === "finished" || room.status === "cancelled") && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={busy || (room != null && room.status === "countdown" && !room.canBuy)}
+              onClick={() => void ensureAndBuy(1)}
+              className="flex-1 h-12 rounded-2xl btn-primary text-sm font-semibold btn-press disabled:opacity-40 shadow-[0_8px_28px_rgba(34,211,238,0.25)]"
+            >
+              {tr("Buy ball", "Купить шарик")} · {formatGram(room?.ballPrice ?? RACE_MIN_BALL)}
+            </button>
+            <button
+              type="button"
+              disabled={busy || (room != null && room.status === "countdown" && !room.canBuy)}
+              onClick={() => void ensureAndBuy(3)}
+              className="h-12 px-4 rounded-2xl border border-white/12 bg-white/[0.04] text-sm font-semibold btn-press disabled:opacity-40"
+            >
+              ×3
+            </button>
+          </div>
+        )}
+        {phase === "lock" && (
+          <div className="text-center text-[12px] text-amber-300/90 py-2">
+            {tr("Buys closed — race starting", "Покупки закрыты — старт гонки")}
+          </div>
+        )}
+
+        {room?.status === "open" &&
+          room.isHost &&
+          room.uniquePlayers < 2 && (
             <button
               type="button"
               disabled={busy}
-              onClick={() => void onCancel(active.id)}
-              className="w-full h-11 rounded-2xl text-sm text-white/50 border border-white/10 btn-press"
+              onClick={() => void onCancel()}
+              className="w-full h-10 rounded-xl text-[12px] text-white/40 border border-white/10 btn-press"
             >
               {t("cancel")}
             </button>
           )}
 
-          {/* ball list */}
-          <div className="text-[11px] uppercase tracking-wider text-white/35 mb-1">
-            {tr("Balls", "Шарики")}
-          </div>
-          <div className="space-y-1.5 pb-6">
-            {active.balls.map((b) => (
+        {/* participants */}
+        {room && room.balls.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="text-[11px] uppercase tracking-wider text-white/35 px-0.5">
+              {tr("In the ring", "В кольце")}
+            </div>
+            {Object.entries(
+              room.balls.reduce<Record<string, { name: string; n: number; color: string; mine: boolean }>>(
+                (acc, b) => {
+                  const k = String(b.telegramId);
+                  if (!acc[k])
+                    acc[k] = {
+                      name: b.username,
+                      n: 0,
+                      color: b.color,
+                      mine: b.telegramId === telegramId,
+                    };
+                  acc[k].n += 1;
+                  return acc;
+                },
+                {}
+              )
+            ).map(([id, u]) => (
               <div
-                key={b.id}
+                key={id}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2",
-                  b.isMine && "border-cyan-400/25 bg-cyan-500/[0.06]"
+                  "flex items-center gap-2.5 rounded-xl px-3 py-2 border border-white/[0.06] bg-white/[0.02]",
+                  u.mine && "border-cyan-400/30 bg-cyan-500/[0.07]"
                 )}
               >
                 <div
-                  className="w-3.5 h-3.5 rounded-full shrink-0"
-                  style={{ background: b.color, boxShadow: `0 0 10px ${b.color}` }}
+                  className="w-3 h-3 rounded-full"
+                  style={{ background: u.color, boxShadow: `0 0 10px ${u.color}` }}
                 />
-                <div className="flex-1 min-w-0 text-[13px] truncate">
-                  @{b.username}
-                  {b.isMine && (
-                    <span className="text-cyan-300/80 text-[11px] ml-1">
-                      ({tr("you", "вы")})
-                    </span>
-                  )}
-                </div>
-                {b.finishRank != null && (
-                  <div className="text-[12px] font-semibold text-white/60 tabular-nums">
-                    #{b.finishRank}
-                  </div>
-                )}
+                <span className="flex-1 text-[13px] truncate">
+                  @{u.name}
+                  {u.mine ? ` (${tr("you", "вы")})` : ""}
+                </span>
+                <span className="text-[12px] text-white/45 tabular-nums">×{u.n}</span>
               </div>
             ))}
           </div>
-        </div>
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  /* LOBBY */
+function BalancePill({
+  balance,
+  onDeposit,
+  haptic,
+}: {
+  balance: number;
+  onDeposit?: () => void;
+  haptic: (t?: "light" | "medium" | "heavy") => void;
+}) {
   return (
-    <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      {header}
-      <div className="px-4 flex-1 overflow-y-auto">
+    <div className="flex items-center h-9 rounded-full glass border border-white/[0.12] overflow-hidden shrink-0">
+      <div className="flex items-center gap-1.5 pl-3 pr-2">
+        <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
+          {formatGram(balance)}
+        </span>
+        <span className="text-[10px] text-white/35 font-medium">GRAM</span>
+      </div>
+      {onDeposit && (
         <button
           type="button"
-          onClick={() => void onCreate()}
-          disabled={busy}
-          className="w-full relative overflow-hidden rounded-[22px] mb-4 btn-press active:scale-[0.98] transition-transform disabled:opacity-50"
+          onClick={() => {
+            haptic("light");
+            onDeposit();
+          }}
+          className="h-full px-2.5 flex items-center justify-center text-cyan-200/90 border-l border-white/[0.1] btn-press"
+          aria-label="Deposit"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-700 via-violet-700 to-fuchsia-700" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(34,211,238,0.45),transparent_55%)]" />
-          <div className="relative px-5 py-4 flex items-center gap-4">
-            <div className="w-14 h-14 shrink-0 rounded-2xl bg-white/15 border border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.3)]">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className="text-white">
-                <circle cx="12" cy="8" r="3" stroke="currentColor" strokeWidth="2" />
-                <path d="M12 11v9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                <path d="M9 16h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </div>
-            <div className="flex-1 text-left">
-              <div className="text-[16px] font-bold text-white tracking-tight">
-                {tr("Start Race", "Начать гонку")}
-              </div>
-              <div className="text-[12px] text-white/55 mt-0.5">
-                {tr(
-                  `Buy a ball from ${RACE_MIN_BALL} GRAM · winner takes the pot`,
-                  `Шарик от ${RACE_MIN_BALL} GRAM · победитель забирает банк`
-                )}
-              </div>
-            </div>
-          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
         </button>
-
-        <div className="flex items-center justify-between mb-2.5">
-          <div className="text-[11px] uppercase tracking-wider text-white/35">
-            {tr("Open races", "Открытые гонки")}
-          </div>
-          <button
-            type="button"
-            onClick={() => void openHistory()}
-            className="w-8 h-8 rounded-xl glass border border-white/[0.08] flex items-center justify-center text-white/45 hover:text-white/80 transition btn-press"
-            aria-label={t("history")}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 7v5l3 2" />
-            </svg>
-          </button>
-        </div>
-
-        {loading && rooms.length === 0 ? (
-          <div className="space-y-2">
-            <div className="h-[72px] rounded-2xl bg-white/[0.04] animate-pulse" />
-            <div className="h-[72px] rounded-2xl bg-white/[0.04] animate-pulse" />
-          </div>
-        ) : rooms.length === 0 ? (
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] py-10 text-center">
-            <div className="text-[14px] text-white/45 mb-1">
-              {tr("No open races", "Нет открытых гонок")}
-            </div>
-            <div className="text-[12px] text-white/28">
-              {tr("Be the first to start", "Начни первым")}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2 pb-4">
-            {rooms.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => {
-                  haptic("light");
-                  setActive(r);
-                  setView("room");
-                }}
-                className="w-full rounded-2xl border border-white/[0.07] bg-white/[0.03] hover:border-white/14 p-3.5 flex items-center gap-3 text-left transition btn-press"
-              >
-                <div className="flex -space-x-1.5">
-                  {r.balls.slice(0, 4).map((b) => (
-                    <div
-                      key={b.id}
-                      className="w-3 h-3 rounded-full border border-black/40"
-                      style={{ background: b.color }}
-                    />
-                  ))}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[14px] font-medium truncate">
-                    {r.ballCount} {tr("balls", "шар.")} · {r.uniquePlayers}{" "}
-                    {tr("players", "игр.")}
-                  </div>
-                  <div className="text-[11px] text-white/40 mt-0.5">
-                    {r.status === "countdown"
-                      ? `${tr("Starts in", "Старт через")} ${r.secsLeft ?? "—"}s`
-                      : tr("Open", "Открыта")}
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="text-[16px] font-semibold text-gradient-cyan tabular-nums leading-none">
-                    {formatGram(r.pot)}
-                  </div>
-                  <div className="text-[10px] text-white/30 mt-0.5">GRAM</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {recent.length > 0 && (
-          <>
-            <div className="text-[11px] uppercase tracking-wider text-white/35 mb-2.5 mt-6">
-              {tr("Recent", "Недавние")}
-            </div>
-            <div className="space-y-1.5 pb-8">
-              {recent.slice(0, 6).map((r) => (
-                <div
-                  key={r.id}
-                  className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2.5 flex justify-between text-[12px]"
-                >
-                  <span className="text-white/50">
-                    #{r.gameNo ?? "—"} · {r.ballCount} {tr("balls", "шар.")}
-                  </span>
-                  <span className="text-emerald-400/90 tabular-nums">
-                    {formatGram(r.pot)} GRAM
-                  </span>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+      )}
     </div>
   );
 }

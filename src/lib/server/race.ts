@@ -7,6 +7,7 @@ import {
   RACE_BUY_LOCK_SEC,
   RACE_COUNTDOWN_SEC,
   RACE_HOUSE_EDGE,
+  RACE_MAPS,
   RACE_MAX_BALLS_PER_PLAYER,
   RACE_MAX_BALLS_TOTAL,
   RACE_MIN_BALL,
@@ -30,6 +31,7 @@ export type RaceRoomRow = {
   winner_ball_id: string | null;
   house_fee: number | null;
   finish_order: string[] | null;
+  map_id: string | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -67,6 +69,12 @@ function hashSeed(seed: string): string {
 
 function randomSeed(): string {
   return crypto.randomBytes(32).toString("hex");
+}
+
+function mapFromSeed(serverSeed: string, roomId: string): string {
+  const h = crypto.createHmac("sha256", serverSeed).update(`map:${roomId}`).digest();
+  const idx = h[0] % RACE_MAPS.length;
+  return RACE_MAPS[idx].id;
 }
 
 /** Lower score = faster finish (deterministic) */
@@ -121,6 +129,9 @@ function publicRoom(
     winnerBallId: room.winner_ball_id,
     houseFee: room.house_fee != null ? Number(room.house_fee) : null,
     finishOrder: revealed ? room.finish_order : null,
+    mapId: room.map_id || (revealed || room.status === "racing" || room.status === "countdown"
+      ? mapFromSeed(room.server_seed, room.id)
+      : null),
     gameNo: room.game_no != null ? Number(room.game_no) : null,
     createdAt: room.created_at,
     startedAt: room.started_at,
@@ -266,6 +277,51 @@ export async function listRaces(viewerId?: number | null) {
   );
 
   return { rooms: live, recent: recentPub, mine };
+}
+
+
+/** Single global live race: current open/countdown/racing, or null */
+export async function getActiveRace(viewerId?: number | null) {
+  await processStale().catch(() => {});
+  const db = getAdminClient();
+  const { data: live } = await db
+    .from("race_rooms")
+    .select("*")
+    .in("status", ["open", "countdown", "racing"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (live) {
+    let room = live as RaceRoomRow;
+    room = await lockBuysIfNeeded(room);
+    if (
+      room.status === "countdown" &&
+      room.countdown_ends_at &&
+      new Date(room.countdown_ends_at).getTime() <= Date.now()
+    ) {
+      try {
+        await runRace(room.id);
+        room = await loadRoom(room.id);
+      } catch {
+        room = await loadRoom(room.id);
+      }
+    }
+    const balls = await loadBalls(room.id);
+    return { room: publicRoom(room, balls, viewerId) };
+  }
+  // last finished for spectators
+  const { data: last } = await db
+    .from("race_rooms")
+    .select("*")
+    .eq("status", "finished")
+    .order("finished_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (last) {
+    const balls = await loadBalls(last.id);
+    return { room: publicRoom(last as RaceRoomRow, balls, viewerId), idle: true };
+  }
+  return { room: null };
 }
 
 export async function getRaceState(roomId: string, viewerId?: number | null) {
@@ -490,12 +546,14 @@ export async function runRace(roomId: string) {
     throw new Error("Countdown not finished");
   }
 
+  const mapId = mapFromSeed(room.server_seed, roomId);
   const { data: claimed } = await db
     .from("race_rooms")
     .update({
       status: "racing",
       buy_locked: true,
       started_at: new Date().toISOString(),
+      map_id: mapId,
     })
     .eq("id", roomId)
     .in("status", ["countdown", "racing"])

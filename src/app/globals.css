@@ -415,3 +415,8 @@ html.tg-light {
   from { transform: rotate(var(--orbit-angle, 0deg)) translateY(-42%) rotate(calc(-1 * var(--orbit-angle, 0deg))); }
   to { transform: rotate(calc(var(--orbit-angle, 0deg) + 360deg)) translateY(-42%) rotate(calc(-1 * (var(--orbit-angle, 0deg) + 360deg))); }
 }
+
+@keyframes race-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
