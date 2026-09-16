@@ -162,10 +162,10 @@ function simulatePath(
   const seed = hash01(ballId + ":" + seat);
   const R = 7;
   let x = W * 0.5 + (seed - 0.5) * 36;
-  let y = ringY + 8;
+  let y = ringY + 4;
   let vx = (seed - 0.5) * 2.2 + ((seat % 5) - 2) * 0.35;
-  let vy = 0.4 + seed * 0.3;
-  const g = 0.18;
+  let vy = 1.2 + seed * 0.5;
+  const g = 0.32;
   const points: { x: number; y: number }[] = [{ x, y }];
   const maxSteps = 900;
 
@@ -227,7 +227,7 @@ function simulatePath(
           vx -= 1.85 * dot * nx;
           vy -= 1.85 * dot * ny;
         }
-        const bounce = p.kind === "bumper" ? 0.95 : 0.75;
+        const bounce = p.kind === "bumper" ? 0.7 : 0.55;
         vx *= bounce;
         vy *= bounce;
         // slight random from seed
@@ -244,7 +244,7 @@ function simulatePath(
 
     if (step % 2 === 0) points.push({ x, y });
     // terminal velocity
-    if (vy > 6) vy = 6;
+    if (vy > 8.5) vy = 8.5;
     if (Math.abs(vx) > 5) vx *= 0.96;
   }
 
@@ -320,7 +320,9 @@ function RaceStage({
 
   // lobby: frame focuses on ring center; race: zoom out & pan down
   const camY = isLobby ? 0 : phase === "release" ? 10 : 18 + fallProgress * 80;
-  const camScale = isLobby ? 1.05 : phase === "release" ? 0.92 : 0.78 - fallProgress * 0.05;
+  const camScale = isLobby ? 1.28 : phase === "release" ? 0.92 : 0.78 - fallProgress * 0.05;
+  const ringR = isLobby ? 118 : 78;
+  const orbitR = isLobby ? 78 : 50;
   const accent = track.map.accent;
 
   return (
@@ -328,7 +330,7 @@ function RaceStage({
       <div
         className={cn(
           "relative bg-[#05050a] will-change-transform overflow-hidden",
-          isLobby ? "aspect-[1/1.05]" : "aspect-[3/4.4]"
+          isLobby ? "aspect-square" : "aspect-[3/4.4]"
         )}
         style={{
           transform: `scale(${camScale}) translateY(${camY}px)`,
@@ -373,6 +375,242 @@ function RaceStage({
               </feMerge>
             </filter>
             {/* checkered finish */}
+            <pattern
+              id="checkFinish"
+              width="12"
+              height="12"
+              patternUnits="userSpaceOnUse"
+            >
+              <rect width="6" height="6" fill="#f4f4f5" />
+              <rect x="6" y="0" width="6" height="6" fill="#18181b" />
+              <rect x="0" y="6" width="6" height="6" fill="#18181b" />
+              <rect x="6" y="6" width="6" height="6" fill="#f4f4f5" />
+            </pattern>
+          </defs>
+
+          {/* track walls */}
+          {!isLobby &&
+            track.walls.map((w, i) => (
+              <line
+                key={i}
+                x1={w.x1}
+                y1={w.y1}
+                x2={w.x2}
+                y2={w.y2}
+                stroke="rgba(255,255,255,0.22)"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+              />
+            ))}
+
+          {!isLobby &&
+            track.pegs.map((pg, i) => (
+              <circle
+                key={i}
+                cx={pg.x}
+                cy={pg.y}
+                r={pg.r}
+                fill={
+                  pg.kind === "bumper" ? `${accent}88` : "rgba(255,255,255,0.2)"
+                }
+                stroke="rgba(255,255,255,0.12)"
+                strokeWidth="0.6"
+              />
+            ))}
+
+          {/* ring + orbiting balls (lobby) */}
+          <g
+            style={{
+              transformOrigin: `${W / 2}px ${ringY}px`,
+              animation:
+                isLobby || phase === "release"
+                  ? isLobby
+                    ? "race-spin 5.5s linear infinite"
+                    : "race-spin 2.2s linear infinite"
+                  : "none",
+            }}
+          >
+            <circle
+              cx={W / 2}
+              cy={ringY}
+              r={ringR}
+              fill="none"
+              stroke="url(#ringStroke)"
+              strokeWidth={isLobby ? 4 : 3}
+              opacity="0.95"
+            />
+            <circle
+              cx={W / 2}
+              cy={ringY}
+              r={ringR}
+              fill="none"
+              stroke="rgba(255,255,255,0.1)"
+              strokeWidth="1"
+              strokeDasharray="5 9"
+            />
+            {/* soft exit hole */}
+            <path
+              d={`M ${W / 2 - 16} ${ringY - ringR} A ${ringR} ${ringR} 0 0 1 ${W / 2 + 16} ${ringY - ringR}`}
+              fill="none"
+              stroke="#06060c"
+              strokeWidth="9"
+              strokeLinecap="round"
+              opacity={
+                phase === "release" || phase === "fall" || phase === "finish"
+                  ? 0.12
+                  : 0.9
+              }
+            />
+            <path
+              d={`M ${W / 2 - 12} ${ringY - ringR} A ${ringR} ${ringR} 0 0 1 ${W / 2 + 12} ${ringY - ringR}`}
+              fill="none"
+              stroke="rgba(255,255,255,0.28)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              opacity={
+                phase === "release" || phase === "fall" || phase === "finish"
+                  ? 0.08
+                  : 0.75
+              }
+            />
+
+            {/* balls orbit WITH the ring in lobby */}
+            {isLobby &&
+              balls.map((b, i) => {
+                const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+                const isFollow =
+                  b.id === followBallId || b.telegramId === telegramId;
+                const r = isFollow ? 11 : 9;
+                const cx = W / 2 + Math.cos(angle) * orbitR;
+                const cy = ringY + Math.sin(angle) * orbitR;
+                const initial = (b.username || "?")
+                  .replace(/^@/, "")
+                  .charAt(0)
+                  .toUpperCase();
+                const img = b.photoUrl;
+                return (
+                  <g key={b.id}>
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={r + 1.5}
+                      fill="#0c0c12"
+                      stroke="rgba(255,255,255,0.3)"
+                      strokeWidth="1.3"
+                    />
+                    {img ? (
+                      <>
+                        <defs>
+                          <clipPath id={`av-l-${b.id}`}>
+                            <circle cx={cx} cy={cy} r={r} />
+                          </clipPath>
+                        </defs>
+                        <image
+                          href={img}
+                          x={cx - r}
+                          y={cy - r}
+                          width={r * 2}
+                          height={r * 2}
+                          clipPath={`url(#av-l-${b.id})`}
+                          preserveAspectRatio="xMidYMid slice"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <circle cx={cx} cy={cy} r={r} fill="#1e293b" />
+                        <text
+                          x={cx}
+                          y={cy}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fill="#e2e8f0"
+                          fontSize={r}
+                          fontWeight="700"
+                        >
+                          {initial}
+                        </text>
+                      </>
+                    )}
+                  </g>
+                );
+              })}
+          </g>
+
+          {/* balls falling (race) — physics path */}
+          {!isLobby &&
+            balls.map((b, i) => {
+              const rank = b.finishRank ?? i + 1;
+              const isFollow =
+                b.id === followBallId || b.telegramId === telegramId;
+              const r = isFollow ? 9 : 7.5;
+              const path = paths[b.id] || [];
+              const pos = samplePath(path, fallProgress, rank, balls.length);
+              const cx = pos.x;
+              const cy = pos.y;
+              const initial = (b.username || "?")
+                .replace(/^@/, "")
+                .charAt(0)
+                .toUpperCase();
+              const img = b.photoUrl;
+
+              return (
+                <g key={b.id}>
+                  {isFollow && (phase === "fall" || phase === "finish") && (
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={r + 5}
+                      fill="none"
+                      stroke="rgba(34,211,238,0.4)"
+                      strokeWidth="1.2"
+                    />
+                  )}
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={r + 1.2}
+                    fill="#0c0c12"
+                    stroke="rgba(255,255,255,0.25)"
+                    strokeWidth="1.2"
+                  />
+                  {img ? (
+                    <>
+                      <defs>
+                        <clipPath id={`av-${b.id}`}>
+                          <circle cx={cx} cy={cy} r={r} />
+                        </clipPath>
+                      </defs>
+                      <image
+                        href={img}
+                        x={cx - r}
+                        y={cy - r}
+                        width={r * 2}
+                        height={r * 2}
+                        clipPath={`url(#av-${b.id})`}
+                        preserveAspectRatio="xMidYMid slice"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <circle cx={cx} cy={cy} r={r} fill="#1e293b" />
+                      <text
+                        x={cx}
+                        y={cy}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        fill="#e2e8f0"
+                        fontSize={r}
+                        fontWeight="700"
+                      >
+                        {initial}
+                      </text>
+                    </>
+                  )}
+                </g>
+              );
+            })}
+
+          {/* checkered finish */}
             <pattern
               id="checkFinish"
               width="12"
