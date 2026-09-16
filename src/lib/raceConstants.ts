@@ -1,4 +1,4 @@
-/** Race Live — Balls-style shared pot race */
+/** Race Live — Balls-style shared pot race (circle start + track) */
 export const RACE_MIN_BALL = 0.25;
 export const RACE_MAX_BALLS_PER_PLAYER = 20;
 export const RACE_MAX_BALLS_TOTAL = 60;
@@ -7,11 +7,12 @@ export const RACE_COUNTDOWN_SEC = 60;
 export const RACE_BUY_LOCK_SEC = 5;
 export const RACE_MIN_PLAYERS = 2;
 export const RACE_OPEN_STALE_MIN = 30;
-export const RACE_ANIM_MS = 16000;
+export const RACE_ANIM_MS = 18000;
 
 /**
- * Map = chain of segments (like Balls TG).
+ * Map = chain of segments (inspired by @myballs).
  * Server picks map by seed; client renders track.
+ * Start is always inside a physics circle that opens at the bottom.
  */
 export type RaceSegmentKind =
   | "funnel"
@@ -21,7 +22,13 @@ export type RaceSegmentKind =
   | "zigzag"
   | "tunnel"
   | "ramps"
-  | "sieve";
+  | "sieve"
+  | "cross"
+  | "dots"
+  | "arcs"
+  | "bomb"
+  | "antigrav"
+  | "platforms";
 
 export type RaceMapDef = {
   id: string;
@@ -36,7 +43,7 @@ export const RACE_MAPS: RaceMapDef[] = [
     id: "neon_run",
     name: { en: "Neon Run", ru: "Неоновый спуск" },
     accent: "#22d3ee",
-    segments: ["funnel", "pegs", "bumpers", "sieve"],
+    segments: ["platforms", "cross", "dots", "arcs", "funnel"],
   },
   {
     id: "canyon",
@@ -48,25 +55,31 @@ export const RACE_MAPS: RaceMapDef[] = [
     id: "pinball",
     name: { en: "Pin Storm", ru: "Шторм пинов" },
     accent: "#f472b6",
-    segments: ["pegs", "pegs", "bumpers", "sieve"],
+    segments: ["pegs", "bumpers", "cross", "sieve"],
   },
   {
     id: "pipes",
     name: { en: "Pipe Maze", ru: "Лабиринт труб" },
     accent: "#34d399",
-    segments: ["tunnel", "ramps", "lanes", "funnel"],
+    segments: ["tunnel", "ramps", "arcs", "funnel"],
   },
   {
     id: "highway",
     name: { en: "Split Highway", ru: "Раздельная трасса" },
     accent: "#fbbf24",
-    segments: ["lanes", "ramps", "zigzag", "sieve"],
+    segments: ["lanes", "platforms", "zigzag", "sieve"],
   },
   {
     id: "vortex",
     name: { en: "Gravity Vortex", ru: "Гравиворонка" },
     accent: "#60a5fa",
-    segments: ["funnel", "tunnel", "pegs", "bumpers"],
+    segments: ["funnel", "antigrav", "arcs", "bomb", "funnel"],
+  },
+  {
+    id: "phase",
+    name: { en: "Phase Drop", ru: "Phase Drop" },
+    accent: "#38bdf8",
+    segments: ["platforms", "cross", "dots", "bomb", "arcs", "funnel"],
   },
 ];
 

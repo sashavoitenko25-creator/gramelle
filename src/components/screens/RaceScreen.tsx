@@ -152,6 +152,80 @@ function buildTrack(mapId: string | null, W: number, H: number, ringY: number) {
           y2: y0 + segH * 0.78,
         }
       );
+    } else if (kind === "cross") {
+      // blue X / plus obstacles like in @myballs
+      for (let i = 0; i < 3; i++) {
+        const cx = W * (0.25 + i * 0.25);
+        const cy = y0 + segH * (0.35 + (i % 2) * 0.25);
+        const arm = Math.min(28, segH * 0.28);
+        walls.push(
+          { x1: cx - arm, y1: cy, x2: cx + arm, y2: cy },
+          { x1: cx, y1: cy - arm, x2: cx, y2: cy + arm }
+        );
+        pegs.push({ x: cx, y: cy, r: 6, kind: "cross" });
+      }
+    } else if (kind === "dots") {
+      // grid of blue dots
+      const rows = 4;
+      const cols = 7;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          pegs.push({
+            x: W * (0.14 + (c / (cols - 1)) * 0.72),
+            y: y0 + 12 + (r / Math.max(rows - 1, 1)) * (segH - 24),
+            r: 2.8,
+            kind: "dot",
+          });
+        }
+      }
+    } else if (kind === "arcs") {
+      // large incomplete circles (visual + soft bumpers)
+      for (let i = 0; i < 2; i++) {
+        const cx = W * (0.32 + i * 0.36);
+        const cy = y0 + segH * 0.5;
+        const rr = Math.min(42, segH * 0.38);
+        pegs.push({ x: cx, y: cy, r: rr * 0.35, kind: "arc" });
+        // soft ring points
+        for (let a = 0; a < 8; a++) {
+          const ang = (a / 8) * Math.PI * 1.6 - 0.3;
+          pegs.push({
+            x: cx + Math.cos(ang) * rr,
+            y: cy + Math.sin(ang) * rr,
+            r: 3.5,
+            kind: "arc_edge",
+          });
+        }
+      }
+    } else if (kind === "bomb") {
+      // bomb hazards (visual skull + bounce)
+      for (let i = 0; i < 2; i++) {
+        pegs.push({
+          x: W * (0.35 + i * 0.3),
+          y: y0 + segH * (0.4 + (i % 2) * 0.2),
+          r: 14,
+          kind: "bomb",
+        });
+      }
+    } else if (kind === "antigrav") {
+      // upward force zone (visual only in sim; path still deterministic)
+      pegs.push({
+        x: W * 0.5,
+        y: y0 + segH * 0.5,
+        r: 40,
+        kind: "antigrav",
+      });
+    } else if (kind === "platforms") {
+      // horizontal blue platforms with gaps (like video numbered zones)
+      const levels = 3;
+      for (let lv = 0; lv < levels; lv++) {
+        const yy = y0 + 10 + (lv / (levels - 1 || 1)) * (segH - 20);
+        const gapSide = lv % 2 === 0 ? "left" : "right";
+        if (gapSide === "left") {
+          walls.push({ x1: W * 0.42, y1: yy, x2: rightX - 4, y2: yy });
+        } else {
+          walls.push({ x1: leftX + 4, y1: yy, x2: W * 0.58, y2: yy });
+        }
+      }
     }
   });
 
@@ -233,7 +307,12 @@ function simulatePath(
           vx -= 1.85 * dot * nx;
           vy -= 1.85 * dot * ny;
         }
-        const bounce = p.kind === "bumper" ? 0.7 : 0.55;
+        const bounce =
+          p.kind === "bumper" || p.kind === "bomb"
+            ? 0.78
+            : p.kind === "cross"
+              ? 0.65
+              : 0.55;
         vx *= bounce;
         vy *= bounce;
         vx += (seed - 0.5) * 0.15;
@@ -647,6 +726,10 @@ function RaceStage({
               <rect x="0" y="6" width="6" height="6" fill="#18181b" />
               <rect x="6" y="6" width="6" height="6" fill="#f4f4f5" />
             </pattern>
+            <radialGradient id="antiGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#6366f1" stopOpacity="0.05" />
+            </radialGradient>
           </defs>
 
           {!isLobby &&
@@ -657,26 +740,131 @@ function RaceStage({
                 y1={w.y1}
                 x2={w.x2}
                 y2={w.y2}
-                stroke="rgba(255,255,255,0.22)"
-                strokeWidth="3.5"
+                stroke={`${accent}99`}
+                strokeWidth="4"
                 strokeLinecap="round"
+                style={{ filter: "drop-shadow(0 0 4px " + accent + "88)" }}
               />
             ))}
 
           {!isLobby &&
-            track.pegs.map((pg, i) => (
-              <circle
-                key={`p-${i}`}
-                cx={pg.x}
-                cy={pg.y}
-                r={pg.r}
-                fill={
-                  pg.kind === "bumper" ? `${accent}88` : "rgba(255,255,255,0.2)"
-                }
-                stroke="rgba(255,255,255,0.12)"
-                strokeWidth="0.6"
-              />
-            ))}
+            track.pegs.map((pg, i) => {
+              if (pg.kind === "bomb") {
+                return (
+                  <g key={`p-${i}`}>
+                    <circle
+                      cx={pg.x}
+                      cy={pg.y}
+                      r={pg.r}
+                      fill="#1a1a22"
+                      stroke="#ef4444"
+                      strokeWidth="1.5"
+                    />
+                    <text
+                      x={pg.x}
+                      y={pg.y + 1}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize={pg.r * 1.1}
+                    >
+                      💣
+                    </text>
+                  </g>
+                );
+              }
+              if (pg.kind === "arc") {
+                return (
+                  <circle
+                    key={`p-${i}`}
+                    cx={pg.x}
+                    cy={pg.y}
+                    r={pg.r * 2.2}
+                    fill="none"
+                    stroke={`${accent}cc`}
+                    strokeWidth="4"
+                    strokeDasharray="40 18"
+                    opacity="0.85"
+                  />
+                );
+              }
+              if (pg.kind === "arc_edge") {
+                return (
+                  <circle
+                    key={`p-${i}`}
+                    cx={pg.x}
+                    cy={pg.y}
+                    r={pg.r}
+                    fill={`${accent}55`}
+                    stroke={`${accent}aa`}
+                    strokeWidth="0.8"
+                  />
+                );
+              }
+              if (pg.kind === "antigrav") {
+                return (
+                  <g key={`p-${i}`} opacity="0.55">
+                    <circle
+                      cx={pg.x}
+                      cy={pg.y}
+                      r={pg.r}
+                      fill="url(#antiGrad)"
+                      stroke="#a78bfa"
+                      strokeWidth="1.2"
+                      strokeDasharray="6 4"
+                    />
+                    <text
+                      x={pg.x}
+                      y={pg.y}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fill="#c4b5fd"
+                      fontSize="9"
+                      fontWeight="700"
+                    >
+                      ↑
+                    </text>
+                  </g>
+                );
+              }
+              if (pg.kind === "cross") {
+                return (
+                  <circle
+                    key={`p-${i}`}
+                    cx={pg.x}
+                    cy={pg.y}
+                    r={pg.r}
+                    fill={`${accent}66`}
+                    stroke={`${accent}`}
+                    strokeWidth="1.2"
+                  />
+                );
+              }
+              if (pg.kind === "dot") {
+                return (
+                  <circle
+                    key={`p-${i}`}
+                    cx={pg.x}
+                    cy={pg.y}
+                    r={pg.r}
+                    fill="#38bdf8"
+                    opacity="0.75"
+                  />
+                );
+              }
+              return (
+                <circle
+                  key={`p-${i}`}
+                  cx={pg.x}
+                  cy={pg.y}
+                  r={pg.r}
+                  fill={
+                    pg.kind === "bumper" ? `${accent}88` : "rgba(255,255,255,0.2)"
+                  }
+                  stroke="rgba(255,255,255,0.12)"
+                  strokeWidth="0.6"
+                />
+              );
+            })}
 
           {/* ring: closed in lobby, gap opens after timer */}
           <path
@@ -787,9 +975,9 @@ function RaceStage({
         {ballsMeta.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-8">
             <div className="text-center text-[13px] text-white/40 leading-relaxed">
-              Купи шарик — он упадёт в кольцо и будет толкаться с другими.
+              Купи шарик — он попадёт в круг и будет толкаться с другими.
               <br />
-              После таймера дырка откроется сверху.
+              После таймера внизу круга откроется дырка и шарики упадут на трассу.
             </div>
           </div>
         )}
