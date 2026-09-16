@@ -74,25 +74,72 @@ export const SUPPORT_LABEL =
 export const REFERRAL_JOIN_BONUS = 0;
 export const REFERRAL_MIN_WITHDRAW = 0.25;
 
-export type ReferralTierId = "none" | "bronze" | "silver" | "gold" | "platinum";
+export type ReferralTierId =
+  | "none"
+  | "bronze"
+  | "silver"
+  | "gold"
+  | "platinum"
+  | "individual";
+
 export interface ReferralTier {
   id: ReferralTierId;
   name: string;
   minActive: number;
   maxActive: number | null;
   minTurnover: number;
+  /** Share of house fee credited to referrer savings (ref_earned) */
   shareOfHouseFee: number;
   color: string;
   emoji: string;
+  /** Optional: only these Telegram IDs see / use this tier */
+  restrictedToTelegramIds?: readonly number[];
 }
+
+/** Owner + partner — only they see Individual tier */
+export const INDIVIDUAL_REF_TELEGRAM_IDS = [6859689857, 8960001633] as const;
+
+export function isIndividualRefViewer(telegramId: number | null | undefined): boolean {
+  if (telegramId == null) return false;
+  return (INDIVIDUAL_REF_TELEGRAM_IDS as readonly number[]).includes(Number(telegramId));
+}
+
+/** Special partner tier: 4% of house fee → referrer, rest of fee stays with the app */
+export const INDIVIDUAL_TIER: ReferralTier = {
+  id: "individual",
+  name: "Individual",
+  minActive: 1,
+  maxActive: null,
+  minTurnover: 0,
+  shareOfHouseFee: 0.04,
+  color: "#f0abfc",
+  emoji: "✦",
+  restrictedToTelegramIds: INDIVIDUAL_REF_TELEGRAM_IDS,
+};
+
 export const REFERRAL_TIERS: ReferralTier[] = [
   { id: "bronze", name: "Bronze", minActive: 0, maxActive: 4, minTurnover: 0, shareOfHouseFee: 0.1, color: "#cd7f32", emoji: "🥉" },
   { id: "silver", name: "Silver", minActive: 5, maxActive: 14, minTurnover: 300, shareOfHouseFee: 0.15, color: "#c0c0c0", emoji: "🥈" },
   { id: "gold", name: "Gold", minActive: 15, maxActive: 44, minTurnover: 1500, shareOfHouseFee: 0.2, color: "#f5c542", emoji: "🥇" },
   { id: "platinum", name: "Platinum", minActive: 45, maxActive: null, minTurnover: 4000, shareOfHouseFee: 0.3, color: "#a78bfa", emoji: "💎" },
 ];
-export function getReferralTier(activeRefs: number, turnover: number): ReferralTier | null {
+
+export function getReferralTier(
+  activeRefs: number,
+  turnover: number,
+  telegramId?: number | null
+): ReferralTier | null {
   if (activeRefs < 1) return null;
+
+  // Individual: fixed 4% of house fee for allow-listed partners (from 1 invite)
+  if (
+    telegramId != null &&
+    isIndividualRefViewer(telegramId) &&
+    activeRefs >= INDIVIDUAL_TIER.minActive
+  ) {
+    return INDIVIDUAL_TIER;
+  }
+
   for (const t of [...REFERRAL_TIERS].reverse()) {
     if (activeRefs >= t.minActive && turnover >= t.minTurnover) return t;
   }

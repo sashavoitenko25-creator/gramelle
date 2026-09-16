@@ -1,0 +1,17 @@
+Individual referral tier
+========================
+Files:
+  src/lib/constants.ts          — INDIVIDUAL_TIER 4%, allow-list IDs
+  src/lib/server/referral.ts    — tier uses telegram_id
+  src/components/screens/ReferralsScreen.tsx — premium card
+  src/app/page.tsx              — passes telegramId
+
+Visible only to:
+  6859689857 (you)
+  8960001633 (partner)
+
+Active from 1 invite → 4% of house fee → ref_earned
+Withdraw via existing button (min 0.25 GRAM) → main balance
+Already wired to Dice / RPS / XO / Race via payReferralFromHouseFee
+
+Распакуй поверх корня gramelle → npm run build

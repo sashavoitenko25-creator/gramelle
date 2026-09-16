@@ -136,7 +136,7 @@ export async function payReferralFromHouseFee(
     .update({ ref_active: activeCount })
     .eq("id", referrer.id);
 
-  const tier = getReferralTier(activeCount, newTurnover);
+  const tier = getReferralTier(activeCount, newTurnover, Number(referrer.telegram_id));
   if (!tier) return;
 
   const bonus = +(houseFeeFromThisBet * tier.shareOfHouseFee).toFixed(6);
