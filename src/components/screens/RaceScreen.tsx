@@ -31,6 +31,18 @@ interface RaceScreenProps {
 
 type Phase = "lobby" | "lock" | "release" | "fall" | "finish";
 
+type Peg = { x: number; y: number; r: number; kind: string };
+type Wall = { x1: number; y1: number; x2: number; y2: number };
+
+function hash01(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) / 4294967296;
+}
+
 function HashChip({
   label,
   value,
@@ -55,20 +67,6 @@ function HashChip({
   );
 }
 
-
-
-function hash01(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0) / 4294967296;
-}
-
-type Peg = { x: number; y: number; r: number; kind: string };
-type Wall = { x1: number; y1: number; x2: number; y2: number };
-
 function buildTrack(mapId: string | null, W: number, H: number, ringY: number) {
   const map = RACE_MAPS.find((m) => m.id === mapId) || RACE_MAPS[0];
   const segs = map.segments;
@@ -80,7 +78,6 @@ function buildTrack(mapId: string | null, W: number, H: number, ringY: number) {
   const leftX = W * 0.1;
   const rightX = W * 0.9;
 
-  // outer walls full height of track
   walls.push(
     { x1: leftX, y1: trackTop, x2: leftX, y2: trackBot },
     { x1: rightX, y1: trackTop, x2: rightX, y2: trackBot }
@@ -128,7 +125,12 @@ function buildTrack(mapId: string | null, W: number, H: number, ringY: number) {
     } else if (kind === "zigzag") {
       walls.push(
         { x1: leftX + 4, y1: y0 + 8, x2: W * 0.58, y2: y0 + segH * 0.48 },
-        { x1: rightX - 4, y1: y0 + segH * 0.42, x2: W * 0.42, y2: y0 + segH * 0.88 }
+        {
+          x1: rightX - 4,
+          y1: y0 + segH * 0.42,
+          x2: W * 0.42,
+          y2: y0 + segH * 0.88,
+        }
       );
     } else if (kind === "tunnel") {
       walls.push(
@@ -137,8 +139,18 @@ function buildTrack(mapId: string | null, W: number, H: number, ringY: number) {
       );
     } else if (kind === "ramps") {
       walls.push(
-        { x1: leftX, y1: y0 + segH * 0.15, x2: W * 0.48, y2: y0 + segH * 0.55 },
-        { x1: rightX, y1: y0 + segH * 0.3, x2: W * 0.52, y2: y0 + segH * 0.78 }
+        {
+          x1: leftX,
+          y1: y0 + segH * 0.15,
+          x2: W * 0.48,
+          y2: y0 + segH * 0.55,
+        },
+        {
+          x1: rightX,
+          y1: y0 + segH * 0.3,
+          x2: W * 0.52,
+          y2: y0 + segH * 0.78,
+        }
       );
     }
   });
@@ -146,11 +158,9 @@ function buildTrack(mapId: string | null, W: number, H: number, ringY: number) {
   return { map, pegs, walls, trackTop, trackBot, leftX, rightX };
 }
 
-/** Deterministic path with gravity + wall/peg bounce (visual, matches rank timing) */
 function simulatePath(
   ballId: string,
   seat: number,
-  rank: number,
   W: number,
   ringY: number,
   trackBot: number,
@@ -167,14 +177,12 @@ function simulatePath(
   let vy = 1.2 + seed * 0.5;
   const g = 0.32;
   const points: { x: number; y: number }[] = [{ x, y }];
-  const maxSteps = 900;
 
-  for (let step = 0; step < maxSteps; step++) {
+  for (let step = 0; step < 900; step++) {
     vy += g;
     x += vx;
     y += vy;
 
-    // side walls
     if (x - R < leftX) {
       x = leftX + R;
       vx = Math.abs(vx) * 0.72;
@@ -184,14 +192,12 @@ function simulatePath(
       vx = -Math.abs(vx) * 0.72;
     }
 
-    // angled walls (simple reflection approx)
     for (const w of walls) {
       const dx = w.x2 - w.x1;
       const dy = w.y2 - w.y1;
       const len = Math.hypot(dx, dy) || 1;
       const nx = -dy / len;
       const ny = dx / len;
-      // distance from point to line
       const t = Math.max(
         0,
         Math.min(1, ((x - w.x1) * dx + (y - w.y1) * dy) / (len * len))
@@ -201,7 +207,7 @@ function simulatePath(
       const dist = Math.hypot(x - px, y - py);
       if (dist < R + 1.5 && t > 0.02 && t < 0.98) {
         const overlap = R + 1.5 - dist;
-        x += nx * overlap * (x >= px ? 1 : -1) * 0.5 + (x - px) * 0.15;
+        x += (x - px) * 0.2 + nx * overlap * 0.3;
         y += (y - py) * 0.1;
         const dot = vx * nx + vy * ny;
         vx -= 1.6 * dot * nx;
@@ -211,7 +217,6 @@ function simulatePath(
       }
     }
 
-    // pegs / bumpers
     for (const p of pegs) {
       const dx = x - p.x;
       const dy = y - p.y;
@@ -230,12 +235,10 @@ function simulatePath(
         const bounce = p.kind === "bumper" ? 0.7 : 0.55;
         vx *= bounce;
         vy *= bounce;
-        // slight random from seed
         vx += (seed - 0.5) * 0.15;
       }
     }
 
-    // floor damping near finish
     if (y > trackBot - 4) {
       y = trackBot - 4;
       points.push({ x, y });
@@ -243,13 +246,16 @@ function simulatePath(
     }
 
     if (step % 2 === 0) points.push({ x, y });
-    // terminal velocity
     if (vy > 8.5) vy = 8.5;
     if (Math.abs(vx) > 5) vx *= 0.96;
   }
 
-  // stretch path so higher rank (slower) ends later in sampling — already physical; rank used in sampling
-  return points.length > 2 ? points : [{ x: W / 2, y: ringY }, { x: W / 2, y: trackBot }];
+  return points.length > 2
+    ? points
+    : [
+        { x: W / 2, y: ringY },
+        { x: W / 2, y: trackBot },
+      ];
 }
 
 function samplePath(
@@ -258,7 +264,6 @@ function samplePath(
   rank: number,
   total: number
 ) {
-  // winners progress faster
   const bias = (rank - 1) / Math.max(total, 1);
   const tt = Math.min(1, Math.max(0, t * (1.05 - bias * 0.35) - bias * 0.05));
   if (path.length < 2) return path[0] || { x: 0, y: 0 };
@@ -269,6 +274,80 @@ function samplePath(
     x: path[i].x + (path[i + 1].x - path[i].x) * u,
     y: path[i].y + (path[i + 1].y - path[i].y) * u,
   };
+}
+
+function AvatarBall({
+  cx,
+  cy,
+  r,
+  username,
+  photoUrl,
+  highlight,
+}: {
+  cx: number;
+  cy: number;
+  r: number;
+  username: string;
+  photoUrl: string | null;
+  highlight?: boolean;
+}) {
+  const initial = (username || "?").replace(/^@/, "").charAt(0).toUpperCase();
+  const clipId = `av-${cx.toFixed(1)}-${cy.toFixed(1)}-${r}`;
+  return (
+    <g>
+      {highlight && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r + 5}
+          fill="none"
+          stroke="rgba(34,211,238,0.4)"
+          strokeWidth="1.2"
+        />
+      )}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r + 1.3}
+        fill="#0c0c12"
+        stroke="rgba(255,255,255,0.28)"
+        strokeWidth="1.2"
+      />
+      {photoUrl ? (
+        <>
+          <defs>
+            <clipPath id={clipId}>
+              <circle cx={cx} cy={cy} r={r} />
+            </clipPath>
+          </defs>
+          <image
+            href={photoUrl}
+            x={cx - r}
+            y={cy - r}
+            width={r * 2}
+            height={r * 2}
+            clipPath={`url(#${clipId})`}
+            preserveAspectRatio="xMidYMid slice"
+          />
+        </>
+      ) : (
+        <>
+          <circle cx={cx} cy={cy} r={r} fill="#1e293b" />
+          <text
+            x={cx}
+            y={cy}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill="#e2e8f0"
+            fontSize={r}
+            fontWeight="700"
+          >
+            {initial}
+          </text>
+        </>
+      )}
+    </g>
+  );
 }
 
 function RaceStage({
@@ -291,13 +370,11 @@ function RaceStage({
   const W = 320;
   const H = 560;
   const isLobby = phase === "lobby" || phase === "lock";
-  // center ring in lobby, top in race
-  const ringY = isLobby ? H * 0.48 : H * 0.15;
+  const ringY = isLobby ? H * 0.5 : H * 0.15;
+  const ringR = isLobby ? 120 : 78;
+  const orbitR = isLobby ? 82 : 50;
 
-  const track = useMemo(
-    () => buildTrack(mapId, W, H, H * 0.15),
-    [mapId]
-  );
+  const track = useMemo(() => buildTrack(mapId, W, H, H * 0.15), [mapId]);
 
   const paths = useMemo(() => {
     const map: Record<string, { x: number; y: number }[]> = {};
@@ -305,7 +382,6 @@ function RaceStage({
       map[b.id] = simulatePath(
         b.id,
         b.seat,
-        b.finishRank ?? b.seat + 1,
         W,
         H * 0.15,
         track.trackBot,
@@ -318,11 +394,12 @@ function RaceStage({
     return map;
   }, [balls, track]);
 
-  // lobby: frame focuses on ring center; race: zoom out & pan down
   const camY = isLobby ? 0 : phase === "release" ? 10 : 18 + fallProgress * 80;
-  const camScale = isLobby ? 1.28 : phase === "release" ? 0.92 : 0.78 - fallProgress * 0.05;
-  const ringR = isLobby ? 118 : 78;
-  const orbitR = isLobby ? 78 : 50;
+  const camScale = isLobby
+    ? 1.35
+    : phase === "release"
+      ? 0.92
+      : 0.78 - fallProgress * 0.05;
   const accent = track.map.accent;
 
   return (
@@ -350,9 +427,7 @@ function RaceStage({
         />
 
         {(phase === "release" || phase === "fall" || phase === "finish") && (
-          <div
-            className="absolute top-3 left-1/2 -translate-x-1/2 z-30 px-3 py-1 rounded-full bg-black/50 border border-white/10 text-[10px] font-semibold text-white/65"
-          >
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 px-3 py-1 rounded-full bg-black/50 border border-white/10 text-[10px] font-semibold text-white/65">
             {track.map.name.ru}
           </div>
         )}
@@ -364,17 +439,9 @@ function RaceStage({
         >
           <defs>
             <linearGradient id="ringStroke" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor={accent} stopOpacity="0.85" />
+              <stop offset="0%" stopColor={accent} stopOpacity="0.9" />
               <stop offset="100%" stopColor="#a78bfa" stopOpacity="0.55" />
             </linearGradient>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="1.8" result="b" />
-              <feMerge>
-                <feMergeNode in="b" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            {/* checkered finish */}
             <pattern
               id="checkFinish"
               width="12"
@@ -388,11 +455,10 @@ function RaceStage({
             </pattern>
           </defs>
 
-          {/* track walls */}
           {!isLobby &&
             track.walls.map((w, i) => (
               <line
-                key={i}
+                key={`w-${i}`}
                 x1={w.x1}
                 y1={w.y1}
                 x2={w.x2}
@@ -406,7 +472,7 @@ function RaceStage({
           {!isLobby &&
             track.pegs.map((pg, i) => (
               <circle
-                key={i}
+                key={`p-${i}`}
                 cx={pg.x}
                 cy={pg.y}
                 r={pg.r}
@@ -418,7 +484,7 @@ function RaceStage({
               />
             ))}
 
-          {/* ring + orbiting balls (lobby) */}
+          {/* Spinning ring — balls inside so they orbit */}
           <g
             style={{
               transformOrigin: `${W / 2}px ${ringY}px`,
@@ -436,7 +502,7 @@ function RaceStage({
               r={ringR}
               fill="none"
               stroke="url(#ringStroke)"
-              strokeWidth={isLobby ? 4 : 3}
+              strokeWidth={isLobby ? 4.5 : 3}
               opacity="0.95"
             />
             <circle
@@ -448,7 +514,6 @@ function RaceStage({
               strokeWidth="1"
               strokeDasharray="5 9"
             />
-            {/* soft exit hole */}
             <path
               d={`M ${W / 2 - 16} ${ringY - ringR} A ${ringR} ${ringR} 0 0 1 ${W / 2 + 16} ${ringY - ringR}`}
               fill="none"
@@ -474,314 +539,49 @@ function RaceStage({
               }
             />
 
-            {/* balls orbit WITH the ring in lobby */}
             {isLobby &&
               balls.map((b, i) => {
                 const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
                 const isFollow =
                   b.id === followBallId || b.telegramId === telegramId;
-                const r = isFollow ? 11 : 9;
                 const cx = W / 2 + Math.cos(angle) * orbitR;
                 const cy = ringY + Math.sin(angle) * orbitR;
-                const initial = (b.username || "?")
-                  .replace(/^@/, "")
-                  .charAt(0)
-                  .toUpperCase();
-                const img = b.photoUrl;
                 return (
-                  <g key={b.id}>
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r={r + 1.5}
-                      fill="#0c0c12"
-                      stroke="rgba(255,255,255,0.3)"
-                      strokeWidth="1.3"
-                    />
-                    {img ? (
-                      <>
-                        <defs>
-                          <clipPath id={`av-l-${b.id}`}>
-                            <circle cx={cx} cy={cy} r={r} />
-                          </clipPath>
-                        </defs>
-                        <image
-                          href={img}
-                          x={cx - r}
-                          y={cy - r}
-                          width={r * 2}
-                          height={r * 2}
-                          clipPath={`url(#av-l-${b.id})`}
-                          preserveAspectRatio="xMidYMid slice"
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <circle cx={cx} cy={cy} r={r} fill="#1e293b" />
-                        <text
-                          x={cx}
-                          y={cy}
-                          textAnchor="middle"
-                          dominantBaseline="central"
-                          fill="#e2e8f0"
-                          fontSize={r}
-                          fontWeight="700"
-                        >
-                          {initial}
-                        </text>
-                      </>
-                    )}
-                  </g>
+                  <AvatarBall
+                    key={b.id}
+                    cx={cx}
+                    cy={cy}
+                    r={isFollow ? 11 : 9}
+                    username={b.username}
+                    photoUrl={b.photoUrl}
+                    highlight={isFollow}
+                  />
                 );
               })}
           </g>
 
-          {/* balls falling (race) — physics path */}
           {!isLobby &&
             balls.map((b, i) => {
               const rank = b.finishRank ?? i + 1;
               const isFollow =
                 b.id === followBallId || b.telegramId === telegramId;
-              const r = isFollow ? 9 : 7.5;
               const path = paths[b.id] || [];
               const pos = samplePath(path, fallProgress, rank, balls.length);
-              const cx = pos.x;
-              const cy = pos.y;
-              const initial = (b.username || "?")
-                .replace(/^@/, "")
-                .charAt(0)
-                .toUpperCase();
-              const img = b.photoUrl;
-
               return (
-                <g key={b.id}>
-                  {isFollow && (phase === "fall" || phase === "finish") && (
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r={r + 5}
-                      fill="none"
-                      stroke="rgba(34,211,238,0.4)"
-                      strokeWidth="1.2"
-                    />
-                  )}
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    r={r + 1.2}
-                    fill="#0c0c12"
-                    stroke="rgba(255,255,255,0.25)"
-                    strokeWidth="1.2"
-                  />
-                  {img ? (
-                    <>
-                      <defs>
-                        <clipPath id={`av-${b.id}`}>
-                          <circle cx={cx} cy={cy} r={r} />
-                        </clipPath>
-                      </defs>
-                      <image
-                        href={img}
-                        x={cx - r}
-                        y={cy - r}
-                        width={r * 2}
-                        height={r * 2}
-                        clipPath={`url(#av-${b.id})`}
-                        preserveAspectRatio="xMidYMid slice"
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <circle cx={cx} cy={cy} r={r} fill="#1e293b" />
-                      <text
-                        x={cx}
-                        y={cy}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        fill="#e2e8f0"
-                        fontSize={r}
-                        fontWeight="700"
-                      >
-                        {initial}
-                      </text>
-                    </>
-                  )}
-                </g>
+                <AvatarBall
+                  key={b.id}
+                  cx={pos.x}
+                  cy={pos.y}
+                  r={isFollow ? 9 : 7.5}
+                  username={b.username}
+                  photoUrl={b.photoUrl}
+                  highlight={
+                    isFollow && (phase === "fall" || phase === "finish")
+                  }
+                />
               );
             })}
 
-          {/* checkered finish */}
-            <pattern
-              id="checkFinish"
-              width="12"
-              height="12"
-              patternUnits="userSpaceOnUse"
-            >
-              <rect width="6" height="6" fill="#f4f4f5" />
-              <rect x="6" y="0" width="6" height="6" fill="#18181b" />
-              <rect x="0" y="6" width="6" height="6" fill="#18181b" />
-              <rect x="6" y="6" width="6" height="6" fill="#f4f4f5" />
-            </pattern>
-          </defs>
-
-          {/* track walls */}
-          {!isLobby &&
-            track.walls.map((w, i) => (
-              <line
-                key={i}
-                x1={w.x1}
-                y1={w.y1}
-                x2={w.x2}
-                y2={w.y2}
-                stroke="rgba(255,255,255,0.22)"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-              />
-            ))}
-
-          {!isLobby &&
-            track.pegs.map((pg, i) => (
-              <circle
-                key={i}
-                cx={pg.x}
-                cy={pg.y}
-                r={pg.r}
-                fill={
-                  pg.kind === "bumper" ? `${accent}88` : "rgba(255,255,255,0.2)"
-                }
-                stroke="rgba(255,255,255,0.12)"
-                strokeWidth="0.6"
-              />
-            ))}
-
-          {/* ring */}
-          <g
-            style={{
-              transformOrigin: `${W / 2}px ${ringY}px`,
-              animation:
-                isLobby || phase === "release"
-                  ? isLobby
-                    ? "race-spin 7s linear infinite"
-                    : "race-spin 2.2s linear infinite"
-                  : "none",
-            }}
-          >
-            <circle
-              cx={W / 2}
-              cy={ringY}
-              r={78}
-              fill="none"
-              stroke="url(#ringStroke)"
-              strokeWidth="3"
-              opacity="0.9"
-            />
-            <circle
-              cx={W / 2}
-              cy={ringY}
-              r={78}
-              fill="none"
-              stroke="rgba(255,255,255,0.08)"
-              strokeWidth="1"
-              strokeDasharray="4 8"
-            />
-            {/* subtle exit hole at top — soft gap, not loud */}
-            <path
-              d={`M ${W / 2 - 14} ${ringY - 78} A 78 78 0 0 1 ${W / 2 + 14} ${ringY - 78}`}
-              fill="none"
-              stroke="#0a0a10"
-              strokeWidth="7"
-              strokeLinecap="round"
-              opacity={phase === "release" || phase === "fall" || phase === "finish" ? 0.15 : 0.95}
-            />
-            <path
-              d={`M ${W / 2 - 11} ${ringY - 78} A 78 78 0 0 1 ${W / 2 + 11} ${ringY - 78}`}
-              fill="none"
-              stroke="rgba(255,255,255,0.22)"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              opacity={phase === "release" || phase === "fall" || phase === "finish" ? 0.1 : 0.7}
-            />
-          </g>
-
-          {/* balls as player avatars */}
-          {balls.map((b, i) => {
-            const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
-            const rank = b.finishRank ?? i + 1;
-            const isFollow =
-              b.id === followBallId || b.telegramId === telegramId;
-            const r = isFollow ? 9 : 7.5;
-            let cx: number;
-            let cy: number;
-            if (isLobby) {
-              cx = W / 2 + Math.cos(angle) * 50;
-              cy = ringY + Math.sin(angle) * 50;
-            } else {
-              const path = paths[b.id] || [];
-              const pos = samplePath(path, fallProgress, rank, balls.length);
-              cx = pos.x;
-              cy = pos.y;
-            }
-            const initial = (b.username || "?").replace(/^@/, "").charAt(0).toUpperCase();
-            const img = b.photoUrl;
-
-            return (
-              <g key={b.id}>
-                {isFollow && (phase === "fall" || phase === "finish") && (
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    r={r + 5}
-                    fill="none"
-                    stroke="rgba(34,211,238,0.4)"
-                    strokeWidth="1.2"
-                  />
-                )}
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={r + 1.2}
-                  fill="#0c0c12"
-                  stroke="rgba(255,255,255,0.25)"
-                  strokeWidth="1.2"
-                />
-                {img ? (
-                  <>
-                    <defs>
-                      <clipPath id={`av-${b.id}`}>
-                        <circle cx={cx} cy={cy} r={r} />
-                      </clipPath>
-                    </defs>
-                    <image
-                      href={img}
-                      x={cx - r}
-                      y={cy - r}
-                      width={r * 2}
-                      height={r * 2}
-                      clipPath={`url(#av-${b.id})`}
-                      preserveAspectRatio="xMidYMid slice"
-                    />
-                  </>
-                ) : (
-                  <>
-                    <circle cx={cx} cy={cy} r={r} fill="#1e293b" />
-                    <text
-                      x={cx}
-                      y={cy}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      fill="#e2e8f0"
-                      fontSize={r}
-                      fontWeight="700"
-                    >
-                      {initial}
-                    </text>
-                  </>
-                )}
-              </g>
-            );
-          })}
-
-          {/* checkered finish */}
           {!isLobby && (
             <g>
               <rect
@@ -811,16 +611,58 @@ function RaceStage({
 
         {balls.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-8">
-            <div className="text-center mt-[42%]">
-              <div className="text-[13px] text-white/40 leading-relaxed">
-                Купи шарик — аватар появится в кольце.
-                <br />
-                Первый на финише забирает банк.
-              </div>
+            <div className="text-center text-[13px] text-white/40 leading-relaxed">
+              Купи шарик — аватар появится в кольце.
+              <br />
+              Первый на финише забирает банк.
             </div>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function BalancePill({
+  balance,
+  onDeposit,
+  haptic,
+}: {
+  balance: number;
+  onDeposit?: () => void;
+  haptic: (t?: "light" | "medium" | "heavy") => void;
+}) {
+  return (
+    <div className="flex items-center h-9 rounded-full glass border border-white/[0.12] overflow-hidden shrink-0">
+      <div className="flex items-center gap-1.5 pl-3 pr-2">
+        <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
+          {formatGram(balance)}
+        </span>
+        <span className="text-[10px] text-white/35 font-medium">GRAM</span>
+      </div>
+      {onDeposit && (
+        <button
+          type="button"
+          onClick={() => {
+            haptic("light");
+            onDeposit();
+          }}
+          className="h-full px-2.5 flex items-center justify-center text-cyan-200/90 border-l border-white/[0.1] btn-press"
+          aria-label="Deposit"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          >
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
@@ -845,18 +687,17 @@ export function RaceScreen({
   const [busy, setBusy] = useState(false);
   const [showHist, setShowHist] = useState(false);
   const [history, setHistory] = useState<
-    Awaited<ReturnType<typeof import("@/lib/raceApi").raceHistory>>["items"]
+    Awaited<ReturnType<typeof raceHistory>>["items"]
   >([]);
   const [phase, setPhase] = useState<Phase>("lobby");
   const [fallProgress, setFallProgress] = useState(0);
-  const animKey = useRef<string>("");
+  const animKey = useRef("");
   const fallRaf = useRef<number | null>(null);
 
   const followBallId = useMemo(() => {
     if (!room) return null;
     const mine = room.balls.filter((b) => b.telegramId === telegramId);
     if (!mine.length) return room.balls[0]?.id ?? null;
-    // follow best (lowest rank) or first mine
     const ranked = [...mine].sort(
       (a, b) => (a.finishRank ?? 99) - (b.finishRank ?? 99)
     );
@@ -892,7 +733,6 @@ export function RaceScreen({
     return () => setBackButton(null);
   }, [onBack, setBackButton, showHist]);
 
-  // Phase machine from room status
   useEffect(() => {
     if (!room) {
       setPhase("lobby");
@@ -955,8 +795,7 @@ export function RaceScreen({
   const ensureAndBuy = async (count: number) => {
     if (busy) return;
     const price = room?.ballPrice ?? RACE_MIN_BALL;
-    const total = price * count;
-    if (balance < total) {
+    if (balance < price * count) {
       onDeposit?.();
       return;
     }
@@ -1015,12 +854,6 @@ export function RaceScreen({
   };
 
   const winner = room?.balls.find((b) => b.id === room.winnerBallId);
-  const canBuy =
-    !room ||
-    room.canBuy ||
-    room.status === "finished" ||
-    room.status === "cancelled" ||
-    (!room.status && true);
 
   if (showHist) {
     return (
@@ -1058,7 +891,11 @@ export function RaceScreen({
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  <HashChip label="Hash" value={h.serverSeedHash} onCopy={copyText} />
+                  <HashChip
+                    label="Hash"
+                    value={h.serverSeedHash}
+                    onCopy={copyText}
+                  />
                   <HashChip label="Seed" value={h.serverSeed} onCopy={copyText} />
                 </div>
               </div>
@@ -1071,7 +908,6 @@ export function RaceScreen({
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      {/* top bar */}
       <div className="px-4 pt-3 pb-2 flex items-center gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -1099,7 +935,14 @@ export function RaceScreen({
           className="w-9 h-9 rounded-xl glass border border-white/[0.08] flex items-center justify-center text-white/45 btn-press shrink-0"
           aria-label={t("history")}
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
             <circle cx="12" cy="12" r="9" />
             <path d="M12 7v5l3 2" />
           </svg>
@@ -1116,7 +959,6 @@ export function RaceScreen({
           fallProgress={fallProgress}
         />
 
-        {/* status + fairness */}
         <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 space-y-2">
           <div className="flex items-center justify-between text-[12px]">
             <span className="text-white/45">
@@ -1130,25 +972,38 @@ export function RaceScreen({
             )}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <HashChip label="Hash" value={room?.serverSeedHash} onCopy={copyText} />
+            <HashChip
+              label="Hash"
+              value={room?.serverSeedHash}
+              onCopy={copyText}
+            />
             <HashChip label="Seed" value={room?.serverSeed} onCopy={copyText} />
           </div>
         </div>
 
-        {/* buy controls */}
-        {(phase === "lobby" || !room || room.status === "finished" || room.status === "cancelled") && (
+        {(phase === "lobby" ||
+          !room ||
+          room.status === "finished" ||
+          room.status === "cancelled") && (
           <div className="flex gap-2">
             <button
               type="button"
-              disabled={busy || (room != null && room.status === "countdown" && !room.canBuy)}
+              disabled={
+                busy ||
+                (room != null && room.status === "countdown" && !room.canBuy)
+              }
               onClick={() => void ensureAndBuy(1)}
               className="flex-1 h-12 rounded-2xl btn-primary text-sm font-semibold btn-press disabled:opacity-40 shadow-[0_8px_28px_rgba(34,211,238,0.25)]"
             >
-              {tr("Buy ball", "Купить шарик")} · {formatGram(room?.ballPrice ?? RACE_MIN_BALL)}
+              {tr("Buy ball", "Купить шарик")} ·{" "}
+              {formatGram(room?.ballPrice ?? RACE_MIN_BALL)}
             </button>
             <button
               type="button"
-              disabled={busy || (room != null && room.status === "countdown" && !room.canBuy)}
+              disabled={
+                busy ||
+                (room != null && room.status === "countdown" && !room.canBuy)
+              }
               onClick={() => void ensureAndBuy(3)}
               className="h-12 px-4 rounded-2xl border border-white/12 bg-white/[0.04] text-sm font-semibold btn-press disabled:opacity-40"
             >
@@ -1156,6 +1011,7 @@ export function RaceScreen({
             </button>
           </div>
         )}
+
         {phase === "lock" && (
           <div className="text-center text-[12px] text-amber-300/90 py-2">
             {tr("Buys closed — race starting", "Покупки закрыты — старт гонки")}
@@ -1175,28 +1031,29 @@ export function RaceScreen({
             </button>
           )}
 
-        {/* participants */}
         {room && room.balls.length > 0 && (
           <div className="space-y-1.5">
-            <div className="text-[11px] uppercase tracking-wider text-white/35 px-0.5">
+            <div className="text-[11px] uppercase tracking-wider text-white/35">
               {tr("In the ring", "В кольце")}
             </div>
             {Object.entries(
-              room.balls.reduce<Record<string, { name: string; n: number; color: string; mine: boolean }>>(
-                (acc, b) => {
-                  const k = String(b.telegramId);
-                  if (!acc[k])
-                    acc[k] = {
-                      name: b.username,
-                      n: 0,
-                      color: b.color,
-                      mine: b.telegramId === telegramId,
-                    };
-                  acc[k].n += 1;
-                  return acc;
-                },
-                {}
-              )
+              room.balls.reduce<
+                Record<
+                  string,
+                  { name: string; n: number; color: string; mine: boolean }
+                >
+              >((acc, b) => {
+                const k = String(b.telegramId);
+                if (!acc[k])
+                  acc[k] = {
+                    name: b.username,
+                    n: 0,
+                    color: b.color,
+                    mine: b.telegramId === telegramId,
+                  };
+                acc[k].n += 1;
+                return acc;
+              }, {})
             ).map(([id, u]) => (
               <div
                 key={id}
@@ -1207,54 +1064,23 @@ export function RaceScreen({
               >
                 <div
                   className="w-3 h-3 rounded-full"
-                  style={{ background: u.color, boxShadow: `0 0 10px ${u.color}` }}
+                  style={{
+                    background: u.color,
+                    boxShadow: `0 0 10px ${u.color}`,
+                  }}
                 />
                 <span className="flex-1 text-[13px] truncate">
                   @{u.name}
                   {u.mine ? ` (${tr("you", "вы")})` : ""}
                 </span>
-                <span className="text-[12px] text-white/45 tabular-nums">×{u.n}</span>
+                <span className="text-[12px] text-white/45 tabular-nums">
+                  ×{u.n}
+                </span>
               </div>
             ))}
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function BalancePill({
-  balance,
-  onDeposit,
-  haptic,
-}: {
-  balance: number;
-  onDeposit?: () => void;
-  haptic: (t?: "light" | "medium" | "heavy") => void;
-}) {
-  return (
-    <div className="flex items-center h-9 rounded-full glass border border-white/[0.12] overflow-hidden shrink-0">
-      <div className="flex items-center gap-1.5 pl-3 pr-2">
-        <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
-          {formatGram(balance)}
-        </span>
-        <span className="text-[10px] text-white/35 font-medium">GRAM</span>
-      </div>
-      {onDeposit && (
-        <button
-          type="button"
-          onClick={() => {
-            haptic("light");
-            onDeposit();
-          }}
-          className="h-full px-2.5 flex items-center justify-center text-cyan-200/90 border-l border-white/[0.1] btn-press"
-          aria-label="Deposit"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </button>
-      )}
     </div>
   );
 }
