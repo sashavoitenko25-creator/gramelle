@@ -33,6 +33,7 @@
 html {
   height: 100%;
   color-scheme: dark;
+  background-color: #06060a;
 }
 
 body {
@@ -44,15 +45,39 @@ body {
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Fixed ambient glow — no hard edges when scrolling */
+  background-image:
+    radial-gradient(ellipse 120% 80% at 50% -30%, rgba(88, 28, 135, 0.28), transparent 58%),
+    radial-gradient(ellipse 80% 60% at 110% 20%, rgba(6, 182, 212, 0.1), transparent 55%),
+    radial-gradient(ellipse 70% 50% at -10% 70%, rgba(157, 23, 77, 0.08), transparent 50%),
+    radial-gradient(ellipse 90% 70% at 80% 110%, rgba(14, 116, 144, 0.1), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 20% 100%, rgba(109, 40, 217, 0.07), transparent 50%),
+    linear-gradient(180deg, #050508 0%, #06060a 40%, #07070c 100%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .app-bg {
-  background:
-    radial-gradient(ellipse 90% 55% at 50% -25%, rgba(109, 40, 217, 0.22), transparent 55%),
-    radial-gradient(ellipse 70% 45% at 100% 100%, rgba(6, 182, 212, 0.12), transparent 50%),
-    radial-gradient(ellipse 50% 35% at 0% 80%, rgba(245, 197, 66, 0.05), transparent 45%),
-    var(--bg);
+  background: transparent;
   min-height: 100dvh;
+  min-height: 100%;
+}
+
+/* Fallback layer for Telegram WebView where fixed attachment is flaky */
+.app-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -30%, rgba(88, 28, 135, 0.28), transparent 58%),
+    radial-gradient(ellipse 80% 60% at 110% 20%, rgba(6, 182, 212, 0.1), transparent 55%),
+    radial-gradient(ellipse 70% 50% at -10% 70%, rgba(157, 23, 77, 0.08), transparent 50%),
+    radial-gradient(ellipse 90% 70% at 80% 110%, rgba(14, 116, 144, 0.1), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 20% 100%, rgba(109, 40, 217, 0.07), transparent 50%),
+    #06060a;
 }
 
 .glass {

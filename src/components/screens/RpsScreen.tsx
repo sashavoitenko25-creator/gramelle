@@ -1294,6 +1294,28 @@ export function RpsScreen({
             <div className="text-[11px] uppercase tracking-wider text-white/35">
               {t("openRooms")}
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                haptic("light");
+                loadHistory();
+                setView("history");
+              }}
+              className="w-8 h-8 rounded-xl glass border border-white/[0.08] flex items-center justify-center text-white/45 hover:text-white/80 transition btn-press"
+              aria-label={t("history")}
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+            </button>
           </div>
 
           {loading ? (
@@ -1331,9 +1353,6 @@ export function RpsScreen({
                     <div className="text-[14px] font-medium truncate">
                       @{r.creatorUsername}
                     </div>
-                    <div className="text-[11px] text-white/35 mt-0.5 tabular-nums">
-                      {formatGram(r.amount)} GRAM
-                    </div>
                   </div>
                   <div className="text-right shrink-0">
                     <div className="text-[16px] font-semibold text-gradient-cyan tabular-nums leading-none">
@@ -1346,74 +1365,6 @@ export function RpsScreen({
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-2.5 mt-7">
-            <div className="text-[11px] uppercase tracking-wider text-white/35">
-              {t("history")}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                haptic("light");
-                loadHistory();
-                setView("history");
-              }}
-              className="w-8 h-8 rounded-xl glass border border-white/[0.08] flex items-center justify-center text-white/45 hover:text-white/80 transition btn-press"
-              aria-label={t("fullHistory")}
-            >
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              >
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 7v5l3 2" />
-              </svg>
-            </button>
-          </div>
-
-          {recent.length === 0 ? (
-            <div className="text-[12px] text-white/25 text-center py-4 mb-4">
-              {t("noGamesYet")}
-            </div>
-          ) : (
-            <div className="space-y-1.5 pb-6">
-              {recent.slice(0, 8).map((r, i) => (
-                <GlobalHistoryRow
-                  key={r.id}
-                  room={r}
-                  no={
-                    r.gameNo != null && Number.isFinite(Number(r.gameNo))
-                      ? Number(r.gameNo)
-                      : recent.length - i
-                  }
-                  telegramId={telegramId}
-                  lang={lang}
-                  onOpen={() => {
-                    // open as light detail from room if user played — else noop toast
-                    const mineHist = numberedHistory.find(
-                      (h) => h.room_id === r.id
-                    );
-                    if (mineHist) openDetail(mineHist);
-                    else {
-                      haptic("light");
-                      showToast(
-                        r.winnerTelegramId == null
-                          ? t("draw")
-                          : `Победитель: @${
-                              r.winnerTelegramId === r.creatorTelegramId
-                                ? r.creatorUsername
-                                : r.joinerUsername
-                            }`
-                      );
-                    }
-                  }}
-                />
-              ))}
-            </div>
-          )}
         </div>
       )}
 
