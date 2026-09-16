@@ -491,19 +491,38 @@ function RaceStage({
   const holeOpen =
     phase === "release" || phase === "fall" || phase === "finish";
 
-  const ringY = isLobby ? H * 0.48 : H * 0.12;
-  const ringR = isLobby ? 110 : 72;
+  // lobby: ring centered; race: ring near top so track is visible below the hole
+  const ringY = isLobby ? H * 0.48 : H * 0.14;
+  const ringR = isLobby ? 110 : 70;
   // hole closed in lobby; opens after timer
-  const holeHalfDeg = phase === "release" ? 32 : phase === "fall" || phase === "finish" ? 55 : 0;
+  const holeHalfDeg = phase === "release" ? 42 : phase === "fall" || phase === "finish" ? 58 : 0;
 
   const track = useMemo(() => buildTrack(mapId, W, H, H * 0.16), [mapId]);
 
   const [sim, setSim] = useState<SimBall[]>([]);
   const simRef = useRef<SimBall[]>([]);
+  const [ringSpin, setRingSpin] = useState(0);
+  const ringSpinRef = useRef(0);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
 
-  // sync new balls into simulation (spawn above ring, fall in)
+  // slow continuous ring rotation (lobby + release)
+  useEffect(() => {
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      // rad/sec — visible slow spin
+      ringSpinRef.current = (ringSpinRef.current + dt * 0.55) % (Math.PI * 2);
+      setRingSpin(ringSpinRef.current);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+    // sync new balls into simulation (spawn above ring, fall in)
   useEffect(() => {
     const prev = simRef.current;
     const byId = new Map(prev.map((b) => [b.id, b]));
@@ -568,7 +587,7 @@ function RaceStage({
       const h = dt / steps;
       const cx = W / 2;
       const cy = ringY;
-      const hole = open ? ((phaseRef.current === "release" ? 32 : 48) * Math.PI) / 180 : 0;
+      const hole = open ? ((phaseRef.current === "release" ? 42 : 58) * Math.PI) / 180 : 0;
       const balls = simRef.current.map((b) => ({ ...b }));
 
       for (let s = 0; s < steps; s++) {
@@ -677,12 +696,15 @@ function RaceStage({
   }, [ballsMeta, track]);
 
   const easeFall = fallProgress * fallProgress * (3 - 2 * fallProgress);
-  const camY = isLobby ? 0 : phase === "release" ? 6 : 8 + easeFall * 70;
-  const camScale = isLobby
-    ? 1.05
-    : phase === "release"
-      ? 1.0
-      : 0.92 - easeFall * 0.04;
+  // lobby: focus ring; release: pull back so track appears under the hole; fall: follow
+  const camY =
+    isLobby ? 0
+    : phase === "release" ? 28
+    : 14 + easeFall * 75;
+  const camScale =
+    isLobby ? 1.02
+    : phase === "release" ? 0.78
+    : 0.88 - easeFall * 0.05;
   const accent = track.map.accent;
 
   const holeRad = (holeHalfDeg * Math.PI) / 180;
@@ -710,7 +732,7 @@ function RaceStage({
         )}
         style={{
           transform: `scale(${camScale}) translateY(${camY}px)`,
-          transformOrigin: isLobby ? "50% 50%" : "50% 12%",
+          transformOrigin: isLobby ? "50% 50%" : "50% 8%",
           transition:
             phase === "fall" || phase === "finish"
               ? "transform 80ms linear"
@@ -882,15 +904,79 @@ function RaceStage({
               );
             })}
 
-          {/* ring: closed in lobby, gap opens after timer */}
-          <path
-            d={ringPath}
-            fill="none"
-            stroke="url(#ringStroke)"
-            strokeWidth={isLobby ? 5 : 3.5}
-            strokeLinecap="round"
-            opacity="0.95"
-          />
+          {/* ring + spin + hole marker */}
+          <g transform={`rotate(${(ringSpin * 180) / Math.PI} ${W / 2} ${ringY})`}>
+            <path
+              d={ringPath}
+              fill="none"
+              stroke="url(#ringStroke)"
+              strokeWidth={isLobby ? 5.5 : 3.5}
+              strokeLinecap="round"
+              opacity="0.95"
+            />
+            {/* decorative ticks so spin is visible */}
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((k) => {
+              const a = (k / 8) * Math.PI * 2;
+              const x1 = W / 2 + Math.cos(a) * (ringR - 4);
+              const y1 = ringY + Math.sin(a) * (ringR - 4);
+              const x2 = W / 2 + Math.cos(a) * (ringR + 2);
+              const y2 = ringY + Math.sin(a) * (ringR + 2);
+              return (
+                <line
+                  key={`tick-${k}`}
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke="rgba(255,255,255,0.35)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              );
+            })}
+          </g>
+
+          {/* hole preview (lobby): glowing arc at bottom where the exit opens */}
+          {!holeOpen && (
+            <g>
+              <path
+                d={(() => {
+                  const a0 = Math.PI / 2 - 0.55;
+                  const a1 = Math.PI / 2 + 0.55;
+                  const r = ringR;
+                  const x0 = W / 2 + Math.cos(a0) * r;
+                  const y0 = ringY + Math.sin(a0) * r;
+                  const x1 = W / 2 + Math.cos(a1) * r;
+                  const y1 = ringY + Math.sin(a1) * r;
+                  return `M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}`;
+                })()}
+                fill="none"
+                stroke="#4FC3F7"
+                strokeWidth="6"
+                strokeLinecap="round"
+                opacity="0.55"
+                strokeDasharray="6 5"
+              />
+              <ellipse
+                cx={W / 2}
+                cy={ringY + ringR * 0.92}
+                rx={ringR * 0.42}
+                ry={7}
+                fill="rgba(79,195,247,0.18)"
+              />
+              <text
+                x={W / 2}
+                y={ringY + ringR + 18}
+                textAnchor="middle"
+                fill="rgba(79,195,247,0.7)"
+                fontSize="9"
+                fontWeight="700"
+              >
+                EXIT
+              </text>
+            </g>
+          )}
+
           {holeOpen && (
             <>
               <circle
@@ -1143,7 +1229,7 @@ export function RaceScreen({
         const t1 = setTimeout(() => {
           setPhase("fall");
           const start = performance.now();
-          const dur = 22000;
+          const dur = 24000;
           const tick = (now: number) => {
             const raw = Math.min(1, (now - start) / dur);
             const p =
@@ -1167,7 +1253,7 @@ export function RaceScreen({
             }
           };
           fallRaf.current = requestAnimationFrame(tick);
-        }, 1600);
+        }, 3200);
         return () => {
           clearTimeout(t1);
           if (fallRaf.current) cancelAnimationFrame(fallRaf.current);
