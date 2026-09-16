@@ -471,9 +471,6 @@ function RaceStage({
   // lobby: ring upper-center + track preview below; race: ring top
   const ringY = isLobby ? H * 0.3 : H * 0.11;
   const ringR = isLobby ? 96 : 70;
-  // hole opens only after timer (release/fall) — animated via holeAnim
-  const holeHalfDeg = holeAnim * 58;
-
   const track = useMemo(() => buildTrack(mapId, W, H, H * 0.11), [mapId]);
 
   const [sim, setSim] = useState<SimBall[]>([]);
@@ -483,6 +480,7 @@ function RaceStage({
   // smooth hole open 0→1 after timer
   const [holeAnim, setHoleAnim] = useState(0);
   const holeAnimRef = useRef(0);
+  const holeHalfDeg = holeAnim * 58;
 
   // smooth hole open when entering release
   useEffect(() => {
