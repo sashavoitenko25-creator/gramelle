@@ -1,11 +1,12 @@
-Race — physics + length + balls (MyBalls-like)
-==============================================
+Race — full rewrite by MyBalls prompt (Gramelle style)
+=====================================================
 
-• Шарики: одинаковый размер R=9, без синей обводки
-  (у «своего» только тонкое жёлтое кольцо + ▲)
-• Не лезут в стены: полный push-out + толщина платформ
-• Не лезут друг в друга: 4 прохода в кольце + separation на падении
-• Карта длиннее (7 секций), падение ~22 с
-• Механика: полки / кресты / пины / арки / бомбы / anti-g / воронка
+Секции: start(GO) → platforms 1/3 → crosses → dots(Plinko) → arcs →
+bombs(💥 destroy) → antigrav banner → funnel → checkered finish
 
-Распакуй поверх gramelle → deploy.
+Физика: restitution ~0.8, substeps, ball-ball stacking, no wall sink
+Шарики: зелёные #00E676, белая обводка, аватар, одинаковый размер
+Камера следует за лидером, жёлтый ▲
+Падение ~28с, длинная карта H=900
+
+Только файлы Race. Распакуй поверх корня gramelle.

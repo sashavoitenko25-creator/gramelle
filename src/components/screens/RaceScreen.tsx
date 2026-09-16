@@ -15,6 +15,9 @@ import {
   type RaceRoomPublic,
 } from "@/lib/raceApi";
 
+/* ─────────────────────────────────────────────────────────────
+   Types
+───────────────────────────────────────────────────────────── */
 interface RaceScreenProps {
   balance: number;
   telegramId: number;
@@ -32,7 +35,17 @@ interface RaceScreenProps {
 type Phase = "lobby" | "lock" | "release" | "fall" | "finish";
 
 type Peg = { x: number; y: number; r: number; kind: string };
-type Wall = { x1: number; y1: number; x2: number; y2: number };
+type Wall = {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  thick?: number;
+  rest?: number;
+  fric?: number;
+  funnel?: boolean;
+};
+
 type SimBall = {
   id: string;
   x: number;
@@ -45,8 +58,14 @@ type SimBall = {
   telegramId: number;
   username: string;
   photoUrl: string | null;
+  dead?: boolean;
 };
 
+type PathPoint = { x: number; y: number; dead?: boolean };
+
+/* ─────────────────────────────────────────────────────────────
+   Helpers
+───────────────────────────────────────────────────────────── */
 function hash01(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -56,142 +75,244 @@ function hash01(s: string): number {
   return (h >>> 0) / 4294967296;
 }
 
-function HashChip({
-  label,
-  value,
-  onCopy,
+function HashChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] font-mono text-cyan-200/85">
+      <span className="text-white/40 uppercase tracking-wide">{label}</span>
+      <span className="truncate max-w-[88px]">{value}</span>
+    </div>
+  );
+}
+
+function BalancePill({
+  balance,
+  onDeposit,
+  haptic,
 }: {
-  label: string;
-  value?: string | null;
-  onCopy: (v: string) => void;
+  balance: number;
+  onDeposit?: () => void;
+  haptic: (t?: "light" | "medium" | "heavy") => void;
 }) {
-  if (!value) return null;
-  const short =
-    value.length > 14 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
   return (
     <button
       type="button"
-      onClick={() => onCopy(value)}
-      className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-black/35 border border-white/10 text-[10px] font-mono text-cyan-200/85"
+      onClick={() => {
+        haptic("light");
+        onDeposit?.();
+      }}
+      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-[12px] font-semibold"
     >
-      <span className="text-white/35 uppercase tracking-wider">{label}</span>
-      {short}
+      <span className="text-emerald-300">{formatGram(balance)}</span>
+      <span className="text-white/40 text-[10px]">GRAM</span>
+      <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[12px] leading-none">
+        +
+      </span>
     </button>
   );
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Track builder — exact section order from prompt
+───────────────────────────────────────────────────────────── */
 function buildTrack(mapId: string | null, W: number, H: number, ringY: number) {
   const map = RACE_MAPS.find((m) => m.id === mapId) || RACE_MAPS[0];
   const segs = map.segments;
-  // long vertical course — camera scrolls down
-  const trackTop = ringY + 40;
-  const trackBot = H * 0.92;
-  const segH = (trackBot - trackTop - 40) / Math.max(segs.length, 1);
+  const trackTop = ringY + 36;
+  const trackBot = H * 0.93;
+  const segH = (trackBot - trackTop) / Math.max(segs.length, 1);
   const pegs: Peg[] = [];
   const walls: Wall[] = [];
-  const leftX = W * 0.04;
-  const rightX = W * 0.96;
+  const leftX = W * 0.03;
+  const rightX = W * 0.97;
+  let antigravY = -1;
+  let antigravR = 0;
 
-  // invisible soft side bounds only
+  // soft side rails (nearly invisible)
   walls.push(
-    { x1: leftX, y1: trackTop, x2: leftX, y2: trackBot },
-    { x1: rightX, y1: trackTop, x2: rightX, y2: trackBot }
+    { x1: leftX, y1: trackTop, x2: leftX, y2: trackBot, thick: 2, rest: 0.5 },
+    { x1: rightX, y1: trackTop, x2: rightX, y2: trackBot, thick: 2, rest: 0.5 }
   );
 
   segs.forEach((kind, si) => {
     const y0 = trackTop + si * segH;
     const midY = y0 + segH * 0.5;
 
+    if (kind === "start") {
+      // open space — GO zone only
+      return;
+    }
+
     if (kind === "platforms") {
-      // MyBalls: thick blue shelves with side gaps + numbered zones
-      const levels = 2;
-      for (let lv = 0; lv < levels; lv++) {
-        const yy = y0 + 20 + lv * (segH * 0.42);
-        const gapLeft = lv % 2 === 0;
-        if (gapLeft) {
-          // gap on left — platform on right
-          walls.push({ x1: W * 0.42, y1: yy, x2: rightX - 6, y2: yy });
-          pegs.push({ x: W * 0.72, y: yy + 14, r: 1, kind: "label" });
-        } else {
-          walls.push({ x1: leftX + 6, y1: yy, x2: W * 0.58, y2: yy });
-          pegs.push({ x: W * 0.28, y: yy + 14, r: 1, kind: "label" });
-        }
+      // divider + shelves "1" / "3"
+      walls.push({
+        x1: W * 0.5,
+        y1: y0 + 10,
+        x2: W * 0.5,
+        y2: y0 + segH * 0.85,
+        thick: 5,
+        rest: 0.7,
+      });
+      // left platform (1)
+      walls.push({
+        x1: leftX + 4,
+        y1: midY + 8,
+        x2: W * 0.46,
+        y2: midY + 8,
+        thick: 14,
+        rest: 0.65,
+        fric: 0.18,
+      });
+      pegs.push({ x: W * 0.25, y: midY + 22, r: 1, kind: "label1" });
+      // right platform (3)
+      walls.push({
+        x1: W * 0.54,
+        y1: midY + 8,
+        x2: rightX - 4,
+        y2: midY + 8,
+        thick: 14,
+        rest: 0.65,
+        fric: 0.18,
+      });
+      pegs.push({ x: W * 0.75, y: midY + 22, r: 1, kind: "label3" });
+      // a few starter pins
+      for (let i = 0; i < 4; i++) {
+        pegs.push({
+          x: W * (0.2 + i * 0.2),
+          y: y0 + 18 + (i % 2) * 12,
+          r: W * 0.01,
+          kind: "dot",
+        });
       }
     } else if (kind === "crosses") {
-      // large blue + crosses (balls fall through arms)
+      // large + crosses, staggered rows
+      const size = W * 0.175;
       const positions = [
-        [0.28, 0.28],
-        [0.72, 0.28],
-        [0.5, 0.62],
-        [0.28, 0.85],
-        [0.72, 0.85],
+        [0.28, 0.22],
+        [0.72, 0.22],
+        [0.5, 0.5],
+        [0.28, 0.78],
+        [0.72, 0.78],
       ];
       for (const [ux, uy] of positions) {
         const cx = W * ux;
         const cy = y0 + uy * segH;
-        const arm = Math.min(28, segH * 0.18);
+        const arm = size / 2;
         walls.push(
-          { x1: cx - arm, y1: cy, x2: cx + arm, y2: cy },
-          { x1: cx, y1: cy - arm, x2: cx, y2: cy + arm }
+          {
+            x1: cx - arm,
+            y1: cy,
+            x2: cx + arm,
+            y2: cy,
+            thick: size * 0.13,
+            rest: 0.78,
+          },
+          {
+            x1: cx,
+            y1: cy - arm,
+            x2: cx,
+            y2: cy + arm,
+            thick: size * 0.13,
+            rest: 0.78,
+          }
         );
         pegs.push({ x: cx, y: cy, r: arm, kind: "cross" });
       }
     } else if (kind === "dots") {
-      // dense blue pin grid — soft bumpers
-      const rows = 5;
-      const cols = 7;
+      // Plinko field
+      const rows = 6;
+      const cols = 8;
+      const d = W * 0.02;
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const odd = r % 2;
+          const u = (c + odd * 0.5) / (cols - 0.5);
+          // slight curve + gaps
+          if ((r + c) % 11 === 0) continue;
           pegs.push({
-            x: W * (0.12 + ((c + odd * 0.5) / (cols - 0.5)) * 0.76),
-            y: y0 + 16 + (r / (rows - 1)) * (segH - 32),
-            r: 3.5,
+            x: W * (0.1 + u * 0.8),
+            y: y0 + 14 + (r / (rows - 1)) * (segH - 28),
+            r: d,
             kind: "dot",
           });
         }
       }
     } else if (kind === "arcs") {
-      // incomplete C-rings — thick stroke arcs
-      for (let i = 0; i < 3; i++) {
+      // incomplete thick rings ~280°
+      for (let i = 0; i < 4; i++) {
         const cx = W * (0.28 + (i % 2) * 0.44);
-        const cy = y0 + 30 + Math.floor(i / 1.5) * (segH * 0.4);
-        const rr = Math.min(48, segH * 0.28);
+        const cy = y0 + 28 + Math.floor(i / 1.2) * (segH * 0.38);
+        const rr = W * 0.155;
         pegs.push({ x: cx, y: cy, r: rr, kind: "arc" });
-        // collision samples along arc (not full circle)
-        for (let a = 0; a < 10; a++) {
-          const ang = -0.3 + (a / 9) * Math.PI * 1.5;
+        // collision samples along ~280°
+        const a0 = -0.4;
+        const a1 = Math.PI * 1.55;
+        for (let k = 0; k < 14; k++) {
+          const ang = a0 + (k / 13) * (a1 - a0);
           pegs.push({
             x: cx + Math.cos(ang) * rr,
             y: cy + Math.sin(ang) * rr,
-            r: 4,
+            r: W * 0.022,
             kind: "arc_edge",
           });
         }
       }
-    } else if (kind === "bomb") {
-      for (let i = 0; i < 2; i++) {
+    } else if (kind === "bombs") {
+      for (let i = 0; i < 3; i++) {
         pegs.push({
-          x: W * (0.35 + i * 0.3),
-          y: midY + (i === 0 ? -10 : 18),
-          r: 16,
+          x: W * (0.3 + i * 0.2),
+          y: midY + ((i % 2) - 0.5) * 20,
+          r: W * 0.028,
           kind: "bomb",
         });
       }
     } else if (kind === "antigrav") {
-      pegs.push({ x: W * 0.5, y: midY, r: 55, kind: "antigrav" });
+      antigravY = midY;
+      antigravR = segH * 0.45;
+      pegs.push({ x: W * 0.5, y: midY, r: antigravR, kind: "antigrav" });
     } else if (kind === "funnel") {
-      // V funnel into finish
+      // V funnel — low bounce
       walls.push(
-        { x1: leftX, y1: y0 + 8, x2: W * 0.42, y2: trackBot - 28 },
-        { x1: rightX, y1: y0 + 8, x2: W * 0.58, y2: trackBot - 28 }
+        {
+          x1: leftX,
+          y1: y0 + 6,
+          x2: W * 0.42,
+          y2: trackBot - 26,
+          thick: 10,
+          rest: 0.35,
+          fric: 0.08,
+          funnel: true,
+        },
+        {
+          x1: rightX,
+          y1: y0 + 6,
+          x2: W * 0.58,
+          y2: trackBot - 26,
+          thick: 10,
+          rest: 0.35,
+          fric: 0.08,
+          funnel: true,
+        }
       );
     }
   });
 
-  return { map, pegs, walls, trackTop, trackBot, leftX, rightX };
+  return {
+    map,
+    pegs,
+    walls,
+    trackTop,
+    trackBot,
+    leftX,
+    rightX,
+    antigravY,
+    antigravR,
+    segH,
+  };
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Path simulation — restitution ~0.8, continuous-ish substeps
+───────────────────────────────────────────────────────────── */
 function simulatePath(
   ballId: string,
   seat: number,
@@ -201,28 +322,33 @@ function simulatePath(
   leftX: number,
   rightX: number,
   pegs: Peg[],
-  walls: Wall[]
-): { x: number; y: number }[] {
+  walls: Wall[],
+  antigravY: number,
+  antigravR: number
+): PathPoint[] {
   const seed = hash01(ballId + ":" + seat);
-  const R = 9;
-  let x = W * 0.5 + (seed - 0.5) * 28;
-  let y = ringY + 6;
-  let vx = (seed - 0.5) * 2.0 + ((seat % 7) - 3) * 0.3;
-  let vy = 1.4 + seed * 0.4;
-  const g = 0.22;
-  const air = 0.999;
-  const points: { x: number; y: number }[] = [{ x, y }];
+  const R = W * 0.025; // ~5% diameter → radius 2.5%
+  let x = W * 0.5 + (seed - 0.5) * W * 0.55;
+  let y = ringY + 4;
+  let vx = (seed - 0.5) * 2.4 + ((seat % 7) - 3) * 0.35;
+  let vy = 1.6 + seed * 0.5;
+  // physics material from prompt
+  const g = 0.28; // ~heavy feel
+  const air = 0.999; // linear drag ~0.05–0.1
+  const ballRest = 0.8;
+  const points: PathPoint[] = [{ x, y }];
+  let dead = false;
 
-  const resolveWall = () => {
-    // side bounds
+  const resolve = () => {
     if (x - R < leftX) {
       x = leftX + R;
-      if (vx < 0) vx = -vx * 0.35;
+      if (vx < 0) vx = -vx * ballRest * 0.7;
     }
     if (x + R > rightX) {
       x = rightX - R;
-      if (vx > 0) vx = -vx * 0.35;
+      if (vx > 0) vx = -vx * ballRest * 0.7;
     }
+
     for (const w of walls) {
       const dx = w.x2 - w.x1;
       const dy = w.y2 - w.y1;
@@ -241,47 +367,57 @@ function simulatePath(
         oy = dx / len;
         dist = 1;
       }
-      // thick platforms: collision radius includes half wall thickness
-      const isFlat = Math.abs(dy) < 2.5 && Math.abs(dx) > 12;
-      const wallHalf = isFlat ? 7 : 4;
-      const rad = R + wallHalf;
+      const half = (w.thick ?? 4) * 0.5;
+      const rad = R + half;
       if (dist < rad) {
         const nx = ox / dist;
         const ny = oy / dist;
-        // full push-out — no sinking into texture
         x += nx * (rad - dist);
         y += ny * (rad - dist);
         const vn = vx * nx + vy * ny;
         if (vn < 0) {
-          if (isFlat && ny < -0.4) {
-            // rest on platform, slide
-            vy *= 0.15;
-            vx *= 0.97;
-            vx += (seed - 0.5) * 0.06;
-            if (Math.abs(vx) < 0.15) vx += (seed > 0.5 ? 0.2 : -0.2);
-          } else {
-            vx -= 1.2 * vn * nx;
-            vy -= 0.9 * vn * ny;
-            vx *= 0.94;
-            if (vy < 0.35) vy = 0.35 + seed * 0.1;
+          const rest = w.rest ?? 0.7;
+          const fric = w.fric ?? 0.15;
+          // impulse
+          vx -= (1 + rest) * vn * nx;
+          vy -= (1 + rest) * vn * ny;
+          // friction on tangent
+          const tx = -ny;
+          const ty = nx;
+          const vt = vx * tx + vy * ty;
+          vx -= vt * tx * fric;
+          vy -= vt * ty * fric;
+          if (!w.funnel && Math.abs(dy) < 3 && ny < -0.3) {
+            // resting on shelf — keep sliding
+            if (vy < 0.2) vy = 0.15;
+            if (Math.abs(vx) < 0.12) vx += seed > 0.5 ? 0.25 : -0.25;
           }
         }
       }
     }
+
     for (const p of pegs) {
-      if (p.kind === "label" || p.kind === "cross" || p.kind === "arc") continue;
-      if (p.kind === "antigrav") {
+      if (
+        p.kind === "cross" ||
+        p.kind === "arc" ||
+        p.kind === "label1" ||
+        p.kind === "label3" ||
+        p.kind === "antigrav"
+      )
+        continue;
+
+      if (p.kind === "bomb") {
         const dx = x - p.x;
         const dy = y - p.y;
         const dist = Math.hypot(dx, dy);
-        if (dist < p.r) {
-          vy -= (1 - dist / p.r) * 0.26;
-          vx += (seed - 0.5) * 0.04;
+        if (dist < R + p.r) {
+          dead = true;
+          return;
         }
         continue;
       }
-      const pr =
-        p.kind === "dot" ? 3.5 : p.kind === "arc_edge" ? 4.5 : p.kind === "bomb" ? 15 : p.r;
+
+      const pr = p.r;
       const dx = x - p.x;
       const dy = y - p.y;
       const dist = Math.hypot(dx, dy) || 1e-4;
@@ -293,33 +429,49 @@ function simulatePath(
         y += ny * (minD - dist);
         const vn = vx * nx + vy * ny;
         if (vn < 0) {
-          const soft = p.kind === "bomb" ? 0.65 : 0.38;
-          vx -= (1 + soft) * vn * nx;
-          vy -= (0.7 + soft * 0.35) * vn * ny;
-          vx += (seed - 0.5) * 0.2;
-          if (vy < 0.3) vy = 0.3 + seed * 0.1;
+          // high bounciness Plinko feel
+          const rest = p.kind === "dot" ? 0.82 : 0.75;
+          vx -= (1 + rest) * vn * nx;
+          vy -= (1 + rest) * vn * ny;
+          vx += (seed - 0.5) * 0.35;
         }
+      }
+    }
+
+    // anti-gravity zone force
+    if (antigravY > 0) {
+      const dy = y - antigravY;
+      if (Math.abs(dy) < antigravR) {
+        const f = 1 - Math.abs(dy) / antigravR;
+        vy -= 0.35 * f; // upward force
       }
     }
   };
 
-  for (let step = 0; step < 1800; step++) {
-    for (let sub = 0; sub < 3; sub++) {
+  for (let step = 0; step < 2200 && !dead; step++) {
+    // 3 substeps ≈ continuous detection
+    for (let s = 0; s < 3; s++) {
       vy += g / 3;
       vx *= air;
+      vy *= air;
       x += vx / 3;
       y += vy / 3;
-      resolveWall();
+      resolve();
+      if (dead) break;
     }
-    if (vy > 6.2) vy = 6.2;
-    if (Math.abs(vx) > 4.2) vx *= 0.9;
+    if (vy > 7) vy = 7;
+    if (Math.abs(vx) > 5) vx *= 0.92;
 
-    if (y > trackBot - 4) {
-      y = trackBot - 4;
+    points.push({ x, y, dead: false });
+    if (y > trackBot - 3) {
+      y = trackBot - 3;
       points.push({ x, y });
       break;
     }
-    points.push({ x, y });
+  }
+
+  if (dead) {
+    points.push({ x, y, dead: true });
   }
 
   return points.length > 2
@@ -331,105 +483,118 @@ function simulatePath(
 }
 
 function samplePath(
-  path: { x: number; y: number }[],
+  path: PathPoint[],
   t: number,
   rank: number,
   total: number
-) {
-  // rank only slightly delays later finishers (visual, order still from server)
+): PathPoint {
   const bias = (rank - 1) / Math.max(total, 1);
-  let tt = t * (1 - bias * 0.18) - bias * 0.02;
-  tt = Math.min(1, Math.max(0, tt));
-  // smoothstep for softer motion along path
-  tt = tt * tt * (3 - 2 * tt);
+  let tt = Math.min(1, Math.max(0, t * (1 - bias * 0.12) - bias * 0.015));
+  tt = tt * tt * (3 - 2 * tt); // smoothstep
   if (path.length < 2) return path[0] || { x: 0, y: 0 };
-  const f = tt * (path.length - 1);
-  const i = Math.min(path.length - 2, Math.floor(f));
+  // stop at death point
+  let last = path.length - 1;
+  for (let i = 0; i < path.length; i++) {
+    if (path[i].dead) {
+      last = i;
+      break;
+    }
+  }
+  const f = tt * last;
+  const i = Math.min(last - 1, Math.floor(f));
   const u = f - i;
-  // hermite-ish smooth between points
   const u2 = u * u * (3 - 2 * u);
+  const a = path[i];
+  const b = path[Math.min(i + 1, last)];
   return {
-    x: path[i].x + (path[i + 1].x - path[i].x) * u2,
-    y: path[i].y + (path[i + 1].y - path[i].y) * u2,
+    x: a.x + (b.x - a.x) * u2,
+    y: a.y + (b.y - a.y) * u2,
+    dead: b.dead || a.dead,
   };
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Ball visual — green + white rim + avatar (prompt style)
+───────────────────────────────────────────────────────────── */
 function AvatarBall({
   cx,
   cy,
-  r,
   username,
   photoUrl,
   highlight,
+  dead,
 }: {
   cx: number;
   cy: number;
-  r: number;
   username: string;
   photoUrl: string | null;
   highlight?: boolean;
+  dead?: boolean;
 }) {
+  if (dead) return null;
   const initial = (username || "?").replace(/^@/, "").charAt(0).toUpperCase();
-  const clipId = `av-${Math.round(cx * 10)}-${Math.round(cy * 10)}-${r}`;
-  // fixed visual size — same for everyone (MyBalls style)
-  const R = 9;
+  const clipId = `av-${Math.round(cx * 10)}-${Math.round(cy * 10)}`;
+  const R = 9; // fixed ~5% of 320
   return (
-    <g>
-      {/* subtle warm ring for followed ball — not blue */}
-      {highlight && (
-        <circle
-          cx={cx}
-          cy={cy}
-          r={R + 3}
-          fill="none"
-          stroke="rgba(251,191,36,0.55)"
-          strokeWidth="1.5"
-        />
-      )}
+    <g opacity={1}>
+      {/* body — bright green */}
+      <circle cx={cx} cy={cy} r={R} fill="#00E676" />
+      {/* white rim 1–1.5px */}
       <circle
         cx={cx}
         cy={cy}
-        r={R + 0.8}
-        fill="#0a0a10"
-        stroke="rgba(255,255,255,0.18)"
-        strokeWidth="0.9"
+        r={R}
+        fill="none"
+        stroke="rgba(255,255,255,0.92)"
+        strokeWidth="1.3"
       />
       {photoUrl ? (
         <>
           <defs>
             <clipPath id={clipId}>
-              <circle cx={cx} cy={cy} r={R} />
+              <circle cx={cx} cy={cy} r={R - 1.2} />
             </clipPath>
           </defs>
           <image
             href={photoUrl}
-            x={cx - R}
-            y={cy - R}
-            width={R * 2}
-            height={R * 2}
+            x={cx - (R - 1.2)}
+            y={cy - (R - 1.2)}
+            width={(R - 1.2) * 2}
+            height={(R - 1.2) * 2}
             clipPath={`url(#${clipId})`}
             preserveAspectRatio="xMidYMid slice"
           />
         </>
       ) : (
-        <g>
-          <circle cx={cx} cy={cy} r={R} fill="#1e293b" />
-          <text
-            x={cx}
-            y={cy + 3.5}
-            textAnchor="middle"
-            fill="#e2e8f0"
-            fontSize="9"
-            fontWeight="700"
-          >
-            {initial}
-          </text>
-        </g>
+        <text
+          x={cx}
+          y={cy + 3.8}
+          textAnchor="middle"
+          fill="#fff"
+          fontSize="10"
+          fontWeight="800"
+          style={{ pointerEvents: "none" }}
+        >
+          {initial}
+        </text>
+      )}
+      {highlight && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={R + 2.5}
+          fill="none"
+          stroke="rgba(255,235,59,0.55)"
+          strokeWidth="1.2"
+        />
       )}
     </g>
   );
 }
 
+/* ─────────────────────────────────────────────────────────────
+   RaceStage — ring lobby + free-fall course
+───────────────────────────────────────────────────────────── */
 function RaceStage({
   room,
   phase,
@@ -447,30 +612,32 @@ function RaceStage({
   const mapId = room?.mapId || null;
 
   const W = 320;
-  const H = 720;
+  const H = 900; // long vertical course
   const isLobby = phase === "lobby" || phase === "lock";
   const holeOpen =
     phase === "release" || phase === "fall" || phase === "finish";
 
-  // lobby: ring upper-center + track preview below; race: ring top
-  const ringY = isLobby ? H * 0.3 : H * 0.11;
-  const ringR = isLobby ? 96 : 70;
-  const track = useMemo(() => buildTrack(mapId, W, H, H * 0.11), [mapId]);
+  const ringY = isLobby ? H * 0.22 : H * 0.06;
+  const ringR = isLobby ? 88 : 62;
+
+  const track = useMemo(
+    () => buildTrack(mapId, W, H, H * 0.06),
+    [mapId]
+  );
 
   const [sim, setSim] = useState<SimBall[]>([]);
   const simRef = useRef<SimBall[]>([]);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
-  // smooth hole open 0→1 after timer
   const [holeAnim, setHoleAnim] = useState(0);
   const holeAnimRef = useRef(0);
   const holeHalfDeg = holeAnim * 58;
 
-  // smooth hole open when entering release
+  // smooth hole open
   useEffect(() => {
     if (phase === "release" || phase === "fall" || phase === "finish") {
       const start = performance.now();
-      const dur = 1400; // ms to fully open
+      const dur = 1500;
       let raf = 0;
       const tick = (now: number) => {
         const t = Math.min(1, (now - start) / dur);
@@ -479,21 +646,18 @@ function RaceStage({
         setHoleAnim(e);
         if (t < 1) raf = requestAnimationFrame(tick);
       };
-      // if already open from previous, keep
-      if (holeAnimRef.current < 0.99) {
-        raf = requestAnimationFrame(tick);
-      } else {
+      if (holeAnimRef.current < 0.99) raf = requestAnimationFrame(tick);
+      else {
         setHoleAnim(1);
         holeAnimRef.current = 1;
       }
       return () => cancelAnimationFrame(raf);
-    } else {
-      holeAnimRef.current = 0;
-      setHoleAnim(0);
     }
+    holeAnimRef.current = 0;
+    setHoleAnim(0);
   }, [phase]);
 
-  // sync new balls into simulation (spawn above ring, fall in)
+  // spawn balls into ring
   useEffect(() => {
     const prev = simRef.current;
     const byId = new Map(prev.map((b) => [b.id, b]));
@@ -511,9 +675,8 @@ function RaceStage({
         });
       } else {
         const seed = hash01(b.id);
-        // spawn INSIDE the ring, spread around, gentle velocity
         const ang = seed * Math.PI * 2 + i * 0.7;
-        const rad = ringR * (0.15 + seed * 0.35);
+        const rad = ringR * (0.12 + seed * 0.4);
         next.push({
           id: b.id,
           username: b.username,
@@ -523,8 +686,8 @@ function RaceStage({
           finishRank: b.finishRank,
           x: W / 2 + Math.cos(ang) * rad,
           y: ringY + Math.sin(ang) * rad * 0.85,
-          vx: Math.cos(ang + 1.2) * (1.2 + seed),
-          vy: Math.sin(ang + 0.4) * (0.8 + seed * 0.5) - 0.3,
+          vx: Math.cos(ang + 1.2) * (1.1 + seed),
+          vy: Math.sin(ang + 0.4) * (0.7 + seed * 0.5) - 0.2,
           r: 9,
         });
       }
@@ -533,165 +696,107 @@ function RaceStage({
     setSim(next);
   }, [ballsMeta.map((b) => b.id).join("|"), ringY, ringR]);
 
-  // live physics loop (lobby + release until they escape)
+  // ring physics (lobby + release)
   useEffect(() => {
     let raf = 0;
     let last = performance.now();
-    // fixed-feel constants (per ~16ms frame)
-    const G = 0.26;
-    const DAMP = 0.991;
-    const WALL_REST = 0.55;
+    const G = 0.32;
+    const DAMP = 0.992;
+    const WALL_REST = 0.78;
     const BALL_REST = 0.82;
-    const FRIC = 0.08;
+    const FRIC = 0.12;
 
     const tick = (now: number) => {
-      // real seconds, clamped
       let dt = (now - last) / 1000;
       last = now;
       if (dt > 0.05) dt = 0.05;
-      if (dt < 0.001) dt = 0.001;
-
-      const ph = phaseRef.current;
-      const open = ph === "release" || ph === "fall" || ph === "finish";
-      const onTrack = ph === "fall" || ph === "finish";
-
-      if (onTrack) {
-        raf = requestAnimationFrame(tick);
-        return;
-      }
-
-      const cx = W / 2;
-      const cy = ringY;
-      // hole half-angle in radians at bottom (PI/2)
-      const holeHalf = open ? holeAnimRef.current * (58 * Math.PI) / 180 : 0;
-      // scale forces so motion is similar at 60fps
       const steps = Math.max(2, Math.min(8, Math.ceil(dt / 0.006)));
       const h = dt / steps;
 
-      let balls = simRef.current.map((b) => ({ ...b }));
+      const balls = simRef.current.map((b) => ({ ...b }));
+      const open =
+        phaseRef.current === "release" ||
+        phaseRef.current === "fall" ||
+        phaseRef.current === "finish";
+      const holeHalf = open
+        ? (holeAnimRef.current * 58 * Math.PI) / 180
+        : 0;
+      const cx0 = W / 2;
+      const cy0 = ringY;
 
       for (let s = 0; s < steps; s++) {
-        // integrate
         for (const b of balls) {
-          b.vy += G * h * 60; // ~frame-scale gravity
+          if (b.dead) continue;
+          b.vy += G * h * 60;
           b.vx *= Math.pow(DAMP, h * 60);
           b.vy *= Math.pow(DAMP, h * 60);
           b.x += b.vx * h * 60;
           b.y += b.vy * h * 60;
-        }
 
-        // ring containment
-        for (const b of balls) {
-          const dx = b.x - cx;
-          const dy = b.y - cy;
+          const dx = b.x - cx0;
+          const dy = b.y - cy0;
           const dist = Math.hypot(dx, dy) || 0.0001;
-          const maxD = ringR - b.r - 0.5;
+          const maxD = ringR - b.r - 0.4;
 
-          // hole at bottom: angle ~ +PI/2 in atan2
           let inHole = false;
           if (open && holeHalf > 0) {
             const a = Math.atan2(dy, dx);
             let dA = a - Math.PI / 2;
             while (dA > Math.PI) dA -= Math.PI * 2;
             while (dA < -Math.PI) dA += Math.PI * 2;
-            // only allow exit when near the rim and inside hole sector
-            inHole = Math.abs(dA) < holeHalf && dist > maxD * 0.55;
+            inHole = Math.abs(dA) < holeHalf && dist > maxD * 0.5;
           }
 
           if (dist > maxD && !inHole) {
             const nx = dx / dist;
             const ny = dy / dist;
-            b.x = cx + nx * maxD;
-            b.y = cy + ny * maxD;
+            b.x = cx0 + nx * maxD;
+            b.y = cy0 + ny * maxD;
             const vn = b.vx * nx + b.vy * ny;
             if (vn > 0) {
               b.vx -= (1 + WALL_REST) * vn * nx;
               b.vy -= (1 + WALL_REST) * vn * ny;
+              const tx = -ny;
+              const ty = nx;
+              const vt = b.vx * tx + b.vy * ty;
+              b.vx -= vt * tx * FRIC;
+              b.vy -= vt * ty * FRIC;
             }
-            // tangential friction so balls settle
-            const vtx = b.vx - vn * nx;
-            const vty = b.vy - vn * ny;
-            b.vx -= vtx * FRIC * 2;
-            b.vy -= vty * FRIC * 2;
-          }
-
-          // soft floor when closed
-          if (!open) {
-            const floorY = cy + maxD;
-            if (b.y > floorY) {
-              b.y = floorY;
-              if (b.vy > 0) b.vy *= -WALL_REST;
-              b.vx *= 0.97;
-            }
-          }
-
-          // speed clamp
-          const sp = Math.hypot(b.vx, b.vy);
-          if (sp > 9) {
-            b.vx *= 9 / sp;
-            b.vy *= 9 / sp;
           }
         }
 
-        // ball-ball collisions (iterative for stability with many balls)
+        // ball–ball (4 passes)
         for (let pass = 0; pass < 4; pass++) {
           for (let i = 0; i < balls.length; i++) {
             for (let j = i + 1; j < balls.length; j++) {
               const a = balls[i];
               const b = balls[j];
+              if (a.dead || b.dead) continue;
               const dx = b.x - a.x;
               const dy = b.y - a.y;
               const dist = Math.hypot(dx, dy) || 0.0001;
               const minD = a.r + b.r;
               if (dist >= minD) continue;
-
               const nx = dx / dist;
               const ny = dy / dist;
               const overlap = minD - dist;
-              // positional correction (split)
               const corr = overlap * 0.55;
               a.x -= nx * corr;
               a.y -= ny * corr;
               b.x += nx * corr;
               b.y += ny * corr;
-
               const va = a.vx * nx + a.vy * ny;
               const vb = b.vx * nx + b.vy * ny;
               const rel = va - vb;
-              if (rel > 0) {
-                // separating already after correction
-                continue;
-              }
-              // equal mass impulse
+              if (rel > 0) continue;
               const jImp = (-(1 + BALL_REST) * rel) / 2;
               a.vx -= jImp * nx;
               a.vy -= jImp * ny;
               b.vx += jImp * nx;
               b.vy += jImp * ny;
-              // light friction
-              const tvx = a.vx - va * nx - (b.vx - vb * nx);
-              const tvy = a.vy - va * ny - (b.vy - vb * ny);
-              // skip complex friction; mild damping
-              a.vx *= 0.998;
-              a.vy *= 0.998;
-              b.vx *= 0.998;
-              b.vy *= 0.998;
             }
           }
         }
-      }
-
-      // drop balls that fully exited the ring during release
-      if (open) {
-        balls = balls.filter((b) => {
-          const dx = b.x - cx;
-          const dy = b.y - cy;
-          const dist = Math.hypot(dx, dy);
-          // still inside or just leaving
-          if (dist < ringR + b.r * 2 && b.y < cy + ringR + 40) return true;
-          // far below — let fall animation take over (keep in sim until phase changes)
-          return b.y < cy + ringR + 120;
-        });
       }
 
       simRef.current = balls;
@@ -699,30 +804,34 @@ function RaceStage({
       raf = requestAnimationFrame(tick);
     };
 
-    raf = requestAnimationFrame(tick);
+    if (isLobby || phase === "release") {
+      raf = requestAnimationFrame(tick);
+    }
     return () => cancelAnimationFrame(raf);
-  }, [ringY, ringR]);
+  }, [isLobby, phase, ringY, ringR]);
 
-  // fall paths after escape
+  // precomputed fall paths
   const paths = useMemo(() => {
-    const map: Record<string, { x: number; y: number }[]> = {};
-    for (const b of ballsMeta) {
-      map[b.id] = simulatePath(
+    const out: Record<string, PathPoint[]> = {};
+    ballsMeta.forEach((b) => {
+      out[b.id] = simulatePath(
         b.id,
         b.seat,
         W,
-        H * 0.18 - 70,
+        H * 0.06,
         track.trackBot,
         track.leftX,
         track.rightX,
         track.pegs,
-        track.walls
+        track.walls,
+        track.antigravY,
+        track.antigravR
       );
-    }
-    return map;
+    });
+    return out;
   }, [ballsMeta, track]);
 
-  // follow lead ball vertically (MyBalls-style camera)
+  // camera follows lead ball
   const leadId = followBallId || ballsMeta[0]?.id;
   const leadPath = leadId ? paths[leadId] : undefined;
   const leadPos =
@@ -734,125 +843,103 @@ function RaceStage({
           ballsMeta.length
         )
       : null;
+
   const camY = isLobby
     ? 0
     : phase === "release"
-      ? 8
+      ? 10
       : leadPos
-        ? Math.max(-20, Math.min(H * 0.55, leadPos.y - H * 0.35))
-        : 10 + fallProgress * 70;
-  const camScale = isLobby
-    ? 1.0
-    : phase === "release"
-      ? 1.05
-      : 0.95;
-  const accent = track.map.accent;
+        ? Math.max(-10, Math.min(H * 0.6, leadPos.y - H * 0.28))
+        : 12 + fallProgress * 80;
+  const camScale = isLobby ? 1 : 0.95;
 
+  // anomaly banner timing (mid fall)
+  const showAntiOn =
+    phase === "fall" && fallProgress > 0.55 && fallProgress < 0.72;
+  const showAntiOff =
+    phase === "fall" && fallProgress >= 0.72 && fallProgress < 0.78;
+
+  const accent = track.map.accent;
   const holeRad = (holeHalfDeg * Math.PI) / 180;
-  // gap at bottom (PI/2)
-  const arcStart = Math.PI / 2 + Math.max(holeRad, 0.02);
-  const arcEnd = Math.PI / 2 - Math.max(holeRad, 0.02) + Math.PI * 2;
-  const ringPath = useMemo(() => {
+  const arcStart = Math.PI / 2 + Math.max(holeRad, 0.001);
+  const arcEnd = Math.PI / 2 - Math.max(holeRad, 0.001) + Math.PI * 2;
+
+  const polar = (a: number, rad: number) => ({
+    x: W / 2 + Math.cos(a) * rad,
+    y: ringY + Math.sin(a) * rad,
+  });
+  const ringPath = (() => {
     if (holeHalfDeg < 1) {
-      // full closed circle
-      return `M ${W / 2 - ringR} ${ringY} A ${ringR} ${ringR} 0 1 1 ${W / 2 + ringR} ${ringY} A ${ringR} ${ringR} 0 1 1 ${W / 2 - ringR} ${ringY}`;
+      return `M ${W / 2 + ringR} ${ringY} A ${ringR} ${ringR} 0 1 1 ${W / 2 - ringR} ${ringY} A ${ringR} ${ringR} 0 1 1 ${W / 2 + ringR} ${ringY}`;
     }
-    const x0 = W / 2 + Math.cos(arcStart) * ringR;
-    const y0 = ringY + Math.sin(arcStart) * ringR;
-    const x1 = W / 2 + Math.cos(arcEnd) * ringR;
-    const y1 = ringY + Math.sin(arcEnd) * ringR;
-    return `M ${x0} ${y0} A ${ringR} ${ringR} 0 1 1 ${x1} ${y1}`;
-  }, [ringR, ringY, holeHalfDeg, arcStart, arcEnd]);
+    const s = polar(arcStart, ringR);
+    const e = polar(arcEnd, ringR);
+    const large = holeHalfDeg < 90 ? 1 : 0;
+    return `M ${s.x} ${s.y} A ${ringR} ${ringR} 0 ${large} 1 ${e.x} ${e.y}`;
+  })();
 
   return (
-    <div className="relative w-full overflow-hidden rounded-[28px] border border-white/[0.1] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+    <div className="relative w-full max-w-[360px] mx-auto rounded-[22px] overflow-hidden border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
       <div
-        className="relative bg-[#05050a] will-change-transform overflow-hidden aspect-[3/4.6]"
+        className="relative will-change-transform overflow-hidden aspect-[9/16]"
         style={{
-          transform: `scale(${camScale}) translateY(${-camY * 0.85}px)`,
+          background:
+            "linear-gradient(180deg, #12082a 0%, #0A0E2A 35%, #050510 100%)",
+          transform: `scale(${camScale}) translateY(${-camY * 0.7}px)`,
           transformOrigin: "50% 0%",
           transition:
             phase === "fall" || phase === "finish"
-              ? "transform 90ms linear"
+              ? "transform 80ms linear"
               : "transform 1.2s cubic-bezier(.33,.9,.25,1)",
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0b1020] via-[#070712] to-[#030308]" />
-        <div
-          className="absolute inset-0"
-          style={{
-            background: `radial-gradient(ellipse 80% 50% at 50% ${isLobby ? "50%" : "8%"}, ${accent}22, transparent 60%)`,
-          }}
-        />
-
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 px-3 py-1 rounded-full bg-black/50 border border-white/10 text-[10px] font-semibold text-white/65">
-          {track.map.name.ru}
-        </div>
-        {phase === "release" && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
-            <div
-              className="text-[72px] font-black text-white/25 tracking-tight"
-              style={{
-                animation: "raceGo 1.4s ease-out forwards",
-                textShadow: "0 0 40px rgba(56,189,248,0.4)",
-              }}
-            >
-              GO
-            </div>
-          </div>
-        )}
-        <style>{`@keyframes raceGo{0%{opacity:0;transform:scale(.6)}30%{opacity:1;transform:scale(1.05)}100%{opacity:0;transform:scale(1.2)}}`}</style>
-
         <svg
           viewBox={`0 0 ${W} ${H}`}
           className="absolute inset-0 w-full h-full"
-          preserveAspectRatio="xMidYMid meet"
+          preserveAspectRatio="xMidYMin meet"
         >
           <defs>
-            <linearGradient id="ringStroke" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor={accent} stopOpacity="0.95" />
-              <stop offset="100%" stopColor="#a78bfa" stopOpacity="0.55" />
-            </linearGradient>
             <radialGradient id="antiG">
-              <stop offset="0%" stopColor="#a855f7" stopOpacity="0.35" />
+              <stop offset="0%" stopColor="#a855f7" stopOpacity="0.4" />
               <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
             </radialGradient>
+            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="2.5" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
             <pattern
               id="checkFinish"
-              width="12"
-              height="12"
+              width="10"
+              height="10"
               patternUnits="userSpaceOnUse"
             >
-              <rect width="6" height="6" fill="#f4f4f5" />
-              <rect x="6" y="0" width="6" height="6" fill="#18181b" />
-              <rect x="0" y="6" width="6" height="6" fill="#18181b" />
-              <rect x="6" y="6" width="6" height="6" fill="#f4f4f5" />
+              <rect width="5" height="5" fill="#111" />
+              <rect x="5" y="5" width="5" height="5" fill="#111" />
+              <rect x="5" width="5" height="5" fill="#eee" />
+              <rect y="5" width="5" height="5" fill="#eee" />
             </pattern>
-            <radialGradient id="antiGrad" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.35" />
-              <stop offset="100%" stopColor="#6366f1" stopOpacity="0.05" />
-            </radialGradient>
           </defs>
 
+          {/* ambient particles */}
+          {Array.from({ length: 18 }).map((_, i) => (
+            <circle
+              key={`pt-${i}`}
+              cx={(hash01("p" + i) * W)}
+              cy={(hash01("q" + i) * H * 0.9 + fallProgress * 40) % H}
+              r={0.8 + (i % 3) * 0.4}
+              fill={i % 2 ? "#00E676" : "#fff"}
+              opacity={0.12 + (i % 5) * 0.03}
+            />
+          ))}
+
+          {/* walls / platforms */}
           {track.walls.map((w, i) => {
-              const isSide =
-                Math.abs(w.x1 - w.x2) < 2 && Math.abs(w.y1 - w.y2) > 40;
-              if (isSide) {
-                // side bounds nearly invisible
-                return (
-                  <line
-                    key={`w-${i}`}
-                    x1={w.x1}
-                    y1={w.y1}
-                    x2={w.x2}
-                    y2={w.y2}
-                    stroke={accent}
-                    strokeWidth="1"
-                    opacity={isLobby ? 0.08 : 0.12}
-                  />
-                );
-              }
-              const isFlat = Math.abs(w.y1 - w.y2) < 3;
+            const isSide =
+              Math.abs(w.x1 - w.x2) < 2 && Math.abs(w.y1 - w.y2) > 40;
+            if (isSide) {
               return (
                 <line
                   key={`w-${i}`}
@@ -861,36 +948,47 @@ function RaceStage({
                   x2={w.x2}
                   y2={w.y2}
                   stroke={accent}
-                  strokeWidth={isFlat ? 14 : 8}
-                  strokeLinecap="round"
-                  opacity={isLobby ? 0.4 : 0.95}
-                  style={{
-                    filter: isLobby
-                      ? undefined
-                      : `drop-shadow(0 0 10px ${accent})`,
-                  }}
+                  strokeWidth="1"
+                  opacity={0.1}
                 />
               );
-            })}
+            }
+            const isFlat = Math.abs(w.y1 - w.y2) < 3;
+            return (
+              <line
+                key={`w-${i}`}
+                x1={w.x1}
+                y1={w.y1}
+                x2={w.x2}
+                y2={w.y2}
+                stroke={w.funnel ? "#1e3a5f" : accent}
+                strokeWidth={w.thick ?? (isFlat ? 14 : 8)}
+                strokeLinecap="round"
+                opacity={isLobby ? 0.4 : 0.95}
+                filter={w.funnel ? undefined : "url(#glow)"}
+              />
+            );
+          })}
 
-          <g opacity={isLobby ? 0.45 : 1}>
-          {track.pegs.map((pg, i) => {
+          {/* pegs / crosses / arcs / bombs */}
+          <g opacity={isLobby ? 0.4 : 1}>
+            {track.pegs.map((pg, i) => {
               if (pg.kind === "bomb") {
                 return (
                   <g key={`p-${i}`}>
                     <circle
                       cx={pg.x}
                       cy={pg.y}
-                      r={pg.r + 2}
-                      fill="rgba(15,20,30,0.9)"
-                      stroke="#94a3b8"
-                      strokeWidth="1.5"
+                      r={pg.r + 1}
+                      fill="#1a1a1a"
+                      stroke="#64748b"
+                      strokeWidth="1"
                     />
                     <text
                       x={pg.x}
-                      y={pg.y + 5}
+                      y={pg.y + 4}
                       textAnchor="middle"
-                      fontSize="16"
+                      fontSize={pg.r * 1.4}
                     >
                       💣
                     </text>
@@ -898,86 +996,83 @@ function RaceStage({
                 );
               }
               if (pg.kind === "cross") {
-                // thick glowing + already drawn as walls; center glow
+                const arm = pg.r;
+                const th = arm * 0.26;
                 return (
-                  <g key={`p-${i}`}>
+                  <g key={`p-${i}`} filter="url(#glow)">
                     <line
-                      x1={pg.x - pg.r}
+                      x1={pg.x - arm}
                       y1={pg.y}
-                      x2={pg.x + pg.r}
+                      x2={pg.x + arm}
                       y2={pg.y}
                       stroke={accent}
-                      strokeWidth="10"
+                      strokeWidth={th}
                       strokeLinecap="round"
-                      opacity="0.95"
-                      style={{ filter: `drop-shadow(0 0 8px ${accent})` }}
                     />
                     <line
                       x1={pg.x}
-                      y1={pg.y - pg.r}
+                      y1={pg.y - arm}
                       x2={pg.x}
-                      y2={pg.y + pg.r}
+                      y2={pg.y + arm}
                       stroke={accent}
-                      strokeWidth="10"
+                      strokeWidth={th}
                       strokeLinecap="round"
-                      opacity="0.95"
-                      style={{ filter: `drop-shadow(0 0 8px ${accent})` }}
                     />
                   </g>
                 );
               }
               if (pg.kind === "arc") {
-                // incomplete ring stroke
                 const r = pg.r;
-                const startA = -0.3;
-                const endA = Math.PI * 1.2;
-                const x1 = pg.x + Math.cos(startA) * r;
-                const y1 = pg.y + Math.sin(startA) * r;
-                const x2 = pg.x + Math.cos(endA) * r;
-                const y2 = pg.y + Math.sin(endA) * r;
-                const large = endA - startA > Math.PI ? 1 : 0;
+                const a0 = -0.4;
+                const a1 = Math.PI * 1.55;
+                const x1 = pg.x + Math.cos(a0) * r;
+                const y1 = pg.y + Math.sin(a0) * r;
+                const x2 = pg.x + Math.cos(a1) * r;
+                const y2 = pg.y + Math.sin(a1) * r;
                 return (
                   <path
                     key={`p-${i}`}
-                    d={`M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`}
+                    d={`M ${x1} ${y1} A ${r} ${r} 0 1 1 ${x2} ${y2}`}
                     fill="none"
                     stroke={accent}
-                    strokeWidth="9"
+                    strokeWidth={W * 0.045}
                     strokeLinecap="round"
-                    opacity="0.92"
-                    style={{ filter: `drop-shadow(0 0 10px ${accent})` }}
+                    filter="url(#glow)"
                   />
                 );
               }
-              if (pg.kind === "arc_edge" || pg.kind === "label") {
-                return null;
+              if (pg.kind === "arc_edge") return null;
+              if (pg.kind === "label1" || pg.kind === "label3") {
+                return (
+                  <text
+                    key={`p-${i}`}
+                    x={pg.x}
+                    y={pg.y}
+                    textAnchor="middle"
+                    fill="rgba(255,255,255,0.85)"
+                    fontSize="16"
+                    fontWeight="800"
+                  >
+                    {pg.kind === "label1" ? "1" : "3"}
+                  </text>
+                );
               }
               if (pg.kind === "antigrav") {
                 return (
-                  <g key={`p-${i}`} opacity="0.55">
-                    <circle
-                      cx={pg.x}
-                      cy={pg.y}
-                      r={pg.r}
-                      fill="url(#antiG)"
-                      stroke="#c084fc"
-                      strokeWidth="1.5"
-                      strokeDasharray="6 4"
-                    />
-                    <text
-                      x={pg.x}
-                      y={pg.y + 4}
-                      textAnchor="middle"
-                      fill="#e9d5ff"
-                      fontSize="9"
-                      fontWeight="700"
-                    >
-                      ANTI-G
-                    </text>
-                  </g>
+                  <circle
+                    key={`p-${i}`}
+                    cx={pg.x}
+                    cy={pg.y}
+                    r={pg.r}
+                    fill="url(#antiG)"
+                    stroke="#c084fc"
+                    strokeWidth="1.2"
+                    strokeDasharray="6 4"
+                    opacity="0.55"
+                  />
                 );
               }
-              // dots / pegs — small cyan pins
+              // dots
               return (
                 <circle
                   key={`p-${i}`}
@@ -985,61 +1080,73 @@ function RaceStage({
                   cy={pg.y}
                   r={pg.r}
                   fill={accent}
-                  opacity="0.9"
-                  style={{ filter: `drop-shadow(0 0 4px ${accent})` }}
+                  filter="url(#glow)"
                 />
               );
             })}
           </g>
 
-          {/* ring: closed in lobby, gap opens after timer */}
+          {/* finish checkered */}
+          <g opacity={isLobby ? 0.35 : 1}>
+            <rect
+              x={W * 0.38}
+              y={H * 0.93}
+              width={W * 0.24}
+              height={16}
+              fill="url(#checkFinish)"
+              stroke="rgba(255,255,255,0.2)"
+              strokeWidth="0.8"
+              rx="2"
+            />
+          </g>
+
+          {/* ring */}
           <path
             d={ringPath}
             fill="none"
-            stroke="url(#ringStroke)"
-            strokeWidth={isLobby ? 5 : 3.5}
+            stroke="url(#ringGrad)"
+            strokeWidth={isLobby ? 5 : 4}
             strokeLinecap="round"
-            opacity="0.95"
+            opacity={0.95}
           />
-          {holeOpen && (
-            <>
-              <circle
-                cx={W / 2 + Math.cos(arcStart) * ringR}
-                cy={ringY + Math.sin(arcStart) * ringR}
-                r={3.5}
-                fill="rgba(255,255,255,0.4)"
-              />
-              <circle
-                cx={W / 2 + Math.cos(arcEnd) * ringR}
-                cy={ringY + Math.sin(arcEnd) * ringR}
-                r={3.5}
-                fill="rgba(255,255,255,0.4)"
-              />
-            </>
+          <defs>
+            <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#4FC3F7" />
+              <stop offset="50%" stopColor="#a78bfa" />
+              <stop offset="100%" stopColor="#f472b6" />
+            </linearGradient>
+          </defs>
+          {/* hole glow when open */}
+          {holeHalfDeg > 2 && (
+            <ellipse
+              cx={W / 2}
+              cy={ringY + ringR * 0.92}
+              rx={ringR * Math.sin(holeRad) * 1.1}
+              ry={6}
+              fill="rgba(79,195,247,0.25)"
+            />
           )}
 
-          {/* physics-driven balls in lobby / release */}
-          {(phase === "lobby" || phase === "lock" || phase === "release") &&
-            sim.map((b) => {
-              const isFollow =
-                b.id === followBallId || b.telegramId === telegramId;
-              return (
-                <AvatarBall
-                  key={b.id}
-                  cx={b.x}
-                  cy={b.y}
-                  r={9}
-                  username={b.username}
-                  photoUrl={b.photoUrl}
-                  highlight={isFollow}
-                />
-              );
-            })}
+          {/* lobby / release balls */}
+          {(phase === "lobby" ||
+            phase === "lock" ||
+            phase === "release") &&
+            sim.map((b) => (
+              <AvatarBall
+                key={b.id}
+                cx={b.x}
+                cy={b.y}
+                username={b.username}
+                photoUrl={b.photoUrl}
+                highlight={
+                  b.id === followBallId || b.telegramId === telegramId
+                }
+              />
+            ))}
 
-          {/* track fall */}
+          {/* falling balls + separation */}
           {(phase === "fall" || phase === "finish") &&
             (() => {
-              // sample all, then separate so balls don't clip each other
               const R = 9;
               const pts = ballsMeta.map((b, i) => {
                 const rank = b.finishRank ?? i + 1;
@@ -1050,21 +1157,11 @@ function RaceStage({
                   rank,
                   ballsMeta.length
                 );
-                const holeX = W / 2 + (hash01(b.id) - 0.5) * 20;
-                const holeY = H * 0.11 - 20;
-                const finY = track.trackBot;
-                const e =
-                  fallProgress *
-                  fallProgress *
-                  (3 - 2 * fallProgress);
                 return {
                   b,
-                  i,
-                  cx:
-                    path.length > 4
-                      ? pos.x
-                      : holeX + Math.sin(e * Math.PI * 2 + i) * 12 * (1 - e),
-                  cy: path.length > 4 ? pos.y : holeY + (finY - holeY) * e,
+                  cx: pos.x,
+                  cy: pos.y,
+                  dead: !!pos.dead,
                 };
               });
               for (let pass = 0; pass < 3; pass++) {
@@ -1072,6 +1169,7 @@ function RaceStage({
                   for (let j = i + 1; j < pts.length; j++) {
                     const a = pts[i];
                     const b = pts[j];
+                    if (a.dead || b.dead) continue;
                     const dx = b.cx - a.cx;
                     const dy = b.cy - a.cy;
                     const dist = Math.hypot(dx, dy) || 0.0001;
@@ -1087,113 +1185,146 @@ function RaceStage({
                   }
                 }
               }
-              return pts.map(({ b, cx, cy }) => {
+              return pts.map(({ b, cx, cy, dead }) => {
                 const isFollow =
                   b.id === followBallId || b.telegramId === telegramId;
                 return (
                   <g key={b.id}>
-                    {isFollow && (
+                    {isFollow && !dead && (
                       <polygon
                         points={`${cx},${cy - 15} ${cx - 5},${cy - 8} ${cx + 5},${cy - 8}`}
-                        fill="#fbbf24"
+                        fill="#FFEB3B"
                       />
                     )}
                     <AvatarBall
                       cx={cx}
                       cy={cy}
-                      r={9}
                       username={b.username}
                       photoUrl={b.photoUrl}
                       highlight={isFollow}
+                      dead={dead}
                     />
+                    {dead && (
+                      <g>
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={14}
+                          fill="rgba(180,180,180,0.25)"
+                        />
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={8}
+                          fill="rgba(200,200,200,0.15)"
+                        />
+                      </g>
+                    )}
                   </g>
                 );
               });
             })()}
-
-          <g opacity={isLobby ? 0.4 : 1}>
-              <rect
-                x={22}
-                y={H * 0.9}
-                width={W - 44}
-                height={22}
-                rx={4}
-                fill="url(#checkFinish)"
-                stroke="rgba(255,255,255,0.25)"
-                strokeWidth="1"
-              />
-              <text
-                x={W / 2}
-                y={H * 0.9 + 15}
-                textAnchor="middle"
-                fill="rgba(0,0,0,0.55)"
-                fontSize="9"
-                fontWeight="800"
-                letterSpacing="2"
-              >
-                FINISH
-              </text>
-            </g>
         </svg>
 
-        {ballsMeta.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-8">
-            <div className="text-center text-[13px] text-white/40 leading-relaxed">
-              Купи шарик — он в круге толкается с другими.
-              <br />
-              Трасса внизу. После таймера дырка плавно откроется — шарики выпадут.
+        {/* map name */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 px-3 py-1 rounded-full bg-black/50 border border-white/10 text-[10px] font-semibold text-white/70">
+          {track.map.name.ru}
+        </div>
+
+        {/* GO */}
+        {phase === "release" && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
+            <div
+              className="text-[80px] font-black text-white/30 tracking-tight"
+              style={{
+                animation: "raceGo 1.5s ease-out forwards",
+                textShadow: "0 0 40px rgba(79,195,247,0.45)",
+              }}
+            >
+              GO
             </div>
           </div>
         )}
+
+        {/* anomaly banners */}
+        {showAntiOn && (
+          <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-2xl bg-purple-900/70 border border-purple-400/30 backdrop-blur-md flex items-center gap-2 whitespace-nowrap">
+            <span className="text-lg">🌙</span>
+            <span className="text-[12px] font-semibold text-white/90">
+              Anomaly activated{" "}
+              <span className="text-red-400">Anti</span>{" "}
+              <span className="text-red-400">Gravity</span>
+            </span>
+          </div>
+        )}
+        {showAntiOff && (
+          <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-2xl bg-black/60 border border-white/10 backdrop-blur-md flex items-center gap-2 whitespace-nowrap">
+            <span className="text-lg opacity-60">🌙</span>
+            <span className="text-[12px] font-semibold text-white/70">
+              Anomaly deactivated{" "}
+              <span className="text-red-400/80">Anti Gravity</span>
+            </span>
+          </div>
+        )}
+
+        {/* winner banner */}
+        {phase === "finish" && room?.winnerBallId && (
+          <div className="absolute top-10 left-1/2 -translate-x-1/2 z-40 px-3 py-2 rounded-2xl bg-emerald-600/90 border border-emerald-300/30 flex items-center gap-2 shadow-lg max-w-[92%]">
+            {(() => {
+              const w = ballsMeta.find((b) => b.id === room.winnerBallId);
+              if (!w) return null;
+              return (
+                <>
+                  {w.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={w.photoUrl}
+                      alt=""
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-emerald-800 flex items-center justify-center text-white font-bold">
+                      {(w.username || "?")[0]}
+                    </div>
+                  )}
+                  <div className="text-[12px] font-semibold text-white leading-tight">
+                    <div>
+                      @{w.username?.replace(/^@/, "") || "winner"} won
+                    </div>
+                    <div className="text-emerald-100">
+                      {formatGram(room.pot * 0.95)} GRAM
+                    </div>
+                  </div>
+                  <div className="ml-1 px-2 py-0.5 rounded-full bg-emerald-400 text-emerald-950 text-[11px] font-black">
+                    X
+                    {(
+                      (room.pot * 0.95) /
+                      Math.max(room.ballPrice, 0.01)
+                    ).toFixed(2)}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {isLobby && ballsMeta.length === 0 && (
+          <div className="absolute inset-x-6 top-[38%] z-20 text-center text-[12px] text-white/45 leading-relaxed pointer-events-none">
+            Купи шарик — он в круге толкается с другими.
+            <br />
+            После таймера дырка плавно откроется — свободное падение.
+          </div>
+        )}
+
+        <style>{`@keyframes raceGo{0%{opacity:0;transform:scale(.6)}25%{opacity:1;transform:scale(1.05)}100%{opacity:0;transform:scale(1.25)}}`}</style>
       </div>
     </div>
   );
 }
 
-function BalancePill({
-  balance,
-  onDeposit,
-  haptic,
-}: {
-  balance: number;
-  onDeposit?: () => void;
-  haptic: (t?: "light" | "medium" | "heavy") => void;
-}) {
-  return (
-    <div className="flex items-center h-9 rounded-full glass border border-white/[0.12] overflow-hidden shrink-0">
-      <div className="flex items-center gap-1.5 pl-3 pr-2">
-        <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
-          {formatGram(balance)}
-        </span>
-        <span className="text-[10px] text-white/35 font-medium">GRAM</span>
-      </div>
-      {onDeposit && (
-        <button
-          type="button"
-          onClick={() => {
-            haptic("light");
-            onDeposit();
-          }}
-          className="h-full px-2.5 flex items-center justify-center text-cyan-200/90 border-l border-white/[0.1] btn-press"
-          aria-label="Deposit"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </button>
-      )}
-    </div>
-  );
-}
-
+/* ─────────────────────────────────────────────────────────────
+   Main screen — lobby / buy / history (Gramelle style)
+───────────────────────────────────────────────────────────── */
 export function RaceScreen({
   balance,
   telegramId,
@@ -1230,15 +1361,6 @@ export function RaceScreen({
     );
     return ranked[0].id;
   }, [room, telegramId]);
-
-  const copyText = useCallback(
-    (v: string) => {
-      void navigator.clipboard?.writeText(v);
-      haptic("light");
-      showToast(tr("Copied", "Скопировано"));
-    },
-    [haptic, showToast, lang]
-  );
 
   const refresh = useCallback(async () => {
     try {
@@ -1291,10 +1413,9 @@ export function RaceScreen({
         const t1 = setTimeout(() => {
           setPhase("fall");
           const start = performance.now();
-          const dur = 22000;
+          const dur = 28000;
           const tick = (now: number) => {
             const raw = Math.min(1, (now - start) / dur);
-            // ease-in-out so start/end soft, mid steady
             const p =
               raw < 0.5
                 ? 2 * raw * raw
@@ -1386,104 +1507,93 @@ export function RaceScreen({
     setShowHist(true);
   };
 
-  const winner = room?.balls.find((b) => b.id === room.winnerBallId);
-
   if (showHist) {
     return (
       <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
         <div className="px-4 pt-3 pb-2 flex items-center justify-between">
           <div className="text-[15px] font-semibold">{t("history")}</div>
-          <BalancePill balance={balance} onDeposit={onDeposit} haptic={haptic} />
+          <BalancePill
+            balance={balance}
+            onDeposit={onDeposit}
+            haptic={haptic}
+          />
         </div>
-        <div className="px-4 space-y-2 flex-1 overflow-y-auto">
-          {history.length === 0 ? (
-            <div className="text-center text-white/35 text-sm py-12">
-              {tr("No games yet", "Пока нет игр")}
+        <div className="flex-1 overflow-y-auto px-4 space-y-2">
+          {history.length === 0 && (
+            <div className="text-center text-white/40 text-sm py-10">
+              {tr("No races yet", "Пока нет гонок")}
             </div>
-          ) : (
-            history.map((h) => (
-              <div
-                key={h.roomId}
-                className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3.5"
-              >
-                <div className="flex justify-between">
-                  <div className="text-[13px] font-semibold">
-                    Race {h.gameNo != null ? `#${h.gameNo}` : ""}
-                  </div>
-                  <div
-                    className={cn(
-                      "text-[13px] font-semibold tabular-nums",
-                      h.result === "win" ? "text-emerald-400" : "text-white/45"
-                    )}
-                  >
-                    {h.result === "win"
-                      ? `+${formatGram(h.payout)}`
-                      : h.result === "cancel"
-                        ? tr("Refund", "Возврат")
-                        : `−${formatGram(h.spent)}`}
-                  </div>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <HashChip
-                    label="Hash"
-                    value={h.serverSeedHash}
-                    onCopy={copyText}
-                  />
-                  <HashChip label="Seed" value={h.serverSeed} onCopy={copyText} />
-                </div>
-              </div>
-            ))
           )}
+          {history.map((h) => (
+            <div
+              key={h.roomId}
+              className="rounded-xl bg-white/5 border border-white/8 px-3 py-2.5 text-[12px]"
+            >
+              <div className="flex justify-between text-white/70">
+                <span>#{h.gameNo ?? "—"}</span>
+                <span className="text-emerald-300">
+                  {formatGram(h.pot)} GRAM
+                </span>
+              </div>
+              <div className="text-white/40 mt-0.5 truncate">
+                {h.won
+                  ? tr(`Won ${formatGram(h.payout)} GRAM`, `Выигрыш ${formatGram(h.payout)} GRAM`)
+                  : h.result || tr("Finished", "Завершено")}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
   }
 
+  const pot = room?.pot ?? 0;
+  const ballCount = room?.balls?.length ?? 0;
+  const players = room
+    ? new Set(room.balls.map((b) => b.telegramId)).size
+    : 0;
+  const secs = room?.secsLeft;
+
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      <div className="px-4 pt-3 pb-2 flex items-center gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="text-[15px] font-semibold tracking-tight">
+      {/* header */}
+      <div className="px-4 pt-3 pb-1 flex items-center justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-[15px] font-semibold">
               {tr("Race", "Гонка")}
-            </div>
-            <div className="px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/25 text-[11px] font-bold tabular-nums text-cyan-200">
-              {formatGram(room?.pot || 0)}{" "}
-              <span className="text-white/40 font-medium">GRAM</span>
-            </div>
+            </span>
+            <span className="text-[12px] font-bold text-amber-300">
+              {formatGram(pot)} GRAM
+            </span>
           </div>
-          <div className="text-[11px] text-white/40 mt-0.5">
-            {room?.status === "countdown" && room.secsLeft != null
-              ? `${tr("Starts in", "Старт через")} ${room.secsLeft}s`
-              : room?.status === "racing" || phase === "fall"
-                ? tr("Racing…", "Гонка идёт…")
-                : room?.status === "finished" && phase === "finish"
-                  ? `${tr("Winner", "Победитель")}: @${winner?.username || "—"}`
-                  : tr("Live lobby · buy a ball", "Live-лобби · купи шарик")}
+          <div className="text-[11px] text-white/40">
+            {room?.status === "countdown"
+              ? tr("Countdown", "Обратный отсчёт")
+              : room?.status === "racing" || room?.status === "finished"
+                ? tr("Live race", "Идёт гонка")
+                : tr("Live lobby — buy a ball", "Live-лобби — купи шарик")}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => void openHistory()}
-          className="w-9 h-9 rounded-xl glass border border-white/[0.08] flex items-center justify-center text-white/45 btn-press shrink-0"
-          aria-label={t("history")}
-        >
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void openHistory()}
+            className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/60"
+            aria-label="history"
           >
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 7v5l3 2" />
-          </svg>
-        </button>
-        <BalancePill balance={balance} onDeposit={onDeposit} haptic={haptic} />
+            ↺
+          </button>
+          <BalancePill
+            balance={balance}
+            onDeposit={onDeposit}
+            haptic={haptic}
+          />
+        </div>
       </div>
 
-      <div className="px-4 flex-1 overflow-y-auto space-y-3 pb-4">
+      {/* stage */}
+      <div className="px-3 mt-1 flex-1 flex flex-col items-center">
         <RaceStage
           room={room}
           phase={phase}
@@ -1491,127 +1601,59 @@ export function RaceScreen({
           telegramId={telegramId}
           fallProgress={fallProgress}
         />
+      </div>
 
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 space-y-2">
-          <div className="flex items-center justify-between text-[12px]">
-            <span className="text-white/45">
-              {room?.ballCount || 0} {tr("balls", "шар.")} ·{" "}
-              {room?.uniquePlayers || 0} {tr("players", "игр.")}
-            </span>
-            {phase === "lock" && (
-              <span className="text-amber-300 font-semibold text-[11px]">
-                {tr("Buys locked", "Покупки закрыты")}
-              </span>
+      {/* footer stats + buy */}
+      <div className="px-4 mt-3 space-y-2">
+        <div className="rounded-xl bg-white/5 border border-white/8 px-3 py-2 flex items-center justify-between text-[11px] text-white/55">
+          <span>
+            {ballCount} {tr("balls", "шар.")} · {players}{" "}
+            {tr("players", "игр.")}
+            {secs != null && room?.status === "countdown"
+              ? ` · ${secs}s`
+              : ""}
+          </span>
+          <div className="flex gap-1.5">
+            {room?.serverSeedHash && (
+              <HashChip
+                label="HASH"
+                value={room.serverSeedHash.slice(0, 10)}
+              />
             )}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <HashChip
-              label="Hash"
-              value={room?.serverSeedHash}
-              onCopy={copyText}
-            />
-            <HashChip label="Seed" value={room?.serverSeed} onCopy={copyText} />
+            {room?.serverSeed && (
+              <HashChip label="SEED" value={room.serverSeed.slice(0, 10)} />
+            )}
           </div>
         </div>
 
-        {(phase === "lobby" ||
-          !room ||
-          room.status === "finished" ||
-          room.status === "cancelled") && (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={
-                busy ||
-                (room != null && room.status === "countdown" && !room.canBuy)
-              }
-              onClick={() => void ensureAndBuy(1)}
-              className="flex-1 h-12 rounded-2xl btn-primary text-sm font-semibold btn-press disabled:opacity-40 shadow-[0_8px_28px_rgba(34,211,238,0.25)]"
-            >
-              {tr("Buy ball", "Купить шарик")} ·{" "}
-              {formatGram(room?.ballPrice ?? RACE_MIN_BALL)}
-            </button>
-            <button
-              type="button"
-              disabled={
-                busy ||
-                (room != null && room.status === "countdown" && !room.canBuy)
-              }
-              onClick={() => void ensureAndBuy(3)}
-              className="h-12 px-4 rounded-2xl border border-white/12 bg-white/[0.04] text-sm font-semibold btn-press disabled:opacity-40"
-            >
-              ×3
-            </button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={busy || room?.buyLocked}
+            onClick={() => void ensureAndBuy(1)}
+            className="flex-1 h-12 rounded-2xl btn-primary text-sm font-semibold btn-press disabled:opacity-40 shadow-[0_8px_28px_rgba(34,211,238,0.25)]"
+          >
+            {tr("Buy ball", "Купить шарик")} · {formatGram(RACE_MIN_BALL)}
+          </button>
+          <button
+            type="button"
+            disabled={busy || room?.buyLocked}
+            onClick={() => void ensureAndBuy(3)}
+            className="h-12 px-4 rounded-2xl bg-white/8 border border-white/12 text-sm font-semibold disabled:opacity-40"
+          >
+            ×3
+          </button>
+        </div>
 
-        {phase === "lock" && (
-          <div className="text-center text-[12px] text-amber-300/90 py-2">
-            {tr("Buys closed — race starting", "Покупки закрыты — старт гонки")}
-          </div>
-        )}
-
-        {room?.status === "open" &&
-          room.isHost &&
-          room.uniquePlayers < 2 && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void onCancel()}
-              className="w-full h-10 rounded-xl text-[12px] text-white/40 border border-white/10 btn-press"
-            >
-              {t("cancel")}
-            </button>
-          )}
-
-        {room && room.balls.length > 0 && (
-          <div className="space-y-1.5">
-            <div className="text-[11px] uppercase tracking-wider text-white/35">
-              {tr("In the ring", "В кольце")}
-            </div>
-            {Object.entries(
-              room.balls.reduce<
-                Record<
-                  string,
-                  { name: string; n: number; color: string; mine: boolean }
-                >
-              >((acc, b) => {
-                const k = String(b.telegramId);
-                if (!acc[k])
-                  acc[k] = {
-                    name: b.username,
-                    n: 0,
-                    color: b.color,
-                    mine: b.telegramId === telegramId,
-                  };
-                acc[k].n += 1;
-                return acc;
-              }, {})
-            ).map(([id, u]) => (
-              <div
-                key={id}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-xl px-3 py-2 border border-white/[0.06] bg-white/[0.02]",
-                  u.mine && "border-cyan-400/30 bg-cyan-500/[0.07]"
-                )}
-              >
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{
-                    background: u.color,
-                    boxShadow: `0 0 10px ${u.color}`,
-                  }}
-                />
-                <span className="flex-1 text-[13px] truncate">
-                  @{u.name}
-                  {u.mine ? ` (${tr("you", "вы")})` : ""}
-                </span>
-                <span className="text-[12px] text-white/45 tabular-nums">
-                  ×{u.n}
-                </span>
-              </div>
-            ))}
-          </div>
+        {room && room.status === "open" && room.hostTelegramId === telegramId && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void onCancel()}
+            className="w-full text-center text-[12px] text-white/35 py-1"
+          >
+            {tr("Cancel lobby", "Отменить лобби")}
+          </button>
         )}
       </div>
     </div>
