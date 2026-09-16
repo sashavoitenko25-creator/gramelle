@@ -244,90 +244,161 @@ function simulatePath(
   walls: Wall[]
 ): { x: number; y: number }[] {
   const seed = hash01(ballId + ":" + seat);
-  const R = 7;
-  // drop through top hole
-  let x = W * 0.5 + (seed - 0.5) * 28;
-  let y = ringY;
-  let vx = (seed - 0.5) * 3.2 + ((seat % 5) - 2) * 0.55;
-  let vy = 2.4 + seed * 0.8;
-  const g = 0.38;
+  const R = 7.5;
+  // start just below ring hole
+  let x = W * 0.5 + (seed - 0.5) * 22;
+  let y = ringY + 8;
+  let vx = (seed - 0.5) * 2.4 + ((seat % 5) - 2) * 0.4;
+  let vy = 1.8 + seed * 0.6;
+  const g = 0.22;
+  const air = 0.999;
   const points: { x: number; y: number }[] = [{ x, y }];
 
-  for (let step = 0; step < 900; step++) {
-    vy += g;
-    x += vx;
-    y += vy;
-
-    if (x - R < leftX) {
-      x = leftX + R;
-      vx = Math.abs(vx) * 0.72;
+  const collideWall = (
+    x0: number,
+    y0: number,
+    vx0: number,
+    vy0: number,
+    w: Wall
+  ) => {
+    const dx = w.x2 - w.x1;
+    const dy = w.y2 - w.y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    // outward normal (left of direction)
+    let nx = -uy;
+    let ny = ux;
+    const t = Math.max(
+      0,
+      Math.min(1, ((x0 - w.x1) * dx + (y0 - w.y1) * dy) / (len * len))
+    );
+    const px = w.x1 + t * dx;
+    const py = w.y1 + t * dy;
+    let ox = x0 - px;
+    let oy = y0 - py;
+    let dist = Math.hypot(ox, oy);
+    if (dist < 0.001) {
+      ox = nx;
+      oy = ny;
+      dist = 1;
     }
-    if (x + R > rightX) {
-      x = rightX - R;
-      vx = -Math.abs(vx) * 0.72;
+    // pick normal pointing away from ball center of mass tendency
+    if (ox * nx + oy * ny < 0) {
+      nx = -nx;
+      ny = -ny;
     }
+    const rad = R + 1.2;
+    if (dist >= rad) return { x: x0, y: y0, vx: vx0, vy: vy0, hit: false };
 
-    for (const w of walls) {
-      const dx = w.x2 - w.x1;
-      const dy = w.y2 - w.y1;
-      const len = Math.hypot(dx, dy) || 1;
-      const nx = -dy / len;
-      const ny = dx / len;
-      const t = Math.max(
-        0,
-        Math.min(1, ((x - w.x1) * dx + (y - w.y1) * dy) / (len * len))
-      );
-      const px = w.x1 + t * dx;
-      const py = w.y1 + t * dy;
-      const dist = Math.hypot(x - px, y - py);
-      if (dist < R + 1.5 && t > 0.02 && t < 0.98) {
-        const overlap = R + 1.5 - dist;
-        x += (x - px) * 0.2 + nx * overlap * 0.3;
-        y += (y - py) * 0.1;
-        const dot = vx * nx + vy * ny;
-        vx -= 1.6 * dot * nx;
-        vy -= 1.6 * dot * ny;
-        vx *= 0.9;
-        vy *= 0.9;
+    // push out
+    const push = rad - dist;
+    const nnx = ox / dist;
+    const nny = oy / dist;
+    x0 += nnx * push;
+    y0 += nny * push;
+
+    // reflect velocity
+    const vn = vx0 * nnx + vy0 * nny;
+    if (vn < 0) {
+      const rest = 0.62;
+      const fric = 0.18;
+      vx0 -= (1 + rest) * vn * nnx;
+      vy0 -= (1 + rest) * vn * nny;
+      // tangential friction
+      const vtx = vx0 - vn * nnx;
+      const vty = vy0 - vn * nny;
+      vx0 -= vtx * fric;
+      vy0 -= vty * fric;
+    }
+    return { x: x0, y: y0, vx: vx0, vy: vy0, hit: true };
+  };
+
+  for (let step = 0; step < 1200; step++) {
+    // substeps for stability
+    for (let sub = 0; sub < 2; sub++) {
+      vy += g;
+      vx *= air;
+      vy *= air;
+      x += vx;
+      y += vy;
+
+      // side walls
+      if (x - R < leftX) {
+        x = leftX + R;
+        if (vx < 0) vx = -vx * 0.7;
       }
-    }
+      if (x + R > rightX) {
+        x = rightX - R;
+        if (vx > 0) vx = -vx * 0.7;
+      }
 
-    for (const p of pegs) {
-      const dx = x - p.x;
-      const dy = y - p.y;
-      const dist = Math.hypot(dx, dy);
-      const minD = R + p.r;
-      if (dist < minD && dist > 0.01) {
-        const nx = dx / dist;
-        const ny = dy / dist;
-        x = p.x + nx * minD;
-        y = p.y + ny * minD;
-        const dot = vx * nx + vy * ny;
-        if (dot < 0) {
-          vx -= 1.85 * dot * nx;
-          vy -= 1.85 * dot * ny;
+      for (const w of walls) {
+        const r = collideWall(x, y, vx, vy, w);
+        x = r.x;
+        y = r.y;
+        vx = r.vx;
+        vy = r.vy;
+      }
+
+      for (const p of pegs) {
+        if (p.kind === "antigrav") {
+          // upward force field, not a solid body
+          const dx = x - p.x;
+          const dy = y - p.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < p.r && dist > 0.5) {
+            const strength = (1 - dist / p.r) * 0.35;
+            vy -= strength;
+            vx += (seed - 0.5) * 0.08;
+          }
+          continue;
         }
-        const bounce =
-          p.kind === "bumper" || p.kind === "bomb"
-            ? 0.78
-            : p.kind === "cross"
-              ? 0.65
-              : 0.55;
-        vx *= bounce;
-        vy *= bounce;
-        vx += (seed - 0.5) * 0.15;
+        // visual-only large arc ring shouldn't act as huge solid
+        const pr =
+          p.kind === "arc"
+            ? Math.min(p.r, 8)
+            : p.kind === "dot"
+              ? 2.2
+              : p.r;
+        const dx = x - p.x;
+        const dy = y - p.y;
+        const dist = Math.hypot(dx, dy) || 0.0001;
+        const minD = R + pr;
+        if (dist < minD) {
+          const nx = dx / dist;
+          const ny = dy / dist;
+          const push = minD - dist;
+          x += nx * push;
+          y += ny * push;
+          const vn = vx * nx + vy * ny;
+          if (vn < 0) {
+            const rest =
+              p.kind === "bumper" || p.kind === "bomb"
+                ? 0.82
+                : p.kind === "cross"
+                  ? 0.7
+                  : p.kind === "dot"
+                    ? 0.45
+                    : 0.58;
+            vx -= (1 + rest) * vn * nx;
+            vy -= (1 + rest) * vn * ny;
+            // slight random spin from seed so paths diverge
+            vx += (seed - 0.5) * 0.12;
+          }
+        }
       }
+
+      if (vy > 7) vy = 7;
+      if (Math.abs(vx) > 5.5) vx *= 0.94;
     }
 
-    if (y > trackBot - 4) {
-      y = trackBot - 4;
+    if (y > trackBot - 3) {
+      y = trackBot - 3;
       points.push({ x, y });
       break;
     }
-
     if (step % 2 === 0) points.push({ x, y });
-    if (vy > 8.5) vy = 8.5;
-    if (Math.abs(vx) > 5) vx *= 0.96;
   }
 
   return points.length > 2
@@ -498,8 +569,9 @@ function RaceStage({
         });
       } else {
         const seed = hash01(b.id);
-        // spawn slightly above / inside ring
-        const ang = seed * Math.PI * 2;
+        // spawn INSIDE the ring, spread around, gentle velocity
+        const ang = seed * Math.PI * 2 + i * 0.7;
+        const rad = ringR * (0.15 + seed * 0.35);
         next.push({
           id: b.id,
           username: b.username,
@@ -507,10 +579,10 @@ function RaceStage({
           telegramId: b.telegramId,
           seat: b.seat,
           finishRank: b.finishRank,
-          x: W / 2 + Math.cos(ang) * (ringR * 0.25 * seed),
-          y: ringY - ringR * 0.55 - seed * 12,
-          vx: (seed - 0.5) * 2.5,
-          vy: 0.5 + seed,
+          x: W / 2 + Math.cos(ang) * rad,
+          y: ringY + Math.sin(ang) * rad * 0.85,
+          vx: Math.cos(ang + 1.2) * (1.2 + seed),
+          vy: Math.sin(ang + 0.4) * (0.8 + seed * 0.5) - 0.3,
           r: 9,
         });
       }
@@ -523,19 +595,24 @@ function RaceStage({
   useEffect(() => {
     let raf = 0;
     let last = performance.now();
-    const g = 0.35;
-    const damp = 0.995;
-    const wallRest = 0.78;
-    const ballRest = 0.85;
+    // fixed-feel constants (per ~16ms frame)
+    const G = 0.28;
+    const DAMP = 0.992;
+    const WALL_REST = 0.72;
+    const BALL_REST = 0.88;
+    const FRIC = 0.04;
 
     const tick = (now: number) => {
-      const dt = Math.min(0.032, (now - last) / 16.67);
+      // real seconds, clamped
+      let dt = (now - last) / 1000;
       last = now;
+      if (dt > 0.05) dt = 0.05;
+      if (dt < 0.001) dt = 0.001;
+
       const ph = phaseRef.current;
       const open = ph === "release" || ph === "fall" || ph === "finish";
       const onTrack = ph === "fall" || ph === "finish";
 
-      // during fall/finish track animation is driven by fallProgress paths — still update lobby/release
       if (onTrack) {
         raf = requestAnimationFrame(tick);
         return;
@@ -543,84 +620,136 @@ function RaceStage({
 
       const cx = W / 2;
       const cy = ringY;
-      const hole = open ? (48 * Math.PI) / 180 : 0;
-      const balls = simRef.current.map((b) => ({ ...b }));
+      // hole half-angle in radians at bottom (PI/2)
+      const holeHalf = open ? (52 * Math.PI) / 180 : 0;
+      // scale forces so motion is similar at 60fps
+      const steps = Math.max(1, Math.min(4, Math.ceil(dt / 0.008)));
+      const h = dt / steps;
 
-      for (const b of balls) {
-        b.vy += g * dt;
-        b.x += b.vx * dt;
-        b.y += b.vy * dt;
-        b.vx *= damp;
-        b.vy *= Math.min(1, damp + 0.001);
+      let balls = simRef.current.map((b) => ({ ...b }));
 
-        // containment circle (ring inner wall)
-        const dx = b.x - cx;
-        const dy = b.y - cy;
-        const dist = Math.hypot(dx, dy) || 0.0001;
-        const maxD = ringR - b.r - 2;
-        const ang = Math.atan2(dy, dx);
-        // angle from top: 0 at top going clockwise... atan2: top is -PI/2
-        const fromTop = Math.abs(((ang + Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        // simpler: hole around angle -PI/2
-        let inHole = false;
-        if (open) {
-          const a = Math.atan2(dy, dx);
-          // hole at bottom so gravity carries balls out
-          const bottom = Math.PI / 2;
-          let dA = a - bottom;
-          while (dA > Math.PI) dA -= Math.PI * 2;
-          while (dA < -Math.PI) dA += Math.PI * 2;
-          inHole = Math.abs(dA) < hole / 2 && dist > maxD * 0.7;
+      for (let s = 0; s < steps; s++) {
+        // integrate
+        for (const b of balls) {
+          b.vy += G * h * 60; // ~frame-scale gravity
+          b.vx *= Math.pow(DAMP, h * 60);
+          b.vy *= Math.pow(DAMP, h * 60);
+          b.x += b.vx * h * 60;
+          b.y += b.vy * h * 60;
         }
 
-        if (dist > maxD && !inHole) {
-          const nx = dx / dist;
-          const ny = dy / dist;
-          b.x = cx + nx * maxD;
-          b.y = cy + ny * maxD;
-          const vn = b.vx * nx + b.vy * ny;
-          if (vn > 0) {
-            b.vx -= (1 + wallRest) * vn * nx;
-            b.vy -= (1 + wallRest) * vn * ny;
+        // ring containment
+        for (const b of balls) {
+          const dx = b.x - cx;
+          const dy = b.y - cy;
+          const dist = Math.hypot(dx, dy) || 0.0001;
+          const maxD = ringR - b.r - 1.5;
+
+          // hole at bottom: angle ~ +PI/2 in atan2
+          let inHole = false;
+          if (open && holeHalf > 0) {
+            const a = Math.atan2(dy, dx);
+            let dA = a - Math.PI / 2;
+            while (dA > Math.PI) dA -= Math.PI * 2;
+            while (dA < -Math.PI) dA += Math.PI * 2;
+            // only allow exit when near the rim and inside hole sector
+            inHole = Math.abs(dA) < holeHalf && dist > maxD * 0.55;
           }
-          // friction along tangent
-          b.vx *= 0.98;
-          b.vy *= 0.98;
+
+          if (dist > maxD && !inHole) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            b.x = cx + nx * maxD;
+            b.y = cy + ny * maxD;
+            const vn = b.vx * nx + b.vy * ny;
+            if (vn > 0) {
+              b.vx -= (1 + WALL_REST) * vn * nx;
+              b.vy -= (1 + WALL_REST) * vn * ny;
+            }
+            // tangential friction so balls settle
+            const vtx = b.vx - vn * nx;
+            const vty = b.vy - vn * ny;
+            b.vx -= vtx * FRIC * 2;
+            b.vy -= vty * FRIC * 2;
+          }
+
+          // soft floor when closed
+          if (!open) {
+            const floorY = cy + maxD;
+            if (b.y > floorY) {
+              b.y = floorY;
+              if (b.vy > 0) b.vy *= -WALL_REST;
+              b.vx *= 0.97;
+            }
+          }
+
+          // speed clamp
+          const sp = Math.hypot(b.vx, b.vy);
+          if (sp > 9) {
+            b.vx *= 9 / sp;
+            b.vy *= 9 / sp;
+          }
         }
 
-        // floor of view soft clamp when still in ring area
-        if (!open && b.y > cy + maxD) {
-          b.y = cy + maxD;
-          if (b.vy > 0) b.vy *= -wallRest;
+        // ball-ball collisions (iterative for stability with many balls)
+        for (let pass = 0; pass < 2; pass++) {
+          for (let i = 0; i < balls.length; i++) {
+            for (let j = i + 1; j < balls.length; j++) {
+              const a = balls[i];
+              const b = balls[j];
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const dist = Math.hypot(dx, dy) || 0.0001;
+              const minD = a.r + b.r;
+              if (dist >= minD) continue;
+
+              const nx = dx / dist;
+              const ny = dy / dist;
+              const overlap = minD - dist;
+              // positional correction (split)
+              const corr = overlap * 0.52;
+              a.x -= nx * corr;
+              a.y -= ny * corr;
+              b.x += nx * corr;
+              b.y += ny * corr;
+
+              const va = a.vx * nx + a.vy * ny;
+              const vb = b.vx * nx + b.vy * ny;
+              const rel = va - vb;
+              if (rel > 0) {
+                // separating already after correction
+                continue;
+              }
+              // equal mass impulse
+              const jImp = (-(1 + BALL_REST) * rel) / 2;
+              a.vx -= jImp * nx;
+              a.vy -= jImp * ny;
+              b.vx += jImp * nx;
+              b.vy += jImp * ny;
+              // light friction
+              const tvx = a.vx - va * nx - (b.vx - vb * nx);
+              const tvy = a.vy - va * ny - (b.vy - vb * ny);
+              // skip complex friction; mild damping
+              a.vx *= 0.998;
+              a.vy *= 0.998;
+              b.vx *= 0.998;
+              b.vy *= 0.998;
+            }
+          }
         }
       }
 
-      // ball-ball collisions
-      for (let i = 0; i < balls.length; i++) {
-        for (let j = i + 1; j < balls.length; j++) {
-          const a = balls[i];
-          const b = balls[j];
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
-          const dist = Math.hypot(dx, dy) || 0.0001;
-          const minD = a.r + b.r;
-          if (dist < minD) {
-            const nx = dx / dist;
-            const ny = dy / dist;
-            const overlap = minD - dist;
-            a.x -= nx * overlap * 0.5;
-            a.y -= ny * overlap * 0.5;
-            b.x += nx * overlap * 0.5;
-            b.y += ny * overlap * 0.5;
-            const va = a.vx * nx + a.vy * ny;
-            const vb = b.vx * nx + b.vy * ny;
-            const imp = ((1 + ballRest) * (va - vb)) / 2;
-            a.vx -= imp * nx;
-            a.vy -= imp * ny;
-            b.vx += imp * nx;
-            b.vy += imp * ny;
-          }
-        }
+      // drop balls that fully exited the ring during release
+      if (open) {
+        balls = balls.filter((b) => {
+          const dx = b.x - cx;
+          const dy = b.y - cy;
+          const dist = Math.hypot(dx, dy);
+          // still inside or just leaving
+          if (dist < ringR + b.r * 2 && b.y < cy + ringR + 40) return true;
+          // far below — let fall animation take over (keep in sim until phase changes)
+          return b.y < cy + ringR + 120;
+        });
       }
 
       simRef.current = balls;
