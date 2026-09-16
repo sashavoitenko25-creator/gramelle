@@ -171,11 +171,12 @@ function simulatePath(
 ): { x: number; y: number }[] {
   const seed = hash01(ballId + ":" + seat);
   const R = 7;
-  let x = W * 0.5 + (seed - 0.5) * 36;
-  let y = ringY + 4;
-  let vx = (seed - 0.5) * 2.2 + ((seat % 5) - 2) * 0.35;
-  let vy = 1.2 + seed * 0.5;
-  const g = 0.32;
+  // drop through top hole
+  let x = W * 0.5 + (seed - 0.5) * 28;
+  let y = ringY;
+  let vx = (seed - 0.5) * 3.2 + ((seat % 5) - 2) * 0.55;
+  let vy = 2.4 + seed * 0.8;
+  const g = 0.38;
   const points: { x: number; y: number }[] = [{ x, y }];
 
   for (let step = 0; step < 900; step++) {
@@ -350,6 +351,22 @@ function AvatarBall({
   );
 }
 
+
+
+type SimBall = {
+  id: string;
+  username: string;
+  photoUrl: string | null;
+  telegramId: number;
+  seat: number;
+  finishRank: number | null;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  r: number;
+};
+
 function RaceStage({
   room,
   phase,
@@ -363,27 +380,188 @@ function RaceStage({
   telegramId: number;
   fallProgress: number;
 }) {
-  const balls = room?.balls || [];
-  const n = Math.max(balls.length, 1);
+  const ballsMeta = room?.balls || [];
   const mapId = room?.mapId || null;
 
   const W = 320;
   const H = 560;
   const isLobby = phase === "lobby" || phase === "lock";
-  const ringY = isLobby ? H * 0.5 : H * 0.15;
-  const ringR = isLobby ? 120 : 78;
-  const orbitR = isLobby ? 82 : 50;
+  const holeOpen =
+    phase === "release" || phase === "fall" || phase === "finish";
 
-  const track = useMemo(() => buildTrack(mapId, W, H, H * 0.15), [mapId]);
+  const ringY = isLobby ? H * 0.5 : H * 0.18;
+  const ringR = isLobby ? 118 : 86;
+  // hole closed in lobby; opens after timer
+  const holeHalfDeg = holeOpen ? 48 : 0;
 
+  const track = useMemo(() => buildTrack(mapId, W, H, H * 0.18), [mapId]);
+
+  const [sim, setSim] = useState<SimBall[]>([]);
+  const simRef = useRef<SimBall[]>([]);
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+
+  // sync new balls into simulation (spawn above ring, fall in)
+  useEffect(() => {
+    const prev = simRef.current;
+    const byId = new Map(prev.map((b) => [b.id, b]));
+    const next: SimBall[] = [];
+    ballsMeta.forEach((b, i) => {
+      const old = byId.get(b.id);
+      if (old) {
+        next.push({
+          ...old,
+          username: b.username,
+          photoUrl: b.photoUrl,
+          telegramId: b.telegramId,
+          seat: b.seat,
+          finishRank: b.finishRank,
+        });
+      } else {
+        const seed = hash01(b.id);
+        // spawn slightly above / inside ring
+        const ang = seed * Math.PI * 2;
+        next.push({
+          id: b.id,
+          username: b.username,
+          photoUrl: b.photoUrl,
+          telegramId: b.telegramId,
+          seat: b.seat,
+          finishRank: b.finishRank,
+          x: W / 2 + Math.cos(ang) * (ringR * 0.25 * seed),
+          y: ringY - ringR * 0.55 - seed * 12,
+          vx: (seed - 0.5) * 2.5,
+          vy: 0.5 + seed,
+          r: 9,
+        });
+      }
+    });
+    simRef.current = next;
+    setSim(next);
+  }, [ballsMeta.map((b) => b.id).join("|"), ringY, ringR]);
+
+  // live physics loop (lobby + release until they escape)
+  useEffect(() => {
+    let raf = 0;
+    let last = performance.now();
+    const g = 0.35;
+    const damp = 0.995;
+    const wallRest = 0.78;
+    const ballRest = 0.85;
+
+    const tick = (now: number) => {
+      const dt = Math.min(0.032, (now - last) / 16.67);
+      last = now;
+      const ph = phaseRef.current;
+      const open = ph === "release" || ph === "fall" || ph === "finish";
+      const onTrack = ph === "fall" || ph === "finish";
+
+      // during fall/finish track animation is driven by fallProgress paths — still update lobby/release
+      if (onTrack) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+
+      const cx = W / 2;
+      const cy = ringY;
+      const hole = open ? (48 * Math.PI) / 180 : 0;
+      const balls = simRef.current.map((b) => ({ ...b }));
+
+      for (const b of balls) {
+        b.vy += g * dt;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        b.vx *= damp;
+        b.vy *= Math.min(1, damp + 0.001);
+
+        // containment circle (ring inner wall)
+        const dx = b.x - cx;
+        const dy = b.y - cy;
+        const dist = Math.hypot(dx, dy) || 0.0001;
+        const maxD = ringR - b.r - 2;
+        const ang = Math.atan2(dy, dx);
+        // angle from top: 0 at top going clockwise... atan2: top is -PI/2
+        const fromTop = Math.abs(((ang + Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+        // simpler: hole around angle -PI/2
+        let inHole = false;
+        if (open) {
+          const a = Math.atan2(dy, dx);
+          // hole at bottom so gravity carries balls out
+          const bottom = Math.PI / 2;
+          let dA = a - bottom;
+          while (dA > Math.PI) dA -= Math.PI * 2;
+          while (dA < -Math.PI) dA += Math.PI * 2;
+          inHole = Math.abs(dA) < hole / 2 && dist > maxD * 0.7;
+        }
+
+        if (dist > maxD && !inHole) {
+          const nx = dx / dist;
+          const ny = dy / dist;
+          b.x = cx + nx * maxD;
+          b.y = cy + ny * maxD;
+          const vn = b.vx * nx + b.vy * ny;
+          if (vn > 0) {
+            b.vx -= (1 + wallRest) * vn * nx;
+            b.vy -= (1 + wallRest) * vn * ny;
+          }
+          // friction along tangent
+          b.vx *= 0.98;
+          b.vy *= 0.98;
+        }
+
+        // floor of view soft clamp when still in ring area
+        if (!open && b.y > cy + maxD) {
+          b.y = cy + maxD;
+          if (b.vy > 0) b.vy *= -wallRest;
+        }
+      }
+
+      // ball-ball collisions
+      for (let i = 0; i < balls.length; i++) {
+        for (let j = i + 1; j < balls.length; j++) {
+          const a = balls[i];
+          const b = balls[j];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dist = Math.hypot(dx, dy) || 0.0001;
+          const minD = a.r + b.r;
+          if (dist < minD) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const overlap = minD - dist;
+            a.x -= nx * overlap * 0.5;
+            a.y -= ny * overlap * 0.5;
+            b.x += nx * overlap * 0.5;
+            b.y += ny * overlap * 0.5;
+            const va = a.vx * nx + a.vy * ny;
+            const vb = b.vx * nx + b.vy * ny;
+            const imp = ((1 + ballRest) * (va - vb)) / 2;
+            a.vx -= imp * nx;
+            a.vy -= imp * ny;
+            b.vx += imp * nx;
+            b.vy += imp * ny;
+          }
+        }
+      }
+
+      simRef.current = balls;
+      setSim(balls.map((b) => ({ ...b })));
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [ringY, ringR]);
+
+  // fall paths after escape
   const paths = useMemo(() => {
     const map: Record<string, { x: number; y: number }[]> = {};
-    for (const b of balls) {
+    for (const b of ballsMeta) {
       map[b.id] = simulatePath(
         b.id,
         b.seat,
         W,
-        H * 0.15,
+        H * 0.18 - 70,
         track.trackBot,
         track.leftX,
         track.rightX,
@@ -392,15 +570,31 @@ function RaceStage({
       );
     }
     return map;
-  }, [balls, track]);
+  }, [ballsMeta, track]);
 
-  const camY = isLobby ? 0 : phase === "release" ? 10 : 18 + fallProgress * 80;
+  const camY = isLobby ? 0 : phase === "release" ? 4 : 12 + fallProgress * 85;
   const camScale = isLobby
-    ? 1.35
+    ? 1.32
     : phase === "release"
-      ? 0.92
-      : 0.78 - fallProgress * 0.05;
+      ? 0.96
+      : 0.8 - fallProgress * 0.05;
   const accent = track.map.accent;
+
+  const holeRad = (holeHalfDeg * Math.PI) / 180;
+  // gap at bottom (PI/2)
+  const arcStart = Math.PI / 2 + Math.max(holeRad, 0.02);
+  const arcEnd = Math.PI / 2 - Math.max(holeRad, 0.02) + Math.PI * 2;
+  const ringPath = useMemo(() => {
+    if (holeHalfDeg < 1) {
+      // full closed circle
+      return `M ${W / 2 - ringR} ${ringY} A ${ringR} ${ringR} 0 1 1 ${W / 2 + ringR} ${ringY} A ${ringR} ${ringR} 0 1 1 ${W / 2 - ringR} ${ringY}`;
+    }
+    const x0 = W / 2 + Math.cos(arcStart) * ringR;
+    const y0 = ringY + Math.sin(arcStart) * ringR;
+    const x1 = W / 2 + Math.cos(arcEnd) * ringR;
+    const y1 = ringY + Math.sin(arcEnd) * ringR;
+    return `M ${x0} ${y0} A ${ringR} ${ringR} 0 1 1 ${x1} ${y1}`;
+  }, [ringR, ringY, holeHalfDeg, arcStart, arcEnd]);
 
   return (
     <div className="relative w-full overflow-hidden rounded-[28px] border border-white/[0.1] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
@@ -422,7 +616,7 @@ function RaceStage({
         <div
           className="absolute inset-0"
           style={{
-            background: `radial-gradient(ellipse 80% 50% at 50% ${isLobby ? "50%" : "0%"}, ${accent}22, transparent 60%)`,
+            background: `radial-gradient(ellipse 80% 50% at 50% ${isLobby ? "50%" : "8%"}, ${accent}22, transparent 60%)`,
           }}
         />
 
@@ -439,7 +633,7 @@ function RaceStage({
         >
           <defs>
             <linearGradient id="ringStroke" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor={accent} stopOpacity="0.9" />
+              <stop offset="0%" stopColor={accent} stopOpacity="0.95" />
               <stop offset="100%" stopColor="#a78bfa" stopOpacity="0.55" />
             </linearGradient>
             <pattern
@@ -484,100 +678,81 @@ function RaceStage({
               />
             ))}
 
-          {/* Spinning ring — balls inside so they orbit */}
-          <g
-            style={{
-              transformOrigin: `${W / 2}px ${ringY}px`,
-              animation:
-                isLobby || phase === "release"
-                  ? isLobby
-                    ? "race-spin 5.5s linear infinite"
-                    : "race-spin 2.2s linear infinite"
-                  : "none",
-            }}
-          >
-            <circle
-              cx={W / 2}
-              cy={ringY}
-              r={ringR}
-              fill="none"
-              stroke="url(#ringStroke)"
-              strokeWidth={isLobby ? 4.5 : 3}
-              opacity="0.95"
-            />
-            <circle
-              cx={W / 2}
-              cy={ringY}
-              r={ringR}
-              fill="none"
-              stroke="rgba(255,255,255,0.1)"
-              strokeWidth="1"
-              strokeDasharray="5 9"
-            />
-            <path
-              d={`M ${W / 2 - 16} ${ringY - ringR} A ${ringR} ${ringR} 0 0 1 ${W / 2 + 16} ${ringY - ringR}`}
-              fill="none"
-              stroke="#06060c"
-              strokeWidth="9"
-              strokeLinecap="round"
-              opacity={
-                phase === "release" || phase === "fall" || phase === "finish"
-                  ? 0.12
-                  : 0.9
-              }
-            />
-            <path
-              d={`M ${W / 2 - 12} ${ringY - ringR} A ${ringR} ${ringR} 0 0 1 ${W / 2 + 12} ${ringY - ringR}`}
-              fill="none"
-              stroke="rgba(255,255,255,0.28)"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              opacity={
-                phase === "release" || phase === "fall" || phase === "finish"
-                  ? 0.08
-                  : 0.75
-              }
-            />
+          {/* ring: closed in lobby, gap opens after timer */}
+          <path
+            d={ringPath}
+            fill="none"
+            stroke="url(#ringStroke)"
+            strokeWidth={isLobby ? 5 : 3.5}
+            strokeLinecap="round"
+            opacity="0.95"
+          />
+          {holeOpen && (
+            <>
+              <circle
+                cx={W / 2 + Math.cos(arcStart) * ringR}
+                cy={ringY + Math.sin(arcStart) * ringR}
+                r={3.5}
+                fill="rgba(255,255,255,0.4)"
+              />
+              <circle
+                cx={W / 2 + Math.cos(arcEnd) * ringR}
+                cy={ringY + Math.sin(arcEnd) * ringR}
+                r={3.5}
+                fill="rgba(255,255,255,0.4)"
+              />
+            </>
+          )}
 
-            {isLobby &&
-              balls.map((b, i) => {
-                const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
-                const isFollow =
-                  b.id === followBallId || b.telegramId === telegramId;
-                const cx = W / 2 + Math.cos(angle) * orbitR;
-                const cy = ringY + Math.sin(angle) * orbitR;
-                return (
-                  <AvatarBall
-                    key={b.id}
-                    cx={cx}
-                    cy={cy}
-                    r={isFollow ? 11 : 9}
-                    username={b.username}
-                    photoUrl={b.photoUrl}
-                    highlight={isFollow}
-                  />
-                );
-              })}
-          </g>
+          {/* physics-driven balls in lobby / release */}
+          {(phase === "lobby" || phase === "lock" || phase === "release") &&
+            sim.map((b) => {
+              const isFollow =
+                b.id === followBallId || b.telegramId === telegramId;
+              return (
+                <AvatarBall
+                  key={b.id}
+                  cx={b.x}
+                  cy={b.y}
+                  r={isFollow ? 11 : 9}
+                  username={b.username}
+                  photoUrl={b.photoUrl}
+                  highlight={isFollow}
+                />
+              );
+            })}
 
-          {!isLobby &&
-            balls.map((b, i) => {
+          {/* track fall */}
+          {(phase === "fall" || phase === "finish") &&
+            ballsMeta.map((b, i) => {
               const rank = b.finishRank ?? i + 1;
               const isFollow =
                 b.id === followBallId || b.telegramId === telegramId;
               const path = paths[b.id] || [];
-              const pos = samplePath(path, fallProgress, rank, balls.length);
+              const pos = samplePath(path, fallProgress, rank, ballsMeta.length);
+              const holeX = W / 2 + (hash01(b.id) - 0.5) * 28;
+              const holeY = H * 0.18 - 70;
+              const finY = track.trackBot;
+              const bias = (rank - 1) / Math.max(ballsMeta.length, 1);
+              const tt = Math.min(
+                1,
+                Math.max(0, fallProgress * (1.1 - bias * 0.4) - bias * 0.04)
+              );
+              const ease = tt * tt * (3 - 2 * tt);
+              const cx =
+                path.length > 4
+                  ? pos.x
+                  : holeX + Math.sin(tt * 9 + i) * 20 * (1 - tt);
+              const cy = path.length > 4 ? pos.y : holeY + (finY - holeY) * ease;
               return (
                 <AvatarBall
                   key={b.id}
-                  cx={pos.x}
-                  cy={pos.y}
+                  cx={cx}
+                  cy={cy}
                   r={isFollow ? 9 : 7.5}
                   username={b.username}
                   photoUrl={b.photoUrl}
-                  highlight={
-                    isFollow && (phase === "fall" || phase === "finish")
-                  }
+                  highlight={isFollow}
                 />
               );
             })}
@@ -609,12 +784,12 @@ function RaceStage({
           )}
         </svg>
 
-        {balls.length === 0 && (
+        {ballsMeta.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-8">
             <div className="text-center text-[13px] text-white/40 leading-relaxed">
-              Купи шарик — аватар появится в кольце.
+              Купи шарик — он упадёт в кольцо и будет толкаться с другими.
               <br />
-              Первый на финише забирает банк.
+              После таймера дырка откроется сверху.
             </div>
           </div>
         )}
