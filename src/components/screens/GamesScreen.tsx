@@ -64,25 +64,17 @@ export function GamesScreen({
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_20%_20%,rgba(244,114,182,0.45),transparent_55%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_95%_5%,rgba(167,139,250,0.4),transparent_45%)]" />
           <div className="absolute bottom-[-35%] right-[-10%] w-[60%] h-[70%] rounded-full bg-fuchsia-400/15 blur-3xl" />
-          <div
-            className="absolute inset-0 opacity-[0.06]"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-              backgroundSize: "28px 28px",
-            }}
-          />
           <OnlineBadge count={rpsOnline} />
           <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
-            <div className="flex items-center -space-x-2.5">
-              <div className="w-11 h-11 rounded-full bg-white/[0.14] border-2 border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.3)] z-30 text-white">
-                <ChoiceIcon choice="rock" className="w-6 h-6" />
+            <div className="flex items-center gap-2">
+              <div className="relative w-[52px] h-[52px] rounded-2xl bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] -rotate-6 group-hover:rotate-0 transition-transform duration-300 text-white">
+                <ChoiceIcon choice="rock" className="w-7 h-7" />
               </div>
-              <div className="w-11 h-11 rounded-full bg-white/[0.14] border-2 border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.3)] z-20 text-white">
-                <ChoiceIcon choice="paper" className="w-6 h-6" />
+              <div className="relative w-[52px] h-[52px] rounded-2xl bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] rotate-3 group-hover:rotate-0 transition-transform duration-300 -ml-1 text-white">
+                <ChoiceIcon choice="paper" className="w-7 h-7" />
               </div>
-              <div className="w-11 h-11 rounded-full bg-white/[0.14] border-2 border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.3)] z-10 text-white">
-                <ChoiceIcon choice="scissors" className="w-6 h-6" />
+              <div className="relative w-[52px] h-[52px] rounded-2xl bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] rotate-6 group-hover:rotate-0 transition-transform duration-300 -ml-1 text-white">
+                <ChoiceIcon choice="scissors" className="w-7 h-7" />
               </div>
             </div>
             <div className="mt-6">
@@ -199,7 +191,7 @@ export function GamesScreen({
             </div>
             <div className="mt-5">
               <div className="text-[22px] font-bold text-white tracking-tight leading-none">
-                Dice
+                {t("dice")}
               </div>
               <div className="text-[13px] text-white/55 mt-1.5 leading-snug max-w-[92%]">
                 {isRu
