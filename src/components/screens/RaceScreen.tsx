@@ -40,6 +40,7 @@ type SimBall = {
   vx: number;
   vy: number;
   r: number;
+  seat: number;
   telegramId: number;
   username: string;
   photoUrl: string | null;
