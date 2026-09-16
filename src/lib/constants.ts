@@ -104,14 +104,24 @@ export function isIndividualRefViewer(telegramId: number | null | undefined): bo
   return (INDIVIDUAL_REF_TELEGRAM_IDS as readonly number[]).includes(Number(telegramId));
 }
 
-/** Special partner tier: 4% of house fee → referrer, rest of fee stays with the app */
+/**
+ * Special partner tier.
+ * App house edge = 5% of stake. Partner gets 4% of stake → 4/5 = 80% of house fee.
+ * App keeps 1% of stake (20% of house fee).
+ */
+/**
+ * Special partner tier (visible only to allow-listed Telegram IDs).
+ * House edge = 5% of bet. Partner gets 4% of bet → shareOfHouseFee = 4/5 = 0.8 (80%).
+ * App keeps 1% of bet (20% of house fee).
+ * Unlocks (pays) from 1 invite; card is always visible to allow-list.
+ */
 export const INDIVIDUAL_TIER: ReferralTier = {
   id: "individual",
   name: "Individual",
   minActive: 1,
   maxActive: null,
   minTurnover: 0,
-  shareOfHouseFee: 0.04,
+  shareOfHouseFee: 0.8,
   color: "#f0abfc",
   emoji: "✦",
   restrictedToTelegramIds: INDIVIDUAL_REF_TELEGRAM_IDS,

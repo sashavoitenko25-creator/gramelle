@@ -118,9 +118,14 @@ export function ReferralsScreen({
         </button>
         {tier && (
           <div className="mt-2 text-xs text-cyan-300/80">
-            {t("youEarnShare", {
-              n: Math.round(tier.shareOfHouseFee * 100),
-            })}
+            {tier.id === "individual"
+              ? tr(
+                  "You earn 4% of each referral bet (app keeps 1%)",
+                  "Ты получаешь 4% от ставки реферала (приложению 1%)"
+                )
+              : t("youEarnShare", {
+                  n: Math.round(tier.shareOfHouseFee * 100),
+                })}
           </div>
         )}
       </div>
@@ -188,18 +193,18 @@ export function ReferralsScreen({
                 </div>
                 <p className="mt-1.5 text-[12px] text-white/65 leading-relaxed">
                   {tr(
-                    "You receive 4% of the house fee from every game your referrals play. The app keeps the rest of the commission.",
-                    "Ты получаешь 4% от комиссии (house fee) с каждой игры твоих рефералов. Остальная комиссия остаётся приложению."
+                    "You receive 4% of your referral's bet. The app keeps 1% (house edge is 5% total).",
+                    "Ты получаешь 4% от ставки реферала. Приложению остаётся 1% (всего комиссия 5%)."
                   )}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <div className="px-2.5 py-1 rounded-xl bg-black/25 border border-white/10 text-[11px]">
                     <span className="text-white/40">{tr("Your share", "Твоя доля")} </span>
-                    <span className="font-bold text-fuchsia-200">4%</span>
+                    <span className="font-bold text-fuchsia-200">4% {tr("of bet", "от ставки")}</span>
                   </div>
                   <div className="px-2.5 py-1 rounded-xl bg-black/25 border border-white/10 text-[11px]">
                     <span className="text-white/40">{tr("App", "Приложение")} </span>
-                    <span className="font-bold text-cyan-200">~1%+</span>
+                    <span className="font-bold text-cyan-200">1% {tr("of bet", "от ставки")}</span>
                   </div>
                   <div className="px-2.5 py-1 rounded-xl bg-black/25 border border-white/10 text-[11px]">
                     <span className="text-white/40">{tr("From", "От")} </span>
