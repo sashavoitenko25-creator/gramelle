@@ -60,7 +60,7 @@ export const MIN_DEPOSIT_TON = 0.5;
 export const MAX_DEPOSIT_TON = 1_000_000;
 export const TON_PENDING_TTL_SEC = 10 * 60;
 
-export const MIN_WITHDRAW_TON = 5;
+export const MIN_WITHDRAW_TON = 2;
 /** No practical per-request withdraw cap */
 export const MAX_WITHDRAW_TON = 1_000_000;
 export const WITHDRAW_FEE_GRAM = 0;
@@ -72,7 +72,7 @@ export const SUPPORT_LABEL =
   process.env.NEXT_PUBLIC_SUPPORT_LABEL || "@GramellePlay";
 /** @deprecated join bonus disabled — only % of house fee */
 export const REFERRAL_JOIN_BONUS = 0;
-export const REFERRAL_MIN_WITHDRAW = 2;
+export const REFERRAL_MIN_WITHDRAW = 0.25;
 
 export type ReferralTierId =
   | "none"
