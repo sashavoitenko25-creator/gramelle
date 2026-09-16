@@ -1,0 +1,16 @@
+Установка Race overlay
+======================
+1. Распакуй архив ПОВЕРХ корня проекта gramelle
+   (пути внутри уже src/..., sql/...)
+2. npm run build
+3. Задеплой
+
+Состав:
+  src/components/screens/RaceScreen.tsx  — UI + физика + карта
+  src/lib/raceConstants.ts               — карты / константы
+  src/lib/raceApi.ts                     — клиент API
+  src/lib/server/race.ts                 — серверная логика
+  src/app/api/race/*/route.ts            — API routes
+  sql/race_tables.sql                    — схема (если ещё не применял)
+
+Другие игры (RPS/Dice/XO) НЕ меняются.

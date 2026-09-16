@@ -903,6 +903,11 @@ function RaceStage({
               <stop offset="0%" stopColor="#a855f7" stopOpacity="0.4" />
               <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
             </radialGradient>
+            <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#4FC3F7" />
+              <stop offset="50%" stopColor="#a78bfa" />
+              <stop offset="100%" stopColor="#f472b6" />
+            </linearGradient>
             <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur stdDeviation="2.5" result="b" />
               <feMerge>
@@ -1109,13 +1114,6 @@ function RaceStage({
             strokeLinecap="round"
             opacity={0.95}
           />
-          <defs>
-            <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#4FC3F7" />
-              <stop offset="50%" stopColor="#a78bfa" />
-              <stop offset="100%" stopColor="#f472b6" />
-            </linearGradient>
-          </defs>
           {/* hole glow when open */}
           {holeHalfDeg > 2 && (
             <ellipse
@@ -1328,6 +1326,7 @@ function RaceStage({
 export function RaceScreen({
   balance,
   telegramId,
+  username: _username,
   onBack,
   onBalanceUpdate,
   onReloadBalance,
