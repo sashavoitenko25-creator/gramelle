@@ -190,15 +190,75 @@ function simulatePath(
 ): { x: number; y: number }[] {
   const seed = hash01(ballId + ":" + seat);
   const R = 9;
-  let x = W * 0.5 + (seed - 0.5) * 30;
+  let x = W * 0.5 + (seed - 0.5) * 28;
   let y = ringY + 2;
-  let vx = (seed - 0.5) * 2.2 + ((seat % 5) - 2) * 0.3;
-  let vy = 1.4 + seed * 0.5;
-  const g = 0.26;
-  const air = 0.999;
+  let vx = (seed - 0.5) * 2.4 + ((seat % 5) - 2) * 0.35;
+  let vy = 1.5 + seed * 0.55;
+  const g = 0.27;
+  const air = 0.9988;
   const points: { x: number; y: number }[] = [{ x, y }];
 
-  for (let step = 0; step < 1600; step++) {
+  // rotating crosses: store centers + arm length from pegs kind cross
+  const crosses = pegs.filter((p) => p.kind === "cross");
+  // static walls only (non-cross - crosses are dynamic)
+  // walls that form crosses were pushed as horizontal+vertical lines through center -
+  // skip walls that are near a cross center (handled dynamically)
+  const isCrossWall = (w: Wall) => {
+    for (const c of crosses) {
+      const mx = (w.x1 + w.x2) / 2;
+      const my = (w.y1 + w.y2) / 2;
+      if (Math.hypot(mx - c.x, my - c.y) < c.r * 0.3) return true;
+    }
+    return false;
+  };
+  const staticWalls = walls.filter((w) => !isCrossWall(w));
+
+  const collideSeg = (
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    thick: number,
+    rest: number
+  ) => {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const t = Math.max(
+      0,
+      Math.min(1, ((x - x1) * dx + (y - y1) * dy) / (len * len))
+    );
+    const px = x1 + t * dx;
+    const py = y1 + t * dy;
+    let ox = x - px;
+    let oy = y - py;
+    let dist = Math.hypot(ox, oy);
+    if (dist < 1e-4) {
+      ox = -dy / len;
+      oy = dx / len;
+      dist = 1;
+    }
+    const rad = R + thick * 0.5;
+    if (dist < rad) {
+      const nx = ox / dist;
+      const ny = oy / dist;
+      x += nx * (rad - dist);
+      y += ny * (rad - dist);
+      const vn = vx * nx + vy * ny;
+      if (vn < 0) {
+        vx -= (1 + rest) * vn * nx;
+        vy -= (1 + rest) * vn * ny;
+        // slight spin kick
+        vx += (-ny) * 0.08;
+        vy += nx * 0.08;
+      }
+    }
+  };
+
+  for (let step = 0; step < 1800; step++) {
+    // rotation angle grows over simulation time
+    const ang = step * 0.035;
+
     for (let sub = 0; sub < 3; sub++) {
       vy += g / 3;
       vx *= air;
@@ -208,56 +268,60 @@ function simulatePath(
 
       if (x - R < leftX) {
         x = leftX + R;
-        if (vx < 0) vx = -vx * 0.55;
+        if (vx < 0) vx = -vx * 0.6;
       }
       if (x + R > rightX) {
         x = rightX - R;
-        if (vx > 0) vx = -vx * 0.55;
+        if (vx > 0) vx = -vx * 0.6;
       }
 
-      for (const w of walls) {
-        const dx = w.x2 - w.x1;
-        const dy = w.y2 - w.y1;
-        const len = Math.hypot(dx, dy) || 1;
-        const t = Math.max(
-          0,
-          Math.min(1, ((x - w.x1) * dx + (y - w.y1) * dy) / (len * len))
-        );
-        const px = w.x1 + t * dx;
-        const py = w.y1 + t * dy;
-        let ox = x - px;
-        let oy = y - py;
-        let dist = Math.hypot(ox, oy);
-        if (dist < 1e-4) {
-          ox = -dy / len;
-          oy = dx / len;
-          dist = 1;
-        }
-        const isFlat = Math.abs(dy) < 2.5 && Math.abs(dx) > 10;
-        const half = isFlat ? 6 : 3;
-        const rad = R + half;
-        if (dist < rad) {
-          const nx = ox / dist;
-          const ny = oy / dist;
-          x += nx * (rad - dist);
-          y += ny * (rad - dist);
-          const vn = vx * nx + vy * ny;
-          if (vn < 0) {
-            const rest = 0.72;
-            vx -= (1 + rest) * vn * nx;
-            vy -= (1 + rest) * vn * ny;
-            if (isFlat && ny < -0.3) {
-              if (vy < 0.25) vy = 0.2;
-              if (Math.abs(vx) < 0.15) vx += seed > 0.5 ? 0.3 : -0.3;
-            } else if (vy < 0.3) {
-              vy = 0.3 + seed * 0.1;
-            }
+      for (const w of staticWalls) {
+        const isFlat = Math.abs(w.y2 - w.y1) < 2.5 && Math.abs(w.x2 - w.x1) > 10;
+        const thick = isFlat ? 12 : 6;
+        const rest = isFlat ? 0.65 : 0.72;
+        collideSeg(w.x1, w.y1, w.x2, w.y2, thick, rest);
+        if (isFlat) {
+          // keep sliding off shelves
+          const my = (w.y1 + w.y2) / 2;
+          if (Math.abs(y - my) < R + 8 && Math.abs(x - (w.x1 + w.x2) / 2) < Math.abs(w.x2 - w.x1) / 2) {
+            if (vy < 0.2) vy = 0.18;
+            if (Math.abs(vx) < 0.12) vx += seed > 0.5 ? 0.28 : -0.28;
           }
         }
       }
 
+      // rotating crosses
+      for (const c of crosses) {
+        const arm = c.r;
+        const ca = Math.cos(ang);
+        const sa = Math.sin(ang);
+        // arm 1
+        collideSeg(
+          c.x - arm * ca,
+          c.y - arm * sa,
+          c.x + arm * ca,
+          c.y + arm * sa,
+          arm * 0.28,
+          0.8
+        );
+        // arm 2 perpendicular
+        collideSeg(
+          c.x - arm * -sa,
+          c.y - arm * ca,
+          c.x + arm * -sa,
+          c.y + arm * ca,
+          arm * 0.28,
+          0.8
+        );
+      }
+
       for (const p of pegs) {
-        if (p.kind === "cross" || p.kind === "arc" || p.kind === "label1" || p.kind === "label3")
+        if (
+          p.kind === "cross" ||
+          p.kind === "arc" ||
+          p.kind === "label1" ||
+          p.kind === "label3"
+        )
           continue;
         const pr =
           p.kind === "arc_edge" ? 4 : p.kind === "bumper" ? 9 : p.r;
@@ -272,18 +336,18 @@ function simulatePath(
           y += ny * (minD - dist);
           const vn = vx * nx + vy * ny;
           if (vn < 0) {
-            const rest = p.kind === "peg" ? 0.8 : 0.75;
+            const rest = p.kind === "peg" ? 0.82 : 0.76;
             vx -= (1 + rest) * vn * nx;
             vy -= (1 + rest) * vn * ny;
-            vx += (seed - 0.5) * 0.3;
-            if (vy < 0.25) vy = 0.25 + seed * 0.1;
+            vx += (seed - 0.5) * 0.35;
+            if (vy < 0.22) vy = 0.22 + seed * 0.12;
           }
         }
       }
     }
 
-    if (vy > 6.5) vy = 6.5;
-    if (Math.abs(vx) > 4.5) vx *= 0.9;
+    if (vy > 7) vy = 7;
+    if (Math.abs(vx) > 5) vx *= 0.9;
 
     if (y > trackBot - 3) {
       y = trackBot - 3;
@@ -427,10 +491,10 @@ function RaceStage({
   const holeOpen =
     phase === "release" || phase === "fall" || phase === "finish";
 
-  const ringY = isLobby ? H * 0.32 : H * 0.16;
-  const ringR = isLobby ? 100 : 78;
+  const ringY = isLobby ? H * 0.48 : H * 0.12;
+  const ringR = isLobby ? 110 : 72;
   // hole closed in lobby; opens after timer
-  const holeHalfDeg = holeOpen ? 48 : 0;
+  const holeHalfDeg = phase === "release" ? 32 : phase === "fall" || phase === "finish" ? 55 : 0;
 
   const track = useMemo(() => buildTrack(mapId, W, H, H * 0.16), [mapId]);
 
@@ -482,102 +546,104 @@ function RaceStage({
   useEffect(() => {
     let raf = 0;
     let last = performance.now();
-    const g = 0.35;
-    const damp = 0.995;
-    const wallRest = 0.78;
-    const ballRest = 0.85;
+    const g = 0.38;
+    const damp = 0.993;
+    const wallRest = 0.82;
+    const ballRest = 0.88;
 
     const tick = (now: number) => {
-      const dt = Math.min(0.032, (now - last) / 16.67);
+      let dt = (now - last) / 1000;
       last = now;
+      if (dt > 0.05) dt = 0.05;
       const ph = phaseRef.current;
       const open = ph === "release" || ph === "fall" || ph === "finish";
       const onTrack = ph === "fall" || ph === "finish";
 
-      // during fall/finish track animation is driven by fallProgress paths — still update lobby/release
       if (onTrack) {
         raf = requestAnimationFrame(tick);
         return;
       }
 
+      const steps = Math.max(2, Math.min(8, Math.ceil(dt / 0.006)));
+      const h = dt / steps;
       const cx = W / 2;
       const cy = ringY;
-      const hole = open ? (48 * Math.PI) / 180 : 0;
+      const hole = open ? ((phaseRef.current === "release" ? 32 : 48) * Math.PI) / 180 : 0;
       const balls = simRef.current.map((b) => ({ ...b }));
 
-      for (const b of balls) {
-        b.vy += g * dt;
-        b.x += b.vx * dt;
-        b.y += b.vy * dt;
-        b.vx *= damp;
-        b.vy *= Math.min(1, damp + 0.001);
+      for (let s = 0; s < steps; s++) {
+        for (const b of balls) {
+          b.vy += g * h * 60;
+          b.vx *= Math.pow(damp, h * 60);
+          b.vy *= Math.pow(damp, h * 60);
+          b.x += b.vx * h * 60;
+          b.y += b.vy * h * 60;
 
-        // containment circle (ring inner wall)
-        const dx = b.x - cx;
-        const dy = b.y - cy;
-        const dist = Math.hypot(dx, dy) || 0.0001;
-        const maxD = ringR - b.r - 2;
-        const ang = Math.atan2(dy, dx);
-        // angle from top: 0 at top going clockwise... atan2: top is -PI/2
-        const fromTop = Math.abs(((ang + Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        // simpler: hole around angle -PI/2
-        let inHole = false;
-        if (open) {
-          const a = Math.atan2(dy, dx);
-          // hole at bottom so gravity carries balls out
-          const bottom = Math.PI / 2;
-          let dA = a - bottom;
-          while (dA > Math.PI) dA -= Math.PI * 2;
-          while (dA < -Math.PI) dA += Math.PI * 2;
-          inHole = Math.abs(dA) < hole / 2 && dist > maxD * 0.7;
-        }
-
-        if (dist > maxD && !inHole) {
-          const nx = dx / dist;
-          const ny = dy / dist;
-          b.x = cx + nx * maxD;
-          b.y = cy + ny * maxD;
-          const vn = b.vx * nx + b.vy * ny;
-          if (vn > 0) {
-            b.vx -= (1 + wallRest) * vn * nx;
-            b.vy -= (1 + wallRest) * vn * ny;
-          }
-          // friction along tangent
-          b.vx *= 0.98;
-          b.vy *= 0.98;
-        }
-
-        // floor of view soft clamp when still in ring area
-        if (!open && b.y > cy + maxD) {
-          b.y = cy + maxD;
-          if (b.vy > 0) b.vy *= -wallRest;
-        }
-      }
-
-      // ball-ball collisions
-      for (let i = 0; i < balls.length; i++) {
-        for (let j = i + 1; j < balls.length; j++) {
-          const a = balls[i];
-          const b = balls[j];
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
+          const dx = b.x - cx;
+          const dy = b.y - cy;
           const dist = Math.hypot(dx, dy) || 0.0001;
-          const minD = a.r + b.r;
-          if (dist < minD) {
+          const maxD = ringR - b.r - 1.5;
+          let inHole = false;
+          if (open) {
+            const a = Math.atan2(dy, dx);
+            const bottom = Math.PI / 2;
+            let dA = a - bottom;
+            while (dA > Math.PI) dA -= Math.PI * 2;
+            while (dA < -Math.PI) dA += Math.PI * 2;
+            inHole = Math.abs(dA) < hole / 2 && dist > maxD * 0.55;
+          }
+
+          if (dist > maxD && !inHole) {
             const nx = dx / dist;
             const ny = dy / dist;
-            const overlap = minD - dist;
-            a.x -= nx * overlap * 0.55;
-            a.y -= ny * overlap * 0.55;
-            b.x += nx * overlap * 0.55;
-            b.y += ny * overlap * 0.55;
-            const va = a.vx * nx + a.vy * ny;
-            const vb = b.vx * nx + b.vy * ny;
-            const imp = ((1 + ballRest) * (va - vb)) / 2;
-            a.vx -= imp * nx;
-            a.vy -= imp * ny;
-            b.vx += imp * nx;
-            b.vy += imp * ny;
+            b.x = cx + nx * maxD;
+            b.y = cy + ny * maxD;
+            const vn = b.vx * nx + b.vy * ny;
+            if (vn > 0) {
+              b.vx -= (1 + wallRest) * vn * nx;
+              b.vy -= (1 + wallRest) * vn * ny;
+              const tx = -ny;
+              const ty = nx;
+              const vt = b.vx * tx + b.vy * ty;
+              b.vx -= vt * tx * 0.1;
+              b.vy -= vt * ty * 0.1;
+            }
+          }
+          if (!open && b.y > cy + maxD) {
+            b.y = cy + maxD;
+            if (b.vy > 0) b.vy *= -wallRest;
+          }
+        }
+
+        // multi-pass ball-ball
+        for (let pass = 0; pass < 4; pass++) {
+          for (let i = 0; i < balls.length; i++) {
+            for (let j = i + 1; j < balls.length; j++) {
+              const a = balls[i];
+              const b = balls[j];
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const dist = Math.hypot(dx, dy) || 0.0001;
+              const minD = a.r + b.r;
+              if (dist >= minD) continue;
+              const nx = dx / dist;
+              const ny = dy / dist;
+              const overlap = minD - dist;
+              const corr = overlap * 0.55;
+              a.x -= nx * corr;
+              a.y -= ny * corr;
+              b.x += nx * corr;
+              b.y += ny * corr;
+              const va = a.vx * nx + a.vy * ny;
+              const vb = b.vx * nx + b.vy * ny;
+              const rel = va - vb;
+              if (rel > 0) continue;
+              const jImp = (-(1 + ballRest) * rel) / 2;
+              a.vx -= jImp * nx;
+              a.vy -= jImp * ny;
+              b.vx += jImp * nx;
+              b.vy += jImp * ny;
+            }
           }
         }
       }
@@ -610,12 +676,13 @@ function RaceStage({
     return map;
   }, [ballsMeta, track]);
 
-  const camY = isLobby ? 0 : phase === "release" ? 4 : 12 + fallProgress * 85;
+  const easeFall = fallProgress * fallProgress * (3 - 2 * fallProgress);
+  const camY = isLobby ? 0 : phase === "release" ? 6 : 8 + easeFall * 70;
   const camScale = isLobby
-    ? 1.32
+    ? 1.05
     : phase === "release"
-      ? 0.96
-      : 0.8 - fallProgress * 0.05;
+      ? 1.0
+      : 0.92 - easeFall * 0.04;
   const accent = track.map.accent;
 
   const holeRad = (holeHalfDeg * Math.PI) / 180;
@@ -639,7 +706,7 @@ function RaceStage({
       <div
         className={cn(
           "relative bg-[#0A0E2A] will-change-transform overflow-hidden",
-          "aspect-[3/4.6]"
+          isLobby ? "aspect-square" : "aspect-[9/16]"
         )}
         style={{
           transform: `scale(${camScale}) translateY(${camY}px)`,
@@ -702,7 +769,7 @@ function RaceStage({
             </pattern>
           </defs>
 
-          {track.walls.map((w, i) => {
+          {!isLobby && track.walls.map((w, i) => {
               const isSide =
                 Math.abs(w.x1 - w.x2) < 2 && Math.abs(w.y1 - w.y2) > 50;
               const isFlat = Math.abs(w.y1 - w.y2) < 3;
@@ -721,12 +788,22 @@ function RaceStage({
               );
             })}
 
-          {track.pegs.map((pg, i) => {
+          {!isLobby && track.pegs.map((pg, i) => {
               if (pg.kind === "cross") {
                 const arm = pg.r;
                 const th = Math.max(6, arm * 0.28);
+                // spin: match sim ~0.035 rad/step over ~path; use fallProgress * turns
+                const rotDeg =
+                  (phase === "fall" || phase === "finish"
+                    ? fallProgress * 360 * 2.2
+                    : phase === "release"
+                      ? 20
+                      : 0) + i * 18;
                 return (
-                  <g key={`p-${i}`}>
+                  <g
+                    key={`p-${i}`}
+                    transform={`rotate(${rotDeg} ${pg.x} ${pg.y})`}
+                  >
                     <line
                       x1={pg.x - arm}
                       y1={pg.y}
@@ -746,6 +823,13 @@ function RaceStage({
                       strokeWidth={th}
                       strokeLinecap="round"
                       opacity="0.95"
+                    />
+                    <circle
+                      cx={pg.x}
+                      cy={pg.y}
+                      r={th * 0.55}
+                      fill={accent}
+                      opacity="0.85"
                     />
                   </g>
                 );
@@ -877,7 +961,8 @@ function RaceStage({
               );
             })}
 
-          <g opacity={isLobby ? 0.35 : 1}>
+          {!isLobby && (
+          <g>
               <rect
                 x={22}
                 y={H * 0.9}
@@ -900,14 +985,15 @@ function RaceStage({
                 FINISH
               </text>
             </g>
+          )}
         </svg>
 
         {ballsMeta.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-8">
             <div className="text-center text-[13px] text-white/40 leading-relaxed">
-              Купи шарик — он упадёт в кольцо и будет толкаться с другими.
+              Купи шарик — он в кольце толкается с другими.
               <br />
-              После таймера дырка откроется сверху.
+              После таймера внизу откроется дырка — старт гонки.
             </div>
           </div>
         )}

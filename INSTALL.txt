@@ -1,22 +1,8 @@
-Race — рабочая сборка (на базе оригинала + доработки)
-=====================================================
+Race premium physics update
+===========================
+• Кресты ВРАЩАЮТСЯ (физика + визуал)
+• Кольцо: fixed-timestep, 4-pass ball-ball, high restitution
+• Трасса: substeps, rotating cross collision, soft shelves
+• Лобби чистое (без трассы), гонка отдельно
 
-1. Распакуй ПОВЕРХ корня gramelle
-2. npm run build
-3. deploy
-
-Файлы:
-  src/components/screens/RaceScreen.tsx
-  src/lib/raceConstants.ts
-  src/lib/raceApi.ts
-  src/lib/server/race.ts
-  src/app/api/race/**/route.ts
-  sql/race_tables.sql
-
-Что работает:
-  • Лобби: кольцо + шарики толкаются
-  • После таймера: GO, дырка, падение ~22с
-  • Трасса: полки / пины / кресты / арки / воронка / FINISH
-  • Зелёные шарики одного размера, без синей обводки
-  • Жёлтый ▲ над твоим шариком
-  • Сервер / API без изменений логики
+Распакуй поверх gramelle → npm run build
