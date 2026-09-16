@@ -527,115 +527,116 @@ export default function Home() {
 
       {!onboarded && (
         <div className="fixed inset-0 z-[70] flex items-end justify-center modal-backdrop">
-          <div className="w-full max-w-md glass-strong rounded-t-3xl p-6 slide-up border-t border-white/10 safe-bottom max-h-[90dvh] overflow-y-auto">
-            <h3 className="text-xl font-semibold tracking-tight mb-2">
+          <div className="w-full max-w-md glass-strong rounded-t-[28px] p-5 pt-4 slide-up border-t border-white/10 safe-bottom max-h-[92dvh] overflow-y-auto">
+            {/* drag handle */}
+            <div className="flex justify-center mb-3">
+              <div className="w-10 h-1 rounded-full bg-white/15" />
+            </div>
+            <h3 className="text-[20px] font-semibold tracking-tight mb-4 text-center">
               {t("howItWorks")}
             </h3>
-            <div className="space-y-3 mb-4 text-sm text-white/70">
-              {lang === "ru" ? (
-                <>
-                  <p>
-                    <span className="text-cyan-300 font-medium">1. Баланс</span> —
-                    пополните TON и получите GRAM
-                  </p>
-                  <p>
-                    <span className="text-cyan-300 font-medium">2. Игра</span> —
-                    выберите режим, создайте стол или присоединитесь
-                  </p>
-                  <p>
-                    <span className="text-cyan-300 font-medium">3. PvP</span> —
-                    играете против других игроков, победитель забирает банк
-                  </p>
-                  <p>
-                    <span className="text-cyan-300 font-medium">4. Честность</span> —
-                    у каждой партии есть Hash и Seed — можно проверить самому
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p>
-                    <span className="text-cyan-300 font-medium">1. Balance</span> —
-                    deposit TON and receive GRAM
-                  </p>
-                  <p>
-                    <span className="text-cyan-300 font-medium">2. Play</span> —
-                    pick a mode, create a table or join one
-                  </p>
-                  <p>
-                    <span className="text-cyan-300 font-medium">3. PvP</span> —
-                    play against other players — winner takes the pot
-                  </p>
-                  <p>
-                    <span className="text-cyan-300 font-medium">4. Fairness</span> —
-                    every round has Hash and Seed you can verify yourself
-                  </p>
-                </>
-              )}
-              <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+            <div className="space-y-3 mb-4">
+              {(lang === "ru"
+                ? [
+                    { n: "1", title: "Баланс", body: "Пополните TON и получите GRAM" },
+                    { n: "2", title: "Игра", body: "Выберите режим, создайте стол или присоединитесь" },
+                    { n: "3", title: "PvP", body: "Играете против других игроков — победитель забирает банк" },
+                    { n: "4", title: "Честность", body: "У каждой партии есть Hash и Seed — можно проверить самому" },
+                  ]
+                : [
+                    { n: "1", title: "Balance", body: "Deposit TON and receive GRAM" },
+                    { n: "2", title: "Play", body: "Pick a mode, create a table or join one" },
+                    { n: "3", title: "PvP", body: "Play against other players — winner takes the pot" },
+                    { n: "4", title: "Fairness", body: "Every round has Hash and Seed you can verify yourself" },
+                  ]
+              ).map((step) => (
+                <div
+                  key={step.n}
+                  className="flex items-start gap-3 rounded-2xl bg-white/[0.04] border border-white/[0.07] px-3.5 py-3"
+                >
+                  <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400/30 to-violet-500/25 border border-cyan-400/25 flex items-center justify-center text-[13px] font-bold text-cyan-200 shadow-[0_0_12px_rgba(34,211,238,0.15)]">
+                    {step.n}
+                  </div>
+                  <div className="min-w-0 pt-0.5">
+                    <div className="text-[13px] font-semibold text-white/90 leading-tight">
+                      {step.title}
+                    </div>
+                    <div className="text-[12px] text-white/50 leading-snug mt-0.5">
+                      {step.body}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <div className="rounded-2xl bg-gradient-to-br from-amber-500/12 to-orange-500/8 border border-amber-500/20 px-3.5 py-3">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
                   <div className="min-w-0">
-                    <div className="text-[10px] text-amber-200/55 truncate">
+                    <div className="text-[10px] text-amber-200/50 truncate uppercase tracking-wide">
                       {t("minBetLabel")}
                     </div>
-                    <div className="text-[12px] font-semibold text-amber-100/90 tabular-nums">
+                    <div className="text-[13px] font-semibold text-amber-100/95 tabular-nums mt-0.5">
                       0.25 GRAM
                     </div>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[10px] text-amber-200/55 truncate">
+                    <div className="text-[10px] text-amber-200/50 truncate uppercase tracking-wide">
                       {t("minDepositLabel")}
                     </div>
-                    <div className="text-[12px] font-semibold text-amber-100/90 tabular-nums">
+                    <div className="text-[13px] font-semibold text-amber-100/95 tabular-nums mt-0.5">
                       0.5 TON
                     </div>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[10px] text-amber-200/55 truncate">
+                    <div className="text-[10px] text-amber-200/50 truncate uppercase tracking-wide">
                       {t("minWithdrawLabel")}
                     </div>
-                    <div className="text-[12px] font-semibold text-amber-100/90 tabular-nums">
+                    <div className="text-[13px] font-semibold text-amber-100/95 tabular-nums mt-0.5">
                       5 TON
                     </div>
                   </div>
-                  <div className="min-w-0 col-span-2">
-                    <div className="text-[10px] text-amber-200/55">
+                  <div className="min-w-0">
+                    <div className="text-[10px] text-amber-200/50 leading-snug">
                       {t("pendingWdLabel")}
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-3 py-2.5">
-                <div className="text-[11px] font-semibold text-white/50 uppercase tracking-wider mb-1">
+
+              <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] px-3.5 py-3">
+                <div className="text-[11px] font-semibold text-white/45 uppercase tracking-wider mb-1.5">
                   {t("rulesTitle")}
                 </div>
                 <p className="text-[11px] text-white/40 leading-relaxed">
                   {t("rulesBody")}
                 </p>
               </div>
+
               <button
                 type="button"
                 onClick={() => {
                   haptic("light");
                   openLink(SUPPORT_URL);
                 }}
-                className="w-full text-left text-[12px] text-cyan-300/90 hover:text-cyan-200 transition"
+                className="w-full flex items-center justify-center gap-1.5 py-2 text-[12px] text-cyan-300/90 hover:text-cyan-200 transition"
               >
-                {t("support")}: {SUPPORT_URL.replace("https://t.me/", "@")}
+                <span>{t("support")}:</span>
+                <span className="font-medium">{SUPPORT_URL.replace("https://t.me/", "@")}</span>
               </button>
-              <label className="flex items-start gap-2.5 cursor-pointer pt-1">
+
+              <label className="flex items-start gap-2.5 cursor-pointer rounded-xl bg-white/[0.03] border border-white/[0.06] px-3.5 py-3">
                 <input
                   type="checkbox"
                   checked={ageOk}
                   onChange={(e) => setAgeOk(e.target.checked)}
-                  className="mt-0.5 accent-cyan-400"
+                  className="mt-0.5 accent-cyan-400 w-4 h-4"
                 />
-                <span className="text-[12px] text-white/55 leading-snug">
+                <span className="text-[12px] text-white/60 leading-snug">
                   {t("ageConfirm")}
                 </span>
               </label>
             </div>
             <button
-              className="w-full h-12 rounded-2xl btn-primary text-sm btn-press disabled:opacity-40"
+              className="w-full h-12 rounded-2xl btn-primary text-sm font-semibold btn-press disabled:opacity-40 shadow-[0_4px_24px_rgba(34,211,238,0.25)]"
               disabled={!ageOk}
               onClick={() => {
                 if (!ageOk) return;

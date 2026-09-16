@@ -480,28 +480,30 @@ export function XoScreen({
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="flex items-center gap-1.5 h-9 px-3 rounded-full glass border border-white/[0.1] shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
-          <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
-            {formatGram(balance)}
-          </span>
-          <span className="text-[10px] text-white/35 font-medium">GRAM</span>
+      <div className="flex items-center shrink-0">
+        <div className="flex items-center h-9 rounded-full glass border border-white/[0.12] shadow-[0_4px_20px_rgba(0,0,0,0.3)] overflow-hidden">
+          <div className="flex items-center gap-1.5 pl-3 pr-2">
+            <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
+              {formatGram(balance)}
+            </span>
+            <span className="text-[10px] text-white/35 font-medium">GRAM</span>
+          </div>
+          {onDeposit && (
+            <button
+              type="button"
+              onClick={() => {
+                haptic("light");
+                onDeposit();
+              }}
+              className="h-full px-2.5 flex items-center justify-center text-cyan-200/90 hover:text-cyan-100 hover:bg-cyan-400/15 border-l border-white/[0.1] transition-colors btn-press"
+              aria-label="Deposit"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          )}
         </div>
-        {onDeposit && (
-          <button
-            type="button"
-            onClick={() => {
-              haptic("light");
-              onDeposit();
-            }}
-            className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400/25 to-violet-500/25 border border-cyan-400/30 flex items-center justify-center text-cyan-200 btn-press shadow-[0_0_16px_rgba(34,211,238,0.25)]"
-            aria-label="Deposit"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
-        )}
       </div>
     </div>
   );
@@ -706,7 +708,7 @@ export function XoScreen({
           </div>
           {cards.length === 0 ? (
             <div className="text-center text-white/35 text-sm py-16">
-              {tr("No games yet", "Пока нет партий")}
+              {tr("No games yet", "Пока нет игр")}
             </div>
           ) : (
             <div className="space-y-2.5 pb-6">

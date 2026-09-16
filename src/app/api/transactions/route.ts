@@ -201,15 +201,22 @@ export async function GET(req: NextRequest) {
         });
       } else if (reason === "refund") {
         const game = meta.game != null ? String(meta.game) : "";
-        if (game === "rps") continue;
+        // Game stake refunds (draw / cancel) — do not show as rejected withdraw
+        if (game === "rps" || game === "xo" || game === "dice") continue;
+        const result = meta.result != null ? String(meta.result) : "";
+        const isWithdrawReject = meta.reason === "withdraw_rejected" || !game;
         items.push({
           id: `ld-${row.id}`,
-          kind: "withdraw",
-          status: "rejected",
+          kind: isWithdrawReject ? "withdraw" : "refund",
+          status: isWithdrawReject ? "rejected" : "completed",
           amount: Math.abs(Number(row.amount) || 0),
           unit: "GRAM",
-          title: "Возврат",
-          detail: "Возвращено на баланс",
+          title: isWithdrawReject ? "Возврат" : "Возврат ставки",
+          detail: isWithdrawReject
+            ? "Возвращено на баланс"
+            : result === "draw"
+              ? "Ничья — ставка возвращена"
+              : "Возвращено на баланс",
           createdAt: row.created_at,
         });
       }
