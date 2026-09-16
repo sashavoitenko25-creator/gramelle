@@ -568,39 +568,6 @@ export default function Home() {
                 </div>
               ))}
 
-              <div className="rounded-2xl bg-gradient-to-br from-amber-500/12 to-orange-500/8 border border-amber-500/20 px-3.5 py-3">
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
-                  <div className="min-w-0">
-                    <div className="text-[10px] text-amber-200/50 truncate uppercase tracking-wide">
-                      {t("minBetLabel")}
-                    </div>
-                    <div className="text-[13px] font-semibold text-amber-100/95 tabular-nums mt-0.5">
-                      0.25 GRAM
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] text-amber-200/50 truncate uppercase tracking-wide">
-                      {t("minDepositLabel")}
-                    </div>
-                    <div className="text-[13px] font-semibold text-amber-100/95 tabular-nums mt-0.5">
-                      0.5 TON
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] text-amber-200/50 truncate uppercase tracking-wide">
-                      {t("minWithdrawLabel")}
-                    </div>
-                    <div className="text-[13px] font-semibold text-amber-100/95 tabular-nums mt-0.5">
-                      5 TON
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] text-amber-200/50 leading-snug">
-                      {t("pendingWdLabel")}
-                    </div>
-                  </div>
-                </div>
-              </div>
 
               <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] px-3.5 py-3">
                 <div className="text-[11px] font-semibold text-white/45 uppercase tracking-wider mb-1.5">
