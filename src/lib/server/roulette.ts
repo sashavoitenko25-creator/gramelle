@@ -353,8 +353,11 @@ async function getGameNo(round: RouletteRoundRow): Promise<number> {
   return count ?? 0;
 }
 
-export async function getRouletteState(telegramId?: number | null) {
-  if (telegramId) touchRoulettePresence(telegramId);
+export async function getRouletteState(
+  telegramId?: number | null,
+  opts?: { touchPresence?: boolean }
+) {
+  if (opts?.touchPresence && telegramId) touchRoulettePresence(telegramId);
   const round = await advanceRoulette();
   const db = getAdminClient();
 

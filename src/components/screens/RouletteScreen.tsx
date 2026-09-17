@@ -218,7 +218,8 @@ export function RouletteScreen({
 
   const load = useCallback(async () => {
     try {
-      const data = await fetchRouletteState();
+      // presence=1 — count this client as online in LIVE Roulette
+      const data = await fetchRouletteState({ presence: true });
       mergeState(data);
       return data;
     } catch (e) {
@@ -766,19 +767,23 @@ export function RouletteScreen({
               type="button"
               disabled={status !== "betting"}
               onClick={() => void onBet(btn.c)}
-              className="relative overflow-hidden rounded-[20px] border border-white/15 p-3.5 text-left active:scale-[0.97] transition disabled:opacity-45"
+              className="relative overflow-hidden rounded-[20px] border border-white/15 px-2.5 py-3 text-left active:scale-[0.97] transition disabled:opacity-45"
               style={{ background: grad(btn.c) }}
             >
               <div className="absolute inset-0 bg-black/25" />
               <div className="relative">
-                <div className="text-[13px] font-black tracking-wide text-white">
-                  {btn.label}{" "}
-                  <span className="text-white/70">×{btn.mult}</span>
+                <div className="flex items-baseline justify-between gap-1">
+                  <span className="text-[11px] sm:text-[12px] font-black tracking-tight text-white leading-tight truncate">
+                    {btn.label}
+                  </span>
+                  <span className="text-[11px] font-bold text-white/75 tabular-nums shrink-0">
+                    ×{btn.mult}
+                  </span>
                 </div>
-                <div className="mt-1.5 text-[10px] text-white/55">
+                <div className="mt-1.5 text-[10px] text-white/55 truncate">
                   {tr("Pool", "Банк")} {formatGram(pools[btn.c])}
                 </div>
-                <div className="text-[10px] text-cyan-100/90">
+                <div className="text-[10px] text-cyan-100/90 truncate">
                   {tr("You", "Вы")} {formatGram(myBets[btn.c])}
                 </div>
               </div>

@@ -38,8 +38,9 @@ export type RouletteStateResponse = {
   state?: RouletteStateResponse;
 };
 
-export function fetchRouletteState() {
-  return apiFetch<RouletteStateResponse>("/api/roulette/state", {
+export function fetchRouletteState(opts?: { presence?: boolean }) {
+  const q = opts?.presence ? "?presence=1" : "";
+  return apiFetch<RouletteStateResponse>(`/api/roulette/state${q}`, {
     cache: "no-store",
   } as RequestInit);
 }

@@ -18,7 +18,11 @@ export async function GET(req: NextRequest) {
     } catch {
       /* public */
     }
-    const data = await getRouletteState(telegramId);
+    // Only count as "online" when client is actually in the game (?presence=1)
+    const touchPresence =
+      req.nextUrl.searchParams.get("presence") === "1" ||
+      req.nextUrl.searchParams.get("presence") === "true";
+    const data = await getRouletteState(telegramId, { touchPresence });
     return NextResponse.json(
       { ok: true, ...data },
       { headers: { "Cache-Control": "no-store" } }

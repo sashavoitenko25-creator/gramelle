@@ -68,9 +68,9 @@ function RouletteArt() {
       </g>
       <circle cx="60" cy="44" r="8" fill="url(#rhCore)" filter="url(#rhGlow)" />
       <circle cx="60" cy="44" r="3.2" fill="#fff" />
-      {/* pointer down into wheel (same as in-game ▼) */}
+      {/* pointer ▼ tip down into the wheel */}
       <g filter="url(#rhGlow)">
-        <path d="M60 12 L68 24 L52 24 Z" fill="#67e8f9" />
+        <path d="M52 14 L68 14 L60 26 Z" fill="#67e8f9" />
       </g>
     </svg>
   );
