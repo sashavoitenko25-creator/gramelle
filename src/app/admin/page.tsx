@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-type Tab = "withdrawals" | "players" | "stats";
+type Tab = "withdrawals" | "players" | "stats" | "roulette";
 
 interface Withdrawal {
   id: string;
@@ -40,6 +40,62 @@ interface Stats {
   xoFinished24h?: number;
 }
 
+type RouletteColor = "red" | "black" | "green";
+
+interface RouletteColorBucket {
+  red: number;
+  black: number;
+  green: number;
+  total: number;
+  pct: { red: number; black: number; green: number };
+}
+
+interface RouletteAnalytics {
+  ok: boolean;
+  expected: { red: number; black: number; green: number };
+  totals: {
+    all: RouletteColorBucket;
+    d24: RouletteColorBucket;
+    d7: RouletteColorBucket;
+  };
+  recent: { id: string; color: RouletteColor; slot: number | null; at: string }[];
+  byHour: number[];
+  byHourColor: Record<RouletteColor, number[]>;
+  economy24h: {
+    stake: number;
+    payout: number;
+    house: number;
+    bets: number;
+    players: number;
+  };
+  maxStreak: { color: RouletteColor; len: number };
+  active: {
+    id: string;
+    status: string;
+    bet_ends_at?: string;
+    created_at?: string;
+  } | null;
+  sampledRounds: number;
+}
+
+const COLOR_LABEL: Record<RouletteColor, string> = {
+  red: "Red",
+  black: "Black",
+  green: "Green",
+};
+
+const COLOR_DOT: Record<RouletteColor, string> = {
+  red: "bg-rose-500",
+  black: "bg-slate-400",
+  green: "bg-emerald-400",
+};
+
+const COLOR_TEXT: Record<RouletteColor, string> = {
+  red: "text-rose-300",
+  black: "text-slate-300",
+  green: "text-emerald-300",
+};
+
 export default function AdminPage() {
   const [secret, setSecret] = useState("");
   const [authed, setAuthed] = useState(false);
@@ -49,6 +105,7 @@ export default function AdminPage() {
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [roulette, setRoulette] = useState<RouletteAnalytics | null>(null);
   const [search, setSearch] = useState("");
   const [txHash, setTxHash] = useState<Record<string, string>>({});
 
@@ -121,17 +178,13 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/stats", { headers: headers() });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
-      // normalize in case old API returns only rpsFinished24h
       const normalized: Stats = {
         players: Number(data.players) || 0,
         banned: Number(data.banned) || 0,
         pendingWithdrawals: Number(data.pendingWithdrawals) || 0,
         deposits24h: Number(data.deposits24h) || 0,
         bets24h: Number(data.bets24h) || 0,
-        rounds24h:
-          Number(data.rounds24h) ||
-          Number(data.rpsFinished24h) ||
-          0,
+        rounds24h: Number(data.rounds24h) || Number(data.rpsFinished24h) || 0,
         rpsFinished24h: Number(data.rpsFinished24h) || 0,
         raceFinished24h: Number(data.raceFinished24h) || 0,
         diceFinished24h: Number(data.diceFinished24h) || 0,
@@ -146,12 +199,29 @@ export default function AdminPage() {
     }
   }, [headers]);
 
+  const loadRoulette = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/roulette", { headers: headers() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      setRoulette(data as RouletteAnalytics);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error");
+      setRoulette(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [headers]);
+
   useEffect(() => {
     if (!authed) return;
     if (tab === "withdrawals") loadWithdrawals();
     if (tab === "players") loadPlayers();
     if (tab === "stats") loadStats();
-  }, [authed, tab, loadWithdrawals, loadPlayers, loadStats]);
+    if (tab === "roulette") loadRoulette();
+  }, [authed, tab, loadWithdrawals, loadPlayers, loadStats, loadRoulette]);
 
   const copy = async (text: string) => {
     try {
@@ -217,10 +287,7 @@ export default function AdminPage() {
             placeholder="Secret"
             className="w-full h-12 rounded-2xl bg-black/40 border border-white/10 px-4 text-sm outline-none focus:border-cyan-500/40 mb-3"
           />
-          <button
-            onClick={login}
-            className="w-full h-11 rounded-2xl btn-primary text-sm"
-          >
+          <button onClick={login} className="w-full h-11 rounded-2xl btn-primary text-sm">
             Sign in
           </button>
         </div>
@@ -244,18 +311,19 @@ export default function AdminPage() {
           </button>
         </div>
 
-        <div className="flex gap-2 mb-5 p-1 rounded-2xl bg-black/30 border border-white/[0.06]">
+        <div className="flex gap-1.5 mb-5 p-1 rounded-2xl bg-black/30 border border-white/[0.06] overflow-x-auto">
           {(
             [
               ["withdrawals", "Withdrawals"],
               ["players", "Players"],
               ["stats", "Stats"],
+              ["roulette", "Roulette"],
             ] as const
           ).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition ${
+              className={`flex-1 min-w-[4.5rem] py-2.5 rounded-xl text-xs font-semibold transition whitespace-nowrap ${
                 tab === id
                   ? "bg-white/10 text-white border border-white/10"
                   : "text-white/40"
@@ -276,6 +344,7 @@ export default function AdminPage() {
           <p className="text-xs text-white/30 mb-3 pulse-soft">Loading…</p>
         )}
 
+        {/* ─── STATS ─── */}
         {tab === "stats" && (
           <>
             {stats ? (
@@ -293,9 +362,7 @@ export default function AdminPage() {
                       key={String(k)}
                       className="rounded-2xl glass p-4 border border-white/[0.07]"
                     >
-                      <div className="text-2xl font-semibold tabular-nums">
-                        {v}
-                      </div>
+                      <div className="text-2xl font-semibold tabular-nums">{v}</div>
                       <div className="text-[10px] text-white/35 uppercase tracking-wider mt-1">
                         {k}
                       </div>
@@ -318,12 +385,8 @@ export default function AdminPage() {
                         key={String(k)}
                         className="rounded-2xl bg-white/[0.03] border border-white/[0.07] p-3"
                       >
-                        <div className="text-lg font-semibold tabular-nums">
-                          {v}
-                        </div>
-                        <div className="text-[10px] text-white/35 mt-0.5">
-                          {k}
-                        </div>
+                        <div className="text-lg font-semibold tabular-nums">{v}</div>
+                        <div className="text-[10px] text-white/35 mt-0.5">{k}</div>
                       </div>
                     ))}
                   </div>
@@ -346,6 +409,215 @@ export default function AdminPage() {
           </>
         )}
 
+        {/* ─── ROULETTE ─── */}
+        {tab === "roulette" && (
+          <>
+            {roulette ? (
+              <div className="space-y-5">
+                {/* Active round */}
+                <div className="rounded-2xl glass p-4 border border-white/[0.07]">
+                  <div className="text-[10px] text-white/35 uppercase tracking-wider mb-1">
+                    Active round
+                  </div>
+                  {roulette.active ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold capitalize text-cyan-200">
+                          {roulette.active.status}
+                        </div>
+                        <div className="text-[11px] font-mono text-white/40 mt-0.5 truncate max-w-[220px]">
+                          {roulette.active.id}
+                        </div>
+                      </div>
+                      {roulette.active.bet_ends_at && (
+                        <div className="text-[11px] text-white/45 text-right">
+                          bet ends
+                          <br />
+                          {new Date(roulette.active.bet_ends_at).toLocaleTimeString()}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-white/40">No active round</p>
+                  )}
+                </div>
+
+                {/* Economy 24h */}
+                <div>
+                  <p className="text-[11px] text-white/40 uppercase tracking-wider mb-2 px-1">
+                    Economy 24h
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {[
+                      ["Stake", roulette.economy24h.stake],
+                      ["Payout", roulette.economy24h.payout],
+                      ["House", roulette.economy24h.house],
+                      ["Bets", roulette.economy24h.bets],
+                      ["Players", roulette.economy24h.players],
+                      ["Sampled", roulette.sampledRounds],
+                    ].map(([k, v]) => (
+                      <div
+                        key={String(k)}
+                        className="rounded-2xl bg-white/[0.03] border border-white/[0.07] p-3"
+                      >
+                        <div
+                          className={`text-lg font-semibold tabular-nums ${
+                            k === "House"
+                              ? Number(v) >= 0
+                                ? "text-emerald-300"
+                                : "text-rose-300"
+                              : ""
+                          }`}
+                        >
+                          {typeof v === "number" &&
+                          k !== "Bets" &&
+                          k !== "Players" &&
+                          k !== "Sampled"
+                            ? Number(v).toFixed(2)
+                            : v}
+                        </div>
+                        <div className="text-[10px] text-white/35 mt-0.5">{k}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Color distribution */}
+                {(
+                  [
+                    ["24h", roulette.totals.d24],
+                    ["7d", roulette.totals.d7],
+                    ["All", roulette.totals.all],
+                  ] as const
+                ).map(([label, bucket]) => (
+                  <div key={label}>
+                    <p className="text-[11px] text-white/40 uppercase tracking-wider mb-2 px-1">
+                      Results · {label} ({bucket.total})
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      {(["red", "black", "green"] as RouletteColor[]).map((c) => (
+                        <div
+                          key={c}
+                          className="rounded-2xl bg-white/[0.03] border border-white/[0.07] p-3"
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className={`w-2 h-2 rounded-full ${COLOR_DOT[c]}`} />
+                            <span className={`text-[11px] font-medium ${COLOR_TEXT[c]}`}>
+                              {COLOR_LABEL[c]}
+                            </span>
+                          </div>
+                          <div className="text-xl font-semibold tabular-nums">{bucket[c]}</div>
+                          <div className="text-[10px] text-white/35 mt-0.5">
+                            {bucket.pct[c]}%
+                            <span className="text-white/25">
+                              {" "}
+                              · exp {roulette.expected[c]}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Max streak */}
+                <div className="rounded-2xl glass p-4 border border-white/[0.07] flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] text-white/35 uppercase tracking-wider mb-1">
+                      Max streak (recent)
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full ${COLOR_DOT[roulette.maxStreak.color]}`}
+                      />
+                      <span
+                        className={`text-sm font-semibold ${COLOR_TEXT[roulette.maxStreak.color]}`}
+                      >
+                        {COLOR_LABEL[roulette.maxStreak.color]} × {roulette.maxStreak.len}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent strip */}
+                <div>
+                  <div className="flex items-center justify-between mb-2 px-1">
+                    <p className="text-[11px] text-white/40 uppercase tracking-wider">
+                      Recent results
+                    </p>
+                    <button
+                      onClick={loadRoulette}
+                      className="text-xs text-cyan-300/80 hover:text-cyan-200"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                  {roulette.recent.length === 0 ? (
+                    <p className="text-sm text-white/35 py-6 text-center">
+                      No settled rounds yet
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {roulette.recent.map((r) => (
+                        <div
+                          key={r.id}
+                          title={`${r.color}${r.slot != null ? ` #${r.slot}` : ""} · ${new Date(r.at).toLocaleString()}`}
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold border ${
+                            r.color === "red"
+                              ? "bg-rose-500/25 border-rose-500/40 text-rose-200"
+                              : r.color === "green"
+                                ? "bg-emerald-500/25 border-emerald-500/40 text-emerald-200"
+                                : "bg-slate-500/25 border-slate-400/40 text-slate-200"
+                          }`}
+                        >
+                          {r.color === "red" ? "R" : r.color === "green" ? "G" : "B"}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* By hour (24h) */}
+                {roulette.byHour?.some((n) => n > 0) && (
+                  <div>
+                    <p className="text-[11px] text-white/40 uppercase tracking-wider mb-2 px-1">
+                      Rounds by hour (24h)
+                    </p>
+                    <div className="flex items-end gap-0.5 h-16 px-1">
+                      {roulette.byHour.map((n, h) => {
+                        const max = Math.max(...roulette.byHour, 1);
+                        const hgt = Math.max(2, (n / max) * 56);
+                        return (
+                          <div
+                            key={h}
+                            title={`${h}:00 — ${n}`}
+                            className="flex-1 rounded-t bg-cyan-400/40 hover:bg-cyan-300/60 transition-colors"
+                            style={{ height: hgt }}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-between text-[9px] text-white/25 px-1 mt-1">
+                      <span>0</span>
+                      <span>6</span>
+                      <span>12</span>
+                      <span>18</span>
+                      <span>23</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              !loading && (
+                <p className="text-sm text-white/35 py-8 text-center">
+                  No roulette data. Check tables roulette_rounds / roulette_bets.
+                </p>
+              )
+            )}
+          </>
+        )}
+
+        {/* ─── WITHDRAWALS ─── */}
         {tab === "withdrawals" && (
           <div className="space-y-3">
             <button
@@ -355,9 +627,7 @@ export default function AdminPage() {
               Refresh
             </button>
             {withdrawals.length === 0 && !loading && (
-              <p className="text-sm text-white/35 py-8 text-center">
-                No pending withdrawals
-              </p>
+              <p className="text-sm text-white/35 py-8 text-center">No pending withdrawals</p>
             )}
             {withdrawals.map((w) => (
               <div
@@ -365,12 +635,8 @@ export default function AdminPage() {
                 className="rounded-2xl bg-white/[0.03] border border-white/[0.07] p-4 space-y-2"
               >
                 <div className="flex justify-between text-sm">
-                  <span className="font-semibold text-sky-300">
-                    {w.amount_ton} TON
-                  </span>
-                  <span className="text-white/30 text-xs">
-                    tg:{w.telegram_id}
-                  </span>
+                  <span className="font-semibold text-sky-300">{w.amount_ton} TON</span>
+                  <span className="text-white/30 text-xs">tg:{w.telegram_id}</span>
                 </div>
                 <p className="text-[11px] font-mono text-white/45 break-all">
                   {w.wallet_address}
@@ -421,6 +687,7 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* ─── PLAYERS ─── */}
         {tab === "players" && (
           <div className="space-y-3">
             <div className="flex gap-2">
@@ -437,11 +704,6 @@ export default function AdminPage() {
                 Search
               </button>
             </div>
-            {players.length === 0 && !loading && (
-              <p className="text-sm text-white/35 py-8 text-center">
-                No players found
-              </p>
-            )}
             {players.map((p) => (
               <div
                 key={p.id}
@@ -455,22 +717,25 @@ export default function AdminPage() {
                     )}
                   </div>
                   <div className="text-[11px] text-white/35 mt-0.5">
-                    tg:{p.telegram_id} · bal {Number(p.balance).toFixed(2)} ·{" "}
-                    {p.wins || 0}/{p.games || 0} wins
+                    tg:{p.telegram_id} · bal {p.balance}
+                    {p.games != null ? ` · ${p.wins ?? 0}/${p.games} wins` : ""}
                   </div>
                 </div>
                 <button
                   onClick={() => toggleBan(p.telegram_id, !p.banned)}
-                  className={`shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-semibold border ${
+                  className={`shrink-0 h-8 px-3 rounded-xl text-[11px] font-semibold border ${
                     p.banned
-                      ? "border-emerald-500/30 text-emerald-200 bg-emerald-500/10"
-                      : "border-red-500/30 text-red-200 bg-red-500/10"
+                      ? "bg-emerald-500/15 border-emerald-500/25 text-emerald-200"
+                      : "bg-red-500/15 border-red-500/25 text-red-200"
                   }`}
                 >
                   {p.banned ? "Unban" : "Ban"}
                 </button>
               </div>
             ))}
+            {players.length === 0 && !loading && (
+              <p className="text-sm text-white/35 py-8 text-center">No players found</p>
+            )}
           </div>
         )}
       </div>
