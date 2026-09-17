@@ -60,7 +60,7 @@ export function GamesScreen({
           {t("pvpGame")}
         </h1>
         <p className="text-center text-[13px] text-white/40 mt-2">
-          {t("chooseMode")}
+          {isRu ? "Выбери игру и бросай вызов" : "Pick a game and challenge"}
         </p>
       </div>
 
