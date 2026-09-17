@@ -1,7 +1,9 @@
 "use client";
 
 import { ChoiceIcon } from "@/components/rps/RpsIcons";
+import { useEffect } from "react";
 import { useI18n } from "@/lib/i18n/context";
+import { useTelegram } from "@/hooks/useTelegram";
 
 interface GamesScreenProps {
   onSelectRps: () => void;
@@ -24,6 +26,13 @@ export function GamesScreen({
 }: GamesScreenProps) {
   const { t, lang } = useI18n();
   const isRu = lang === "ru";
+  const { setBackButton } = useTelegram();
+
+  useEffect(() => {
+    if (!onBack) return;
+    setBackButton(() => onBack());
+    return () => setBackButton(null);
+  }, [onBack, setBackButton]);
 
   const OnlineBadge = ({ count }: { count: number }) => (
     <div className="absolute top-3.5 right-3.5 z-20 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 border border-white/15 backdrop-blur-md">
@@ -46,16 +55,7 @@ export function GamesScreen({
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      <div className="px-5 pt-2 pb-6 relative">
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="absolute left-4 top-2 w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/60 text-lg"
-          >
-            ‹
-          </button>
-        )}
+      <div className="px-5 pt-2 pb-6">
         <h1 className="text-center text-[30px] font-bold tracking-tight text-white leading-none">
           {t("pvpGame")}
         </h1>

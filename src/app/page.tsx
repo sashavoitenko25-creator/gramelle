@@ -303,17 +303,12 @@ export default function Home() {
 
       {screen === "games" && (
         <PlayHubScreen
+          rpsOnline={rpsOnline}
+          diceOnline={diceOnline}
+          xoOnline={xoOnline}
           onSelectPvp={() => {
             haptic("light");
             setScreen("pvp");
-          }}
-          onSelectLive={() => {
-            haptic("light");
-            setScreen("live");
-          }}
-          onSelectSolo={() => {
-            haptic("light");
-            setScreen("solo");
           }}
         />
       )}
