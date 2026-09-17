@@ -34,6 +34,7 @@ interface RouletteScreenProps {
   balance: number;
   telegramId: number | null;
   username: string;
+  photoUrl?: string | null;
   onBack: () => void;
   onBalanceUpdate: (b: number) => void;
   onDeposit: () => void;
@@ -129,6 +130,8 @@ function Avatar({
 export function RouletteScreen({
   balance,
   telegramId,
+  username,
+  photoUrl = null,
   onBack,
   onBalanceUpdate,
   onDeposit,
@@ -391,23 +394,47 @@ export function RouletteScreen({
       hapticError();
       return;
     }
-    // Instant optimistic UI
+    // Instant optimistic UI (same identity as server — no "You" flash)
     const prevBal = balance;
+    const myName = (username || "").trim() || "Player";
+    let myPhoto: string | null = photoUrl || null;
+    if (state?.betsByColor) {
+      for (const col of ["red", "black", "green"] as const) {
+        const hit = state.betsByColor[col]?.find((b) => b.telegramId === telegramId);
+        if (hit?.photoUrl) {
+          myPhoto = hit.photoUrl;
+          break;
+        }
+      }
+    }
+
     onBalanceUpdate(+(prevBal - amount).toFixed(4));
     setLastAmount(amount);
     setState((prev) => {
       if (!prev) return prev;
-      const pools = { ...prev.pools, [color]: +((prev.pools[color] || 0) + amount).toFixed(6) };
-      const myBets = { ...prev.myBets, [color]: +((prev.myBets[color] || 0) + amount).toFixed(6) };
+      const pools = {
+        ...prev.pools,
+        [color]: +((prev.pools[color] || 0) + amount).toFixed(6),
+      };
+      const myBets = {
+        ...prev.myBets,
+        [color]: +((prev.myBets[color] || 0) + amount).toFixed(6),
+      };
       const list = [...(prev.betsByColor?.[color] || [])];
       const idx = list.findIndex((b) => b.telegramId === telegramId);
       if (idx >= 0) {
-        list[idx] = { ...list[idx], amount: +(list[idx].amount + amount).toFixed(6) };
+        const cur = list[idx];
+        list[idx] = {
+          ...cur,
+          username: cur.username || myName,
+          photoUrl: cur.photoUrl || myPhoto,
+          amount: +(cur.amount + amount).toFixed(6),
+        };
       } else if (telegramId) {
         list.unshift({
           telegramId,
-          username: "You",
-          photoUrl: null,
+          username: myName,
+          photoUrl: myPhoto,
           amount,
         });
       }
@@ -432,6 +459,7 @@ export function RouletteScreen({
     try {
       const res = await placeRouletteBetApi(color, amount);
       if (typeof res.balance === "number") onBalanceUpdate(res.balance);
+      // merge server state without blanking our optimistic row first
       mergeState(res);
     } catch (e) {
       onBalanceUpdate(prevBal);
@@ -635,7 +663,7 @@ export function RouletteScreen({
           {status === "betting" && (
             <div className="px-5 py-2.5 rounded-2xl bg-black/80 border border-white/15 backdrop-blur-md text-center min-w-[108px]">
               <div className="text-[10px] uppercase tracking-[0.22em] text-white/45">
-                Start
+                {tr("Start", "Старт")}
               </div>
               <div className="text-[30px] font-bold tabular-nums text-white leading-none mt-0.5">
                 {remainSec.toFixed(1)}
@@ -728,9 +756,9 @@ export function RouletteScreen({
       <div className="mx-4 mt-3 grid grid-cols-3 gap-2.5">
         {(
           [
-            { c: "red" as const, label: "RED", mult: 2 },
-            { c: "green" as const, label: "GREEN", mult: 14 },
-            { c: "black" as const, label: "BLACK", mult: 2 },
+            { c: "red" as const, label: tr("RED", "КРАСНОЕ"), mult: 2 },
+            { c: "green" as const, label: tr("GREEN", "ЗЕЛЁНОЕ"), mult: 14 },
+            { c: "black" as const, label: tr("BLACK", "ЧЁРНОЕ"), mult: 2 },
           ] as const
         ).map((btn) => (
           <div key={btn.c} className="flex flex-col min-w-0">

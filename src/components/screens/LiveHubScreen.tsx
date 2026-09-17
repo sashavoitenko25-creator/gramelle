@@ -68,9 +68,9 @@ function RouletteArt() {
       </g>
       <circle cx="60" cy="44" r="8" fill="url(#rhCore)" filter="url(#rhGlow)" />
       <circle cx="60" cy="44" r="3.2" fill="#fff" />
+      {/* pointer down into wheel (same as in-game ▼) */}
       <g filter="url(#rhGlow)">
-        <path d="M60 16 L65 28 L55 28 Z" fill="#67e8f9" />
-        <path d="M60 28 L60 36" stroke="#67e8f9" strokeWidth="2" strokeLinecap="round" />
+        <path d="M60 12 L68 24 L52 24 Z" fill="#67e8f9" />
       </g>
     </svg>
   );
@@ -126,7 +126,7 @@ export function LiveHubScreen({
               )}
             </span>
             <span className="text-[11px] font-semibold text-white/90 tabular-nums">
-              {liveOnline > 99 ? "99+" : liveOnline}
+              {tr("Online", "Онлайн")} : {liveOnline > 99 ? "99+" : liveOnline}
             </span>
           </div>
 
@@ -141,10 +141,7 @@ export function LiveHubScreen({
                 {tr("Roulette", "Рулетка")}
               </div>
               <p className="mt-1 text-[13px] text-white/70 leading-snug max-w-[95%]">
-                {tr(
-                  "Red · Black · Green · Live rounds",
-                  "Красное · Чёрное · Зелёное · Live-раунды"
-                )}
+                {tr("Red · Black · Green", "Красное · Чёрное · Зелёное")}
               </p>
             </div>
           </div>

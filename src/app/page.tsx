@@ -373,6 +373,7 @@ export default function Home() {
           balance={balance}
           telegramId={telegramId}
           username={username}
+          photoUrl={profile?.photo_url}
           onBack={() => setScreen("live")}
           onBalanceUpdate={(b) => setBalanceFromServer(b)}
           onDeposit={() => {

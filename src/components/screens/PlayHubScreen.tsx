@@ -114,7 +114,7 @@ function PvpArt() {
   );
 }
 
-/** LIVE hub art — global live signal / multiplayer stream feel */
+/** LIVE hub art — neon arena / shared screen energy */
 function LiveArt() {
   return (
     <svg
@@ -123,60 +123,72 @@ function LiveArt() {
       viewBox="0 0 120 88"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="drop-shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
+      className="drop-shadow-[0_10px_24px_rgba(0,0,0,0.4)]"
       aria-hidden
     >
       <defs>
-        <linearGradient id="lvWave" x1="10" y1="40" x2="110" y2="50" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#34d399" />
+        <linearGradient id="lvScreen" x1="24" y1="18" x2="96" y2="70" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#042f2e" />
+          <stop offset="0.4" stopColor="#0f766e" />
+          <stop offset="1" stopColor="#164e63" />
+        </linearGradient>
+        <linearGradient id="lvBezel" x1="20" y1="14" x2="100" y2="74" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#5eead4" />
           <stop offset="0.5" stopColor="#22d3ee" />
           <stop offset="1" stopColor="#a78bfa" />
         </linearGradient>
-        <filter id="lvGlow" x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur stdDeviation="2.2" result="b" />
+        <linearGradient id="lvBar" x1="0" y1="0" x2="1" y2="0">
+          <stop stopColor="#34d399" />
+          <stop offset="1" stopColor="#22d3ee" />
+        </linearGradient>
+        <filter id="lvG" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2.5" result="b" />
           <feMerge>
             <feMergeNode in="b" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <radialGradient id="lvOrb" cx="0.5" cy="0.5" r="0.5">
-          <stop stopColor="#fff" stopOpacity="0.95" />
-          <stop offset="0.4" stopColor="#6ee7b7" stopOpacity="0.8" />
+        <radialGradient id="lvBloom" cx="0.5" cy="0.35" r="0.55">
+          <stop stopColor="#5eead4" stopOpacity="0.55" />
           <stop offset="1" stopColor="#0ea5e9" stopOpacity="0" />
         </radialGradient>
       </defs>
 
-      <ellipse cx="60" cy="78" rx="36" ry="5.5" fill="#34d399" fillOpacity="0.2" />
+      <ellipse cx="60" cy="80" rx="40" ry="5" fill="#2dd4bf" fillOpacity="0.18" />
 
-      {/* concentric live rings */}
-      <g filter="url(#lvGlow)" opacity="0.9">
-        <circle cx="60" cy="42" r="28" stroke="url(#lvWave)" strokeWidth="2" fill="none" opacity="0.35" />
-        <circle cx="60" cy="42" r="20" stroke="url(#lvWave)" strokeWidth="2.2" fill="none" opacity="0.55" />
-        <circle cx="60" cy="42" r="12" stroke="url(#lvWave)" strokeWidth="2.4" fill="none" opacity="0.8" />
+      {/* screen glow behind */}
+      <ellipse cx="60" cy="44" rx="42" ry="28" fill="url(#lvBloom)" />
+
+      {/* device / shared screen */}
+      <g filter="url(#lvG)">
+        <rect x="22" y="16" width="76" height="52" rx="10" fill="#020617" stroke="url(#lvBezel)" strokeWidth="2.2" />
+        <rect x="28" y="22" width="64" height="36" rx="6" fill="url(#lvScreen)" />
+        {/* scan lines */}
+        <path d="M30 30 H90" stroke="#5eead4" strokeOpacity="0.15" strokeWidth="1" />
+        <path d="M30 38 H90" stroke="#67e8f9" strokeOpacity="0.12" strokeWidth="1" />
+        <path d="M30 46 H90" stroke="#a78bfa" strokeOpacity="0.12" strokeWidth="1" />
+        {/* live bars */}
+        <rect x="36" y="40" width="6" height="12" rx="1.5" fill="url(#lvBar)" opacity="0.95" />
+        <rect x="46" y="34" width="6" height="18" rx="1.5" fill="#22d3ee" opacity="0.9" />
+        <rect x="56" y="28" width="6" height="24" rx="1.5" fill="#a78bfa" opacity="0.95" />
+        <rect x="66" y="36" width="6" height="16" rx="1.5" fill="#34d399" opacity="0.9" />
+        <rect x="76" y="32" width="6" height="20" rx="1.5" fill="#67e8f9" opacity="0.9" />
+        {/* live pill on screen */}
+        <rect x="34" y="26" width="22" height="8" rx="4" fill="#064e3b" stroke="#34d399" strokeWidth="1" />
+        <circle cx="39" cy="30" r="2" fill="#4ade80" />
+        <path d="M44 28.5 H52" stroke="#6ee7b7" strokeWidth="1.2" strokeLinecap="round" />
       </g>
 
-      {/* center live core */}
-      <circle cx="60" cy="42" r="9" fill="url(#lvOrb)" filter="url(#lvGlow)" />
-      <circle cx="60" cy="42" r="3.5" fill="#fff" />
-
-      {/* floating player nodes */}
-      <g filter="url(#lvGlow)">
-        <circle cx="28" cy="30" r="7" fill="#0f766e" stroke="#5eead4" strokeWidth="1.5" />
-        <circle cx="28" cy="28.5" r="2.5" fill="#ccfbf1" />
-        <circle cx="92" cy="30" r="7" fill="#155e75" stroke="#67e8f9" strokeWidth="1.5" />
-        <circle cx="92" cy="28.5" r="2.5" fill="#e0f2fe" />
-        <circle cx="36" cy="58" r="6.5" fill="#4c1d95" stroke="#c4b5fd" strokeWidth="1.4" />
-        <circle cx="36" cy="56.5" r="2.2" fill="#ede9fe" />
-        <circle cx="84" cy="58" r="6.5" fill="#9f1239" stroke="#fda4af" strokeWidth="1.4" />
-        <circle cx="84" cy="56.5" r="2.2" fill="#ffe4e6" />
-      </g>
-
-      {/* connection lines */}
-      <g stroke="#67e8f9" strokeOpacity="0.35" strokeWidth="1.2">
-        <path d="M34 34 L52 40" />
-        <path d="M86 34 L68 40" />
-        <path d="M42 54 L52 46" />
-        <path d="M78 54 L68 46" />
+      {/* viewers around screen */}
+      <g filter="url(#lvG)">
+        <circle cx="18" cy="48" r="8" fill="#134e4a" stroke="#5eead4" strokeWidth="1.5" />
+        <circle cx="18" cy="46" r="3" fill="#ccfbf1" />
+        <circle cx="102" cy="48" r="8" fill="#1e3a5f" stroke="#67e8f9" strokeWidth="1.5" />
+        <circle cx="102" cy="46" r="3" fill="#e0f2fe" />
+        <circle cx="32" cy="68" r="7" fill="#4c1d95" stroke="#c4b5fd" strokeWidth="1.4" />
+        <circle cx="32" cy="66.2" r="2.6" fill="#ede9fe" />
+        <circle cx="88" cy="68" r="7" fill="#9f1239" stroke="#fda4af" strokeWidth="1.4" />
+        <circle cx="88" cy="66.2" r="2.6" fill="#ffe4e6" />
       </g>
     </svg>
   );
@@ -297,7 +309,7 @@ export function PlayHubScreen({
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
             </span>
             <span className="text-[11px] font-semibold text-white/90 tabular-nums">
-              {liveOnline > 99 ? "99+" : liveOnline}
+              {tr("Online", "Онлайн")} : {liveOnline > 99 ? "99+" : liveOnline}
             </span>
           </div>
 
