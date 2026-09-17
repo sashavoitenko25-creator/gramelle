@@ -551,6 +551,7 @@ export async function placeRouletteBet(opts: {
       );
     }
 
+    // Debit with optimistic balance_version lock (prevents negative balance)
     const { balance } = await creditBalance(telegramId, -amount, "bet", {
       kind: "roulette_bet",
       round_id: round.id,
@@ -558,6 +559,48 @@ export async function placeRouletteBet(opts: {
       amount,
       username,
     });
+
+    // Re-check stake AFTER debit (multi-instance race on Vercel)
+    const { data: existing2 } = await db
+      .from("roulette_bets")
+      .select("id, amount")
+      .eq("round_id", round.id)
+      .eq("telegram_id", telegramId);
+    const already2 = (existing2 || []).reduce(
+      (s, r) => s + (Number(r.amount) || 0),
+      0
+    );
+    if (already2 + amount > ROULETTE_MAX_STAKE_PER_ROUND + 1e-9) {
+      try {
+        await creditBalance(telegramId, amount, "refund", {
+          kind: "roulette_bet_over_cap_pre",
+          round_id: round.id,
+        });
+      } catch {
+        /* */
+      }
+      throw new Error(
+        `Max ${ROULETTE_MAX_STAKE_PER_ROUND} GRAM per round`
+      );
+    }
+
+    // Round may have flipped to spinning while we debited
+    const roundNow = await getActiveRound();
+    if (
+      !roundNow ||
+      roundNow.id !== round.id ||
+      roundNow.status !== "betting"
+    ) {
+      try {
+        await creditBalance(telegramId, amount, "refund", {
+          kind: "roulette_bet_closed",
+          round_id: round.id,
+        });
+      } catch {
+        /* */
+      }
+      throw new Error("Bets closed");
+    }
 
     const { data: inserted, error } = await db
       .from("roulette_bets")
@@ -611,15 +654,12 @@ export async function placeRouletteBet(opts: {
     }
 
     const state = await getRouletteState(telegramId);
-    // balance after possible nothing; re-read would be ideal — use ledger result
-    const { balance: bal2 } = await (async () => {
-      try {
-        const b = await getBalance(telegramId);
-        return { balance: b };
-      } catch {
-        return { balance };
-      }
-    })();
+    let bal2 = balance;
+    try {
+      bal2 = await getBalance(telegramId);
+    } catch {
+      /* keep ledger result */
+    }
     return { balance: bal2, state };
   });
 }

@@ -150,6 +150,11 @@ export function RouletteScreen({
   const [lastAmount, setLastAmount] = useState(1);
   const [betting, setBetting] = useState(false);
   const bettingLockRef = useRef(false);
+  /** Local balance for spam-safe checks (props lag behind optimistic updates) */
+  const balanceRef = useRef(balance);
+  useEffect(() => {
+    balanceRef.current = balance;
+  }, [balance]);
   const pendingBetsRef = useRef<Partial<Record<RouletteColor, number>>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -471,13 +476,15 @@ export function RouletteScreen({
       hapticError();
       return;
     }
-    if (amount > balance + 1e-9) {
+    // Block spam-clicks FIRST (sync) — before any balance math
+    if (bettingLockRef.current) return;
+
+    // Use local ref — parent `balance` prop lags behind optimistic updates
+    if (amount > balanceRef.current + 1e-9) {
       showToast(tr("Insufficient balance", "Недостаточно средств"));
       hapticError();
       return;
     }
-    // Block spam-clicks (sync + async)
-    if (bettingLockRef.current) return;
 
     const abs = (c: RouletteColor) =>
       Math.max(
@@ -503,7 +510,8 @@ export function RouletteScreen({
     }
     bettingLockRef.current = true;
     // Optimistic: pending tracks desired myBets so polls cannot wipe the row
-    const prevBal = balance;
+    const prevBal = balanceRef.current;
+    balanceRef.current = +(prevBal - amount).toFixed(4);
     const myName = (username || "").trim() || "Player";
     let myPhoto: string | null = photoUrl || null;
     if (state?.betsByColor) {
@@ -525,7 +533,7 @@ export function RouletteScreen({
       [color]: Math.max(pendingBetsRef.current[color] || 0, nextMine),
     };
 
-    onBalanceUpdate(+(prevBal - amount).toFixed(4));
+    onBalanceUpdate(balanceRef.current);
     setLastAmount(amount);
     setState((prev) => {
       if (!prev) return prev;
@@ -575,7 +583,10 @@ export function RouletteScreen({
     setBetting(true);
     try {
       const res = await placeRouletteBetApi(color, amount);
-      if (typeof res.balance === "number") onBalanceUpdate(res.balance);
+      if (typeof res.balance === "number") {
+        balanceRef.current = res.balance;
+        onBalanceUpdate(res.balance);
+      }
       mergeState(res);
     } catch (e) {
       // roll back pending for this color toward server
@@ -583,6 +594,7 @@ export function RouletteScreen({
         ...pendingBetsRef.current,
         [color]: prevMine,
       };
+      balanceRef.current = prevBal;
       onBalanceUpdate(prevBal);
       showToast(e instanceof Error ? e.message : "Error");
       hapticError();
