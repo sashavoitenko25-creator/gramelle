@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
     // Flatten: client expects round/pools at top level (same as GET /state)
     return NextResponse.json({
       ok: true,
-      balance: result.balance,
       ...result.state,
+      balance: result.balance,
     });
   } catch (e) {
     if (e instanceof AuthError) {
