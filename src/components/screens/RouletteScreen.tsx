@@ -241,14 +241,14 @@ export function RouletteScreen({
 
   // Always use canonical wheel — never empty strip
   const strip = useMemo(() => {
-    const base =
-      Array.isArray(state?.wheel) && state!.wheel.length === ROULETTE_SLOT_COUNT
-        ? state!.wheel
-        : ROULETTE_WHEEL;
+    // Always paint full wheel — never allow empty strip (was causing blank roulette)
+    const base = ROULETTE_WHEEL;
     const out: RouletteColor[] = [];
-    for (let i = 0; i < STRIP_COPIES; i++) out.push(...base);
-    return out;
-  }, [state?.wheel]);
+    for (let i = 0; i < STRIP_COPIES; i++) {
+      for (let j = 0; j < base.length; j++) out.push(base[j]);
+    }
+    return out.length > 0 ? out : [...ROULETTE_WHEEL];
+  }, []);
 
   const targetX = useCallback((slot: number, loops: number) => {
     const idx = loops * ROULETTE_SLOT_COUNT + (slot % ROULETTE_SLOT_COUNT);
@@ -421,8 +421,13 @@ export function RouletteScreen({
       {/* Header — balance like Dice/PVP */}
       <div className="px-4 pt-3 pb-2 flex items-center gap-3">
         <div className="flex-1 min-w-0">
-          <div className="text-[15px] font-semibold tracking-tight">
-            LIVE Roulette
+          <div className="text-[15px] font-semibold tracking-tight flex items-center gap-2">
+            <span>LIVE Roulette</span>
+            {state?.round?.id && (
+              <span className="text-[12px] font-mono text-white/35 font-normal">
+                #{state.round.id.replace(/-/g, "").slice(0, 6)}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center shrink-0">
@@ -458,23 +463,41 @@ export function RouletteScreen({
         </div>
       </div>
 
-      {/* Hash — start…end, copy */}
+      {/* Hash + Seed (seed after reveal) — tap to copy, no copy label */}
       <div className="mx-4 flex items-center gap-2">
         <button
           type="button"
           onClick={() => hashFull && void onCopy("Hash", hashFull)}
-          className="flex-1 min-w-0 flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/[0.08] px-3 py-2 text-left active:scale-[0.99]"
+          className="flex-1 min-w-0 flex items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] px-2.5 py-1.5 text-left active:scale-[0.99]"
         >
-          <span className="text-[10px] text-white/35 uppercase tracking-wider shrink-0">
+          <span className="text-[9px] text-white/35 uppercase tracking-wider shrink-0">
             Hash
           </span>
-          <span className="text-[11px] font-mono text-white/55 truncate">
-            {shortMiddle(hashFull, 10, 8)}
-          </span>
-          <span className="text-[10px] text-cyan-300/80 shrink-0 ml-auto">
-            {tr("Copy", "Копир.")}
+          <span className="text-[10px] font-mono text-white/55 truncate">
+            {shortMiddle(hashFull, 6, 4)}
           </span>
         </button>
+        {seedFull ? (
+          <button
+            type="button"
+            onClick={() => void onCopy("Seed", seedFull)}
+            className="flex-1 min-w-0 flex items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] px-2.5 py-1.5 text-left active:scale-[0.99]"
+          >
+            <span className="text-[9px] text-white/35 uppercase tracking-wider shrink-0">
+              Seed
+            </span>
+            <span className="text-[10px] font-mono text-white/55 truncate">
+              {shortMiddle(seedFull, 6, 4)}
+            </span>
+          </button>
+        ) : (
+          <div className="flex-1 min-w-0 rounded-xl bg-white/[0.02] border border-white/[0.05] px-2.5 py-1.5 flex items-center gap-1.5 opacity-40">
+            <span className="text-[9px] text-white/30 uppercase tracking-wider shrink-0">
+              Seed
+            </span>
+            <span className="text-[10px] font-mono text-white/25">—</span>
+          </div>
+        )}
       </div>
 
       {loadError && (
@@ -622,8 +645,8 @@ export function RouletteScreen({
         <div className="mt-2 grid grid-cols-4 gap-2">
           {(
             [
-              ["Clear", () => setAmt(0)],
-              ["Last", () => setAmt(lastAmount)],
+              [tr("Clear", "Сброс"), () => setAmt(0)],
+              [tr("Last", "Прошлая"), () => setAmt(lastAmount)],
               ["+0.1", () => setAmt((amount || 0) + 0.1)],
               ["+1", () => setAmt((amount || 0) + 1)],
               ["+10", () => setAmt((amount || 0) + 10)],
@@ -707,26 +730,7 @@ export function RouletteScreen({
         ))}
       </div>
 
-      {/* Seed — only when revealed, start…end + copy */}
-      {status === "settled" && seedFull && (
-        <div className="mx-4 mt-3">
-          <button
-            type="button"
-            onClick={() => void onCopy("Seed", seedFull)}
-            className="w-full flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/[0.08] px-3 py-2 text-left active:scale-[0.99]"
-          >
-            <span className="text-[10px] text-white/35 uppercase tracking-wider shrink-0">
-              Seed
-            </span>
-            <span className="text-[11px] font-mono text-white/50 truncate">
-              {shortMiddle(seedFull, 10, 8)}
-            </span>
-            <span className="text-[10px] text-cyan-300/80 shrink-0 ml-auto">
-              {tr("Copy", "Копир.")}
-            </span>
-          </button>
-        </div>
-      )}
+
     </div>
   );
 }
