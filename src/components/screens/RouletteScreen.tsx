@@ -150,6 +150,7 @@ export function RouletteScreen({
   const [lastAmount, setLastAmount] = useState(1);
   const [betting, setBetting] = useState(false);
   const bettingLockRef = useRef(false);
+  const pendingBetsRef = useRef<Partial<Record<RouletteColor, number>>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [displayMs, setDisplayMs] = useState(() => Date.now());
@@ -477,27 +478,20 @@ export function RouletteScreen({
     }
     // Block spam-clicks (sync + async)
     if (bettingLockRef.current) return;
-    const myTotalNow =
-      (state?.myBets?.red || 0) +
-      (state?.myBets?.black || 0) +
-      (state?.myBets?.green || 0);
-    const pendingExtra =
-      Object.values(pendingBetsRef.current).reduce(
-        (s, v) => s + (Number(v) || 0),
-        0
-      ) - myTotalNow;
+
+    const abs = (c: RouletteColor) =>
+      Math.max(
+        Number(pendingBetsRef.current[c] || 0),
+        Number(state?.myBets?.[c] || 0)
+      );
+    const nextColorTotal = abs(color) + amount;
     const projected =
-      Math.max(myTotalNow, Object.values(pendingBetsRef.current).reduce((s, v) => s + (Number(v) || 0), 0)) +
-      amount;
-    // pending holds absolute myBets targets — use next absolute
-    const curPendingColor = pendingBetsRef.current[color] || state?.myBets?.[color] || 0;
-    const nextColorTotal = Math.max(curPendingColor, state?.myBets?.[color] || 0) + amount;
-    const other =
-      (Math.max(pendingBetsRef.current.red || 0, state?.myBets?.red || 0)) +
-      (Math.max(pendingBetsRef.current.black || 0, state?.myBets?.black || 0)) +
-      (Math.max(pendingBetsRef.current.green || 0, state?.myBets?.green || 0)) -
-      Math.max(pendingBetsRef.current[color] || 0, state?.myBets?.[color] || 0);
-    if (other + nextColorTotal > ROULETTE_MAX_STAKE_PER_ROUND + 1e-9) {
+      abs("red") +
+      abs("black") +
+      abs("green") -
+      abs(color) +
+      nextColorTotal;
+    if (projected > ROULETTE_MAX_STAKE_PER_ROUND + 1e-9) {
       showToast(
         tr(
           `Max ${ROULETTE_MAX_STAKE_PER_ROUND} GRAM per round`,
