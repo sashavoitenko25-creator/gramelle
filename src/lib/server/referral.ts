@@ -27,18 +27,28 @@ export async function bindReferral(
   const db = getAdminClient();
   const profile = await getOrCreateProfile(newTelegramId, usernameHint);
 
-  if (code === profile.referral_code) {
+  // Permanent bind: if already referred — never rebind, never dual-bind
+  const { data: meFresh } = await db
+    .from("profiles")
+    .select("id, referred_by, referral_code")
+    .eq("id", profile.id)
+    .maybeSingle();
+
+  if (meFresh?.referred_by) {
+    return { ok: true, bound: false, reason: "already" };
+  }
+
+  if (code === meFresh?.referral_code || code === profile.referral_code) {
     return { ok: true, bound: false, reason: "self" };
   }
 
-  const { data: referrer } = await db
+  const { data: referrerExact } = await db
     .from("profiles")
     .select("id, telegram_id, ref_count, referral_code")
     .eq("referral_code", code)
     .maybeSingle();
 
-  // fallback: case-insensitive / without double prefix
-  let ref = referrer;
+  let ref = referrerExact;
   if (!ref) {
     const { data: all } = await db
       .from("profiles")
@@ -54,28 +64,34 @@ export async function bindReferral(
   if (Number(ref.telegram_id) === Number(newTelegramId)) {
     return { ok: true, bound: false, reason: "self" };
   }
-
-  const { data: me } = await db
-    .from("profiles")
-    .select("referred_by")
-    .eq("id", profile.id)
-    .maybeSingle();
-
-  if (me?.referred_by) {
-    return { ok: true, bound: false, reason: "already" };
+  if (ref.id === profile.id) {
+    return { ok: true, bound: false, reason: "self" };
   }
 
-  const { error: upErr } = await db
+  // Atomic: only succeeds when referred_by is still null (no rebind, no race dual-bind)
+  const { data: updated, error: upErr } = await db
     .from("profiles")
     .update({ referred_by: ref.id })
     .eq("id", profile.id)
-    .is("referred_by", null);
+    .is("referred_by", null)
+    .select("id, referred_by")
+    .maybeSingle();
 
   if (upErr) {
     return { ok: false, bound: false, reason: upErr.message };
   }
 
-  // atomic-ish ref_count bump
+  // Row not updated → already bound by concurrent request or prior bind
+  if (!updated || !updated.referred_by) {
+    return { ok: true, bound: false, reason: "already" };
+  }
+
+  // Only count invite if THIS request actually wrote the bind
+  if (updated.referred_by !== ref.id) {
+    // Safety: should not happen; do not bump wrong referrer
+    return { ok: true, bound: false, reason: "already" };
+  }
+
   await db
     .from("profiles")
     .update({ ref_count: (Number(ref.ref_count) || 0) + 1 })
@@ -84,9 +100,6 @@ export async function bindReferral(
   return { ok: true, bound: true };
 }
 
-/**
- * Accrue share of house fee to referrer's savings (ref_earned).
- */
 export async function payReferralFromHouseFee(
   playerTelegramId: number,
   betAmount: number,

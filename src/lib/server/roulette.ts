@@ -52,7 +52,6 @@ function randomSeed(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
-/** Provably-fair slot in [0, SLOT_COUNT) */
 export function slotFromSeed(serverSeed: string, roundId: string): number {
   const h = crypto.createHmac("sha256", serverSeed).update(roundId).digest();
   return h.readUInt32BE(0) % ROULETTE_SLOT_COUNT;
@@ -62,7 +61,35 @@ function isColor(c: unknown): c is RouletteColor {
   return c === "red" || c === "black" || c === "green";
 }
 
+/** Prefer an in-progress round so we never run two LIVE rounds at once */
+async function getActiveRound(): Promise<RouletteRoundRow | null> {
+  const db = getAdminClient();
+  const { data } = await db
+    .from("roulette_rounds")
+    .select("*")
+    .in("status", ["betting", "spinning"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as RouletteRoundRow) || null;
+}
+
+async function getLatestRound(): Promise<RouletteRoundRow | null> {
+  const db = getAdminClient();
+  const { data } = await db
+    .from("roulette_rounds")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as RouletteRoundRow) || null;
+}
+
 async function createBettingRound(): Promise<RouletteRoundRow> {
+  // Guard: if another request already opened a round, reuse it
+  const existing = await getActiveRound();
+  if (existing) return existing;
+
   const db = getAdminClient();
   const seed = randomSeed();
   const betEnds = new Date(
@@ -85,42 +112,49 @@ async function createBettingRound(): Promise<RouletteRoundRow> {
     .single();
 
   if (error || !data) {
+    // concurrent insert race → return active
+    const again = await getActiveRound();
+    if (again) return again;
     throw new Error(error?.message || "Failed to create roulette round");
   }
   return data as RouletteRoundRow;
 }
 
-async function getLatestRound(): Promise<RouletteRoundRow | null> {
-  const db = getAdminClient();
-  const { data } = await db
-    .from("roulette_rounds")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return (data as RouletteRoundRow) || null;
-}
-
-async function settleRound(round: RouletteRoundRow): Promise<void> {
+/**
+ * Pay winners + house. Must only run once per round.
+ * Sets status=settled AND result_ends_at in one write after payouts
+ * so clients keep the result phase for RESULT_MS.
+ */
+async function settleRound(round: RouletteRoundRow): Promise<RouletteRoundRow> {
   const db = getAdminClient();
 
-  // Idempotent: only settle from spinning
-  const { data: locked } = await db
+  // Lock: claim settlement (spinning → settling via status settled only after work)
+  // Use result_slot already set during spin transition.
+  const seed = round.server_seed || randomSeed();
+  const slot =
+    round.result_slot != null
+      ? Number(round.result_slot)
+      : slotFromSeed(seed, round.id);
+  const color = rouletteColorAt(slot);
+
+  // Mark in-progress settlement with result fields first while still spinning
+  // then pay, then set settled+result_ends_at together.
+  const { data: claimed } = await db
     .from("roulette_rounds")
-    .update({ status: "settled" })
+    .update({
+      server_seed: seed,
+      result_slot: slot,
+      result_color: color,
+    })
     .eq("id", round.id)
     .eq("status", "spinning")
     .select("*")
     .maybeSingle();
 
-  if (!locked) return; // already settled or race lost
-
-  const seed = (locked as RouletteRoundRow).server_seed || randomSeed();
-  const slot =
-    (locked as RouletteRoundRow).result_slot != null
-      ? Number((locked as RouletteRoundRow).result_slot)
-      : slotFromSeed(seed, round.id);
-  const color = rouletteColorAt(slot);
+  if (!claimed) {
+    // already moved on
+    return (await getLatestRound()) || round;
+  }
 
   const { data: bets } = await db
     .from("roulette_bets")
@@ -132,6 +166,13 @@ async function settleRound(round: RouletteRoundRow): Promise<void> {
   let totalPayouts = 0;
 
   for (const bet of list) {
+    // skip if already paid
+    if (bet.payout != null) {
+      totalStakes += Number(bet.amount) || 0;
+      totalPayouts += Number(bet.payout) || 0;
+      continue;
+    }
+
     const stake = Number(bet.amount) || 0;
     totalStakes += stake;
     const won = bet.color === color;
@@ -163,7 +204,7 @@ async function settleRound(round: RouletteRoundRow): Promise<void> {
         round_id: round.id,
       });
     } catch (e) {
-      console.error("[roulette] house credit failed", e);
+      console.error("[roulette] house failed", e);
     }
     for (const bet of list) {
       const stake = Number(bet.amount) || 0;
@@ -173,80 +214,113 @@ async function settleRound(round: RouletteRoundRow): Promise<void> {
       try {
         await payReferralFromHouseFee(bet.telegram_id, stake, slice);
       } catch {
-        /* ignore referral errors */
+        /* */
       }
     }
   }
 
   const resultEnds = new Date(Date.now() + ROULETTE_RESULT_MS).toISOString();
-  await db
+  const { data: done } = await db
     .from("roulette_rounds")
     .update({
+      status: "settled",
       server_seed: seed,
       result_slot: slot,
       result_color: color,
       result_ends_at: resultEnds,
     })
-    .eq("id", round.id);
+    .eq("id", round.id)
+    .eq("status", "spinning")
+    .select("*")
+    .maybeSingle();
+
+  return (done as RouletteRoundRow) || (await getLatestRound()) || round;
 }
 
-/**
- * Advance the single global round based on server time.
- * Called on every state poll — must be safe under concurrency.
- */
 export async function advanceRoulette(): Promise<RouletteRoundRow> {
-  const db = getAdminClient();
-  let round = await getLatestRound();
+  // Always prefer active (betting/spinning) over a settled latest
+  let round = (await getActiveRound()) || (await getLatestRound());
   if (!round) return createBettingRound();
 
   const now = Date.now();
 
-  if (round.status === "betting" && now >= new Date(round.bet_ends_at).getTime()) {
-    const seed = round.server_seed || randomSeed();
-    const slot = slotFromSeed(seed, round.id);
-    const spinEnds = new Date(now + ROULETTE_SPIN_MS).toISOString();
+  // betting → spinning
+  if (round.status === "betting") {
+    if (now >= new Date(round.bet_ends_at).getTime()) {
+      const seed = round.server_seed || randomSeed();
+      const slot = slotFromSeed(seed, round.id);
+      const spinEnds = new Date(now + ROULETTE_SPIN_MS).toISOString();
 
-    const { data } = await db
-      .from("roulette_rounds")
-      .update({
-        status: "spinning",
-        server_seed: seed,
-        result_slot: slot,
-        result_color: rouletteColorAt(slot),
-        spin_ends_at: spinEnds,
-      })
-      .eq("id", round.id)
-      .eq("status", "betting")
-      .select("*")
-      .maybeSingle();
+      const { data } = await dbUpdateSpinning(round.id, {
+        seed,
+        slot,
+        color: rouletteColorAt(slot),
+        spinEnds,
+      });
 
-    round = (data as RouletteRoundRow) || (await getLatestRound())!;
+      round = data || (await getActiveRound()) || (await getLatestRound())!;
+    }
+    return round;
   }
 
+  // spinning → settle (payouts + settled + result_ends_at)
   if (round.status === "spinning") {
     const spinEnds = round.spin_ends_at
       ? new Date(round.spin_ends_at).getTime()
       : 0;
     if (now >= spinEnds) {
-      await settleRound(round);
-      round = (await getLatestRound())!;
+      round = await settleRound(round);
     }
+    return round;
   }
 
+  // settled → wait RESULT_MS then new betting round
   if (round.status === "settled") {
     const resultEnds = round.result_ends_at
       ? new Date(round.result_ends_at).getTime()
       : 0;
-    if (!round.result_ends_at || now >= resultEnds) {
-      const latest = await getLatestRound();
-      if (latest && latest.id === round.id && latest.status === "settled") {
-        return createBettingRound();
-      }
-      return latest!;
+    // If result_ends_at missing (legacy bug), give a short window then advance
+    const ready =
+      !round.result_ends_at || now >= resultEnds || resultEnds === 0;
+    if (ready && round.result_ends_at && now >= resultEnds) {
+      return createBettingRound();
     }
+    if (!round.result_ends_at) {
+      // heal legacy row
+      const db = getAdminClient();
+      const healed = new Date(now + ROULETTE_RESULT_MS).toISOString();
+      await db
+        .from("roulette_rounds")
+        .update({ result_ends_at: healed })
+        .eq("id", round.id)
+        .is("result_ends_at", null);
+      return (await getLatestRound()) || round;
+    }
+    return round;
   }
 
   return round;
+}
+
+async function dbUpdateSpinning(
+  id: string,
+  opts: { seed: string; slot: number; color: RouletteColor; spinEnds: string }
+): Promise<{ data: RouletteRoundRow | null }> {
+  const db = getAdminClient();
+  const { data } = await db
+    .from("roulette_rounds")
+    .update({
+      status: "spinning",
+      server_seed: opts.seed,
+      result_slot: opts.slot,
+      result_color: opts.color,
+      spin_ends_at: opts.spinEnds,
+    })
+    .eq("id", id)
+    .eq("status", "betting")
+    .select("*")
+    .maybeSingle();
+  return { data: (data as RouletteRoundRow) || null };
 }
 
 export async function getRouletteState(telegramId?: number | null) {
@@ -263,16 +337,12 @@ export async function getRouletteState(telegramId?: number | null) {
   const list = (bets || []) as RouletteBetRow[];
   const pools: Record<RouletteColor, number> = { red: 0, black: 0, green: 0 };
   const myBets: Record<RouletteColor, number> = { red: 0, black: 0, green: 0 };
-  let bettors = 0;
   const seen = new Set<number>();
 
   for (const b of list) {
     const amt = Number(b.amount) || 0;
     pools[b.color] = +(pools[b.color] + amt).toFixed(6);
-    if (!seen.has(b.telegram_id)) {
-      seen.add(b.telegram_id);
-      bettors += 1;
-    }
+    seen.add(b.telegram_id);
     if (telegramId && b.telegram_id === telegramId) {
       myBets[b.color] = +(myBets[b.color] + amt).toFixed(6);
     }
@@ -304,7 +374,7 @@ export async function getRouletteState(telegramId?: number | null) {
     pools,
     myBets,
     myTotal: +(myBets.red + myBets.black + myBets.green).toFixed(6),
-    bettors,
+    bettors: seen.size,
     history: (hist || []).map((h) => ({
       id: h.id as string,
       color: h.result_color as RouletteColor,

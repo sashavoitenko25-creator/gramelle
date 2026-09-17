@@ -215,7 +215,7 @@ export function RouletteScreen({
     };
   }, [status, roundId]);
 
-  // Spin to result once per round
+  // Spin to result once per round — duration matches time left until spinEndsAt
   useEffect(() => {
     if (!state) return;
     const r = state.round;
@@ -230,26 +230,33 @@ export function RouletteScreen({
     if (spinRaf.current) cancelAnimationFrame(spinRaf.current);
 
     const slot = r.resultSlot;
-    const start = wheelXRef.current;
+    const startX = wheelXRef.current;
     let dest = targetX(slot, SPIN_MIN_LOOPS);
-    // guarantee long travel
     const minTravel = STRIDE * ROULETTE_SLOT_COUNT * 4;
-    while (dest - start < minTravel) dest += STRIDE * ROULETTE_SLOT_COUNT;
+    while (dest - startX < minTravel) dest += STRIDE * ROULETTE_SLOT_COUNT;
 
-    const dur = Math.min(ROULETTE_SPIN_MS, 5200);
+    // Match server window so wheel stops as phase flips to settled
+    let dur = ROULETTE_SPIN_MS;
+    if (r.spinEndsAt) {
+      const left = new Date(r.spinEndsAt).getTime() - (Date.now() + offsetRef.current);
+      dur = Math.max(1200, Math.min(ROULETTE_SPIN_MS, left - 80));
+    }
+
     const t0 = performance.now();
     haptic("medium");
 
     const step = (now: number) => {
       const p = Math.min(1, (now - t0) / dur);
       const e = easeOutExpo(p);
-      writeX(start + (dest - start) * e);
+      writeX(startX + (dest - startX) * e);
       if (p < 1) {
         spinRaf.current = requestAnimationFrame(step);
       } else {
         writeX(dest);
         spinRaf.current = null;
         hapticSuccess();
+        // refresh state/balance after land
+        void load();
       }
     };
     spinRaf.current = requestAnimationFrame(step);
@@ -257,20 +264,12 @@ export function RouletteScreen({
     return () => {
       if (spinRaf.current) cancelAnimationFrame(spinRaf.current);
     };
-    // intentionally not depending on wheelX
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.round.id, state?.round.status, state?.round.resultSlot]);
+  }, [state?.round.id, state?.round.status, state?.round.resultSlot, state?.round.spinEndsAt]);
 
-  // Allow next spin after new betting round
+  // New betting round → allow spin again
   useEffect(() => {
-    if (status === "betting" && roundId && spunForRound.current !== roundId) {
-      // keep spunForRound until we see a new id different from spun
-      if (spunForRound.current && spunForRound.current !== roundId) {
-        spunForRound.current = null;
-      }
-    }
     if (status === "betting" && roundId) {
-      // if we already spun a previous round, clear when id changes
       if (spunForRound.current && spunForRound.current !== roundId) {
         spunForRound.current = null;
       }
