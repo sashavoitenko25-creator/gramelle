@@ -113,14 +113,88 @@ function PvpArt() {
   );
 }
 
+/** LIVE mode art — spinning wheel + live pulse */
+function LiveArt() {
+  return (
+    <svg
+      width="120"
+      height="88"
+      viewBox="0 0 120 88"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="drop-shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="liveRing" x1="20" y1="20" x2="100" y2="80" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#34d399" />
+          <stop offset="0.45" stopColor="#22d3ee" />
+          <stop offset="1" stopColor="#a78bfa" />
+        </linearGradient>
+        <linearGradient id="liveSegR" x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#fb7185" />
+          <stop offset="1" stopColor="#e11d48" />
+        </linearGradient>
+        <linearGradient id="liveSegG" x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#6ee7b7" />
+          <stop offset="1" stopColor="#059669" />
+        </linearGradient>
+        <linearGradient id="liveSegB" x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#94a3b8" />
+          <stop offset="1" stopColor="#1e293b" />
+        </linearGradient>
+        <filter id="liveGlow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="2.4" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <radialGradient id="liveCore" cx="0.5" cy="0.5" r="0.5">
+          <stop stopColor="#fff" stopOpacity="0.95" />
+          <stop offset="0.45" stopColor="#67e8f9" stopOpacity="0.75" />
+          <stop offset="1" stopColor="#10b981" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      <ellipse cx="60" cy="78" rx="36" ry="5.5" fill="#34d399" fillOpacity="0.22" />
+
+      {/* outer ring */}
+      <g filter="url(#liveGlow)">
+        <circle cx="60" cy="42" r="30" stroke="url(#liveRing)" strokeWidth="3.2" fill="#0a1628" fillOpacity="0.55" />
+        <circle cx="60" cy="42" r="24" stroke="#fff" strokeOpacity="0.12" strokeWidth="1" fill="none" />
+      </g>
+
+      {/* color segments (simplified pie) */}
+      <g transform="translate(60 42)" filter="url(#liveGlow)">
+        <path d="M0 0 L0 -20 A20 20 0 0 1 17.3 -10 Z" fill="url(#liveSegR)" opacity="0.95" />
+        <path d="M0 0 L17.3 -10 A20 20 0 0 1 17.3 10 Z" fill="url(#liveSegB)" opacity="0.95" />
+        <path d="M0 0 L17.3 10 A20 20 0 0 1 0 20 Z" fill="url(#liveSegR)" opacity="0.9" />
+        <path d="M0 0 L0 20 A20 20 0 0 1 -17.3 10 Z" fill="url(#liveSegB)" opacity="0.9" />
+        <path d="M0 0 L-17.3 10 A20 20 0 0 1 -17.3 -10 Z" fill="url(#liveSegG)" opacity="0.95" />
+        <path d="M0 0 L-17.3 -10 A20 20 0 0 1 0 -20 Z" fill="url(#liveSegB)" opacity="0.9" />
+      </g>
+
+      {/* center hub */}
+      <circle cx="60" cy="42" r="8" fill="url(#liveCore)" filter="url(#liveGlow)" />
+      <circle cx="60" cy="42" r="3.2" fill="#fff" />
+
+      {/* pointer */}
+      <path d="M60 14 L64 24 L56 24 Z" fill="#67e8f9" filter="url(#liveGlow)" />
+
+      {/* live pulse dots */}
+      <circle cx="96" cy="22" r="4" fill="#34d399" opacity="0.9" filter="url(#liveGlow)" />
+      <circle cx="96" cy="22" r="7" stroke="#34d399" strokeWidth="1.2" fill="none" opacity="0.45" />
+    </svg>
+  );
+}
+
 function IconLive() {
   return (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
       <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
-      <path d="M16.24 7.76a6 6 0 010 8.49" />
-      <path d="M7.76 16.24a6 6 0 010-8.49" />
-      <path d="M19.07 4.93a10 10 0 010 14.14" />
-      <path d="M4.93 19.07a10 10 0 010-14.14" />
+      <path d="M12 3v2M12 19v2M3 12h2M19 12h2" opacity="0.5" />
     </svg>
   );
 }
@@ -212,15 +286,17 @@ export function PlayHubScreen({
           </div>
         </button>
 
-        {/* LIVE — Roulette */}
+        {/* LIVE */}
         <button
           type="button"
           onClick={() => onSelectLive?.()}
           className="group relative overflow-hidden rounded-[28px] text-left btn-press active:scale-[0.98] transition-all duration-200"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-[#064e3b] via-[#047857] to-[#0e7490]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_15%_20%,rgba(52,211,153,0.4),transparent_55%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_100%_0%,rgba(34,211,238,0.3),transparent_50%)]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#064e3b] via-[#0f766e] to-[#0e7490]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_15%_20%,rgba(52,211,153,0.45),transparent_55%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_100%_0%,rgba(34,211,238,0.35),transparent_50%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_40%_40%_at_80%_90%,rgba(167,139,250,0.25),transparent_50%)]" />
+
           <div className="absolute top-3.5 right-3.5 z-20 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 border border-white/15 backdrop-blur-md">
             <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
@@ -228,20 +304,24 @@ export function PlayHubScreen({
             </span>
             <span className="text-[11px] font-semibold text-white/90">Live</span>
           </div>
-          <div className="relative p-5 min-h-[148px] flex flex-col justify-between">
-            <div className="flex items-center gap-2">
+
+          <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
+            <div className="flex items-start justify-between gap-2">
               <div className="relative w-[52px] h-[52px] rounded-2xl bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] -rotate-6 group-hover:rotate-0 transition-transform duration-300 text-white">
                 <IconLive />
+              </div>
+              <div className="pr-1 pt-1 opacity-95 group-hover:scale-[1.03] transition-transform duration-300 origin-top-right">
+                <LiveArt />
               </div>
             </div>
             <div>
               <div className="text-[22px] font-black tracking-tight text-white">
                 LIVE
               </div>
-              <p className="mt-1 text-[13px] text-white/70 leading-snug max-w-[90%]">
+              <p className="mt-1 text-[13px] text-white/70 leading-snug max-w-[95%]">
                 {tr(
-                  "Roulette · Red / Black / Green",
-                  "Рулетка · Красное / Чёрное / Зелёное"
+                  "Live games · Roulette",
+                  "Игры в реальном времени · Рулетка"
                 )}
               </p>
             </div>
