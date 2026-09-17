@@ -21,6 +21,7 @@ export type RouletteStateResponse = {
     resultSlot: number | null;
     resultColor: RouletteColor | null;
     createdAt: string;
+    gameNo?: number;
   };
   pools: Record<RouletteColor, number>;
   myBets: Record<RouletteColor, number>;

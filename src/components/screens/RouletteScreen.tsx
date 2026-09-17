@@ -149,6 +149,10 @@ export function RouletteScreen({
 
   const [displayMs, setDisplayMs] = useState(() => Date.now());
   const offsetRef = useRef(0);
+  const onBalanceUpdateRef = useRef(onBalanceUpdate);
+  useEffect(() => {
+    onBalanceUpdateRef.current = onBalanceUpdate;
+  }, [onBalanceUpdate]);
 
   const [wheelX, setWheelX] = useState(0);
   const wheelXRef = useRef(0);
@@ -201,6 +205,10 @@ export function RouletteScreen({
       setState(flat);
       setLoadError(null);
       statusRef.current = flat.round.status;
+      const bal = (flat as { balance?: number | null }).balance;
+      if (typeof bal === "number" && Number.isFinite(bal)) {
+        onBalanceUpdateRef.current(bal);
+      }
     },
     []
   );
@@ -267,10 +275,13 @@ export function RouletteScreen({
     let alive = true;
     const origin = wheelXRef.current;
     const t0 = performance.now();
+    const period = STRIDE * ROULETTE_SLOT_COUNT;
     const step = (t: number) => {
       if (!alive) return;
       if (statusRef.current !== "betting") return;
-      writeX(origin + ((t - t0) / 1000) * 22);
+      // Keep wheelX within one period so strip never drifts into empty space
+      const raw = origin + ((t - t0) / 1000) * 22;
+      writeX(((raw % period) + period) % period);
       idleRaf.current = requestAnimationFrame(step);
     };
     idleRaf.current = requestAnimationFrame(step);
@@ -341,6 +352,11 @@ export function RouletteScreen({
       if (spunForRound.current && spunForRound.current !== roundId) {
         spunForRound.current = null;
       }
+      // Snap wheel into first period so tiles stay visible
+      const period = STRIDE * ROULETTE_SLOT_COUNT;
+      const x = wheelXRef.current;
+      const snapped = ((x % period) + period) % period;
+      if (Math.abs(x - snapped) > 1) writeX(snapped);
     }
   }, [status, roundId]);
 
@@ -414,7 +430,11 @@ export function RouletteScreen({
   const resultColor = state?.round.resultColor;
   const resultSlot = state?.round.resultSlot;
   const hashFull = state?.round.serverSeedHash || "";
-  const seedFull = state?.round.serverSeed || "";
+  // Seed only during result phase (settled), not during spin
+  const seedFull =
+    status === "settled" && state?.round.serverSeed
+      ? state.round.serverSeed
+      : "";
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
@@ -423,9 +443,9 @@ export function RouletteScreen({
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-semibold tracking-tight flex items-center gap-2">
             <span>LIVE Roulette</span>
-            {state?.round?.id && (
+            {state?.round?.gameNo != null && (
               <span className="text-[12px] font-mono text-white/35 font-normal">
-                #{state.round.id.replace(/-/g, "").slice(0, 6)}
+                #{state.round.gameNo}
               </span>
             )}
           </div>

@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { getAdminClient } from "./supabase";
-import { creditBalance } from "./ledger";
+import { creditBalance, getBalance } from "./ledger";
 import { creditHouse } from "./house";
 import { payReferralFromHouseFee } from "./referral";
 import {
@@ -323,6 +323,17 @@ async function dbUpdateSpinning(
   return { data: (data as RouletteRoundRow) || null };
 }
 
+
+/** Sequential number starting at 0, counting all prior rounds (includes past games). */
+async function getGameNo(round: RouletteRoundRow): Promise<number> {
+  const db = getAdminClient();
+  const { count } = await db
+    .from("roulette_rounds")
+    .select("id", { count: "exact", head: true })
+    .lt("created_at", round.created_at);
+  return count ?? 0;
+}
+
 export async function getRouletteState(telegramId?: number | null) {
   const round = await advanceRoulette();
   const db = getAdminClient();
@@ -424,9 +435,10 @@ export async function getRouletteState(telegramId?: number | null) {
       spinEndsAt: round.spin_ends_at,
       resultEndsAt: round.result_ends_at,
       serverSeedHash: round.server_seed_hash,
-      serverSeed: reveal ? round.server_seed : null,
+      serverSeed: round.status === "settled" ? round.server_seed : null,
       resultSlot: reveal ? round.result_slot : null,
       resultColor: reveal ? round.result_color : null,
+      gameNo: await getGameNo(round),
       createdAt: round.created_at,
     },
     pools,
@@ -443,6 +455,10 @@ export async function getRouletteState(telegramId?: number | null) {
     mult: ROULETTE_MULT,
     serverNow: new Date().toISOString(),
     serverMs: Date.now(),
+    balance:
+      telegramId != null && telegramId > 0
+        ? await getBalance(telegramId).catch(() => null)
+        : null,
   };
 }
 

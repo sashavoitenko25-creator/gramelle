@@ -2,7 +2,7 @@
 
 export const ROULETTE_COUNTDOWN_SEC = 15;
 export const ROULETTE_SPIN_MS = 5200;
-export const ROULETTE_RESULT_MS = 3200;
+export const ROULETTE_RESULT_MS = 5000;
 export const ROULETTE_MIN_BET = 0.25;
 export const ROULETTE_MAX_BET = 500;
 export const ROULETTE_MAX_STAKE_PER_ROUND = 1000;
