@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/server/supabase";
 import { getRouletteHistory } from "@/lib/server/roulette";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     if (!isSupabaseConfigured()) {

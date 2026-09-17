@@ -1,14 +1,22 @@
-LIVE Roulette for Gramelle
-==========================
+Gramelle LIVE Roulette — full package
+=====================================
 
-1) Run SQL in Supabase SQL editor:
+1) Supabase SQL editor → run:
    sql/roulette_tables.sql
 
-2) Unzip over project root
+2) Unzip this archive over the project root (merge/replace files).
 
 3) npm run build
+4) git add -A && git commit -m "LIVE roulette" && git push
 
 Play → LIVE → Roulette
 
-Round machine advances on every /api/roulette/state poll (1s client interval).
-Optional: cron POST /api/roulette/process every 2s.
+Sync model:
+- One global round in roulette_rounds
+- Clients poll GET /api/roulette/state every ~0.8s (advances phases)
+- Countdown is local rAF + serverMs offset (smooth, no stutter)
+- Spin lands on server result_slot (HMAC(server_seed, round_id) % 15)
+- RED/BLACK ×2, GREEN ×14
+- Bets debit GRAM; wins credit; house + referral on settle
+
+Optional: cron POST /api/roulette/process every 2s (not required if clients poll).

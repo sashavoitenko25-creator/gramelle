@@ -1,12 +1,13 @@
-/** LIVE Roulette — global synchronized rounds */
+/** LIVE Roulette — synchronized global rounds (Gramelle) */
 
-export const ROULETTE_COUNTDOWN_SEC = 15;
-export const ROULETTE_SPIN_MS = 4200;
-export const ROULETTE_RESULT_MS = 2800;
+export const ROULETTE_COUNTDOWN_SEC = 12;
+export const ROULETTE_SPIN_MS = 5200;
+export const ROULETTE_RESULT_MS = 3200;
 export const ROULETTE_MIN_BET = 0.25;
 export const ROULETTE_MAX_BET = 500;
-/** Max total stake per player per round (all colors) */
 export const ROULETTE_MAX_STAKE_PER_ROUND = 1000;
+/** Lock bets this many ms before bet_ends_at */
+export const ROULETTE_BET_LOCK_MS = 400;
 
 export type RouletteColor = "red" | "black" | "green";
 
@@ -17,8 +18,8 @@ export const ROULETTE_MULT: Record<RouletteColor, number> = {
 };
 
 /**
- * 15 slots: 7 red, 7 black, 1 green.
- * EV red ≈ 7/15 * 2 ≈ 0.933 → ~6.7% house (close to 5% feel).
+ * 15 slots — 7 red, 7 black, 1 green.
+ * P(red)=7/15, payout 2x → RTP ≈ 93.3%.
  */
 export const ROULETTE_WHEEL: RouletteColor[] = [
   "red",
@@ -39,3 +40,9 @@ export const ROULETTE_WHEEL: RouletteColor[] = [
 ];
 
 export const ROULETTE_SLOT_COUNT = ROULETTE_WHEEL.length;
+
+export function rouletteColorAt(slot: number): RouletteColor {
+  const n = ROULETTE_SLOT_COUNT;
+  const i = ((slot % n) + n) % n;
+  return ROULETTE_WHEEL[i];
+}

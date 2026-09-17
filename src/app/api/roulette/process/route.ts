@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/server/supabase";
 import { advanceRoulette, getRouletteState } from "@/lib/server/roulette";
 
-/** Optional cron/heartbeat — clients also advance via /state */
+export const dynamic = "force-dynamic";
+
+/** Optional external cron — clients also advance via GET /state */
 export async function POST() {
   try {
     if (!isSupabaseConfigured()) {

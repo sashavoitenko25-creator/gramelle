@@ -5,13 +5,15 @@ import { placeRouletteBet } from "@/lib/server/roulette";
 import { rateLimit } from "@/lib/server/rateLimit";
 import { assertNotBanned } from "@/lib/server/ban";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
     if (!isSupabaseConfigured()) {
       return NextResponse.json({ error: "Сервер не настроен" }, { status: 503 });
     }
     const auth = await requireTelegramUser(req);
-    const rl = rateLimit(`roulette-bet:${auth.user.id}`, 30, 60_000);
+    const rl = rateLimit(`roulette-bet:${auth.user.id}`, 40, 60_000);
     if (!rl.ok) {
       return NextResponse.json({ error: "Too many bets" }, { status: 429 });
     }

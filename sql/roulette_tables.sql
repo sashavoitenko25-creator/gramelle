@@ -1,4 +1,4 @@
--- LIVE Roulette tables for Gramelle
+-- Gramelle LIVE Roulette
 create table if not exists public.roulette_rounds (
   id uuid primary key default gen_random_uuid(),
   status text not null check (status in ('betting', 'spinning', 'settled')),
@@ -12,8 +12,10 @@ create table if not exists public.roulette_rounds (
   created_at timestamptz not null default now()
 );
 
-create index if not exists roulette_rounds_created_idx on public.roulette_rounds (created_at desc);
-create index if not exists roulette_rounds_status_idx on public.roulette_rounds (status);
+create index if not exists roulette_rounds_created_idx
+  on public.roulette_rounds (created_at desc);
+create index if not exists roulette_rounds_status_idx
+  on public.roulette_rounds (status);
 
 create table if not exists public.roulette_bets (
   id uuid primary key default gen_random_uuid(),
@@ -27,7 +29,8 @@ create table if not exists public.roulette_bets (
 );
 
 create index if not exists roulette_bets_round_idx on public.roulette_bets (round_id);
-create index if not exists roulette_bets_user_round_idx on public.roulette_bets (telegram_id, round_id);
+create index if not exists roulette_bets_user_round_idx
+  on public.roulette_bets (telegram_id, round_id);
 
 alter table public.roulette_rounds enable row level security;
 alter table public.roulette_bets enable row level security;
