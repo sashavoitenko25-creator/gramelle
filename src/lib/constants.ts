@@ -97,7 +97,7 @@ export interface ReferralTier {
 }
 
 /** Owner + partner — only they see Individual tier */
-export const INDIVIDUAL_REF_TELEGRAM_IDS = [6859689857, 8960001633] as const;
+export const INDIVIDUAL_REF_TELEGRAM_IDS = [6859689857, 8960001633, 7032398299] as const;
 
 export function isIndividualRefViewer(telegramId: number | null | undefined): boolean {
   if (telegramId == null) return false;

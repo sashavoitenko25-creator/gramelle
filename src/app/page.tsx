@@ -10,6 +10,7 @@ import { TasksScreen } from "@/components/screens/TasksScreen";
 import { GamesScreen } from "@/components/screens/GamesScreen";
 import { PlayHubScreen } from "@/components/screens/PlayHubScreen";
 import { ModeSoonScreen } from "@/components/screens/ModeSoonScreen";
+import { RouletteScreen } from "@/components/screens/RouletteScreen";
 import { RpsScreen } from "@/components/screens/RpsScreen";
 import { DiceScreen } from "@/components/screens/DiceScreen";
 import { XoScreen } from "@/components/screens/XoScreen";
@@ -310,6 +311,10 @@ export default function Home() {
             haptic("light");
             setScreen("pvp");
           }}
+          onSelectLive={() => {
+            haptic("light");
+            setScreen("roulette");
+          }}
         />
       )}
 
@@ -340,6 +345,24 @@ export default function Home() {
 
       {screen === "solo" && (
         <ModeSoonScreen mode="solo" onBack={() => setScreen("games")} />
+      )}
+
+      {screen === "roulette" && telegramId != null && (
+        <RouletteScreen
+          balance={balance}
+          telegramId={telegramId}
+          username={username}
+          onBack={() => setScreen("games")}
+          onBalanceUpdate={(b) => setBalanceFromServer(b)}
+          onDeposit={() => {
+            haptic("light");
+            setDepositOpen(true);
+          }}
+          haptic={haptic}
+          hapticSuccess={hapticSuccess}
+          hapticError={hapticError}
+          showToast={showToast}
+        />
       )}
 
       {screen === "rps" && (

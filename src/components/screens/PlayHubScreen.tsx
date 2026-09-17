@@ -6,7 +6,6 @@ interface PlayHubScreenProps {
   onSelectPvp: () => void;
   onSelectLive?: () => void;
   onSelectSolo?: () => void;
-  /** Sum of RPS + Dice + XO online (or pass individual counts) */
   pvpOnline?: number;
   rpsOnline?: number;
   diceOnline?: number;
@@ -138,6 +137,7 @@ function IconSolo() {
 
 export function PlayHubScreen({
   onSelectPvp,
+  onSelectLive,
   pvpOnline,
   rpsOnline = 0,
   diceOnline = 0,
@@ -212,33 +212,41 @@ export function PlayHubScreen({
           </div>
         </button>
 
-        {/* LIVE — not clickable */}
-        <div
-          className="relative overflow-hidden rounded-[28px] text-left opacity-90 pointer-events-none select-none"
-          aria-disabled="true"
+        {/* LIVE — Roulette */}
+        <button
+          type="button"
+          onClick={() => onSelectLive?.()}
+          className="group relative overflow-hidden rounded-[28px] text-left btn-press active:scale-[0.98] transition-all duration-200"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-[#064e3b] via-[#047857] to-[#0e7490]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_15%_20%,rgba(52,211,153,0.35),transparent_55%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_100%_0%,rgba(34,211,238,0.28),transparent_50%)]" />
-          <div className="absolute inset-0 bg-black/35" />
-          <div className="absolute top-3.5 right-3.5 z-20 px-2.5 py-1 rounded-full bg-black/40 border border-white/15 backdrop-blur-md">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200/90">
-              {tr("Soon", "Скоро")}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_15%_20%,rgba(52,211,153,0.4),transparent_55%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_100%_0%,rgba(34,211,238,0.3),transparent_50%)]" />
+          <div className="absolute top-3.5 right-3.5 z-20 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 border border-white/15 backdrop-blur-md">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
             </span>
+            <span className="text-[11px] font-semibold text-white/90">Live</span>
           </div>
-          <div className="relative p-5 min-h-[132px] flex flex-col justify-between">
+          <div className="relative p-5 min-h-[148px] flex flex-col justify-between">
             <div className="flex items-center gap-2">
-              <div className="relative w-[52px] h-[52px] rounded-2xl bg-white/[0.12] border border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.35)] text-white/85">
+              <div className="relative w-[52px] h-[52px] rounded-2xl bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] -rotate-6 group-hover:rotate-0 transition-transform duration-300 text-white">
                 <IconLive />
               </div>
             </div>
             <div>
-              <div className="text-[22px] font-black tracking-tight text-white/90">
+              <div className="text-[22px] font-black tracking-tight text-white">
                 LIVE
               </div>
+              <p className="mt-1 text-[13px] text-white/70 leading-snug max-w-[90%]">
+                {tr(
+                  "Roulette · Red / Black / Green",
+                  "Рулетка · Красное / Чёрное / Зелёное"
+                )}
+              </p>
             </div>
           </div>
-        </div>
+        </button>
 
         {/* SOLO — not clickable */}
         <div
