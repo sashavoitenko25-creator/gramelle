@@ -256,65 +256,74 @@ async function settleRound(round: RouletteRoundRow): Promise<RouletteRoundRow> {
   return (done as RouletteRoundRow) || (await getLatestRound()) || round;
 }
 
+/**
+ * Advance the global LIVE clock.
+ * Runs multiple phase transitions in one call so the game catches up
+ * even after a long period with zero online players (no client polls).
+ */
 export async function advanceRoulette(): Promise<RouletteRoundRow> {
-  // Always prefer active (betting/spinning) over a settled latest
   let round = (await getActiveRound()) || (await getLatestRound());
   if (!round) return createBettingRound();
 
-  const now = Date.now();
+  // Enough steps for betting→spin→settle→new betting after downtime
+  for (let step = 0; step < 8; step++) {
+    const now = Date.now();
+    const beforeId = round.id;
+    const beforeStatus = round.status;
 
-  // betting → spinning
-  if (round.status === "betting") {
-    if (now >= new Date(round.bet_ends_at).getTime()) {
+    if (round.status === "betting") {
+      if (now < new Date(round.bet_ends_at).getTime()) {
+        return round; // still accepting bets
+      }
       const seed = round.server_seed || randomSeed();
       const slot = slotFromSeed(seed, round.id);
       const spinEnds = new Date(now + ROULETTE_SPIN_MS).toISOString();
-
       const { data } = await dbUpdateSpinning(round.id, {
         seed,
         slot,
         color: rouletteColorAt(slot),
         spinEnds,
       });
-
       round = data || (await getActiveRound()) || (await getLatestRound())!;
+      if (round.status === "betting") return round; // race / lock failed
+      continue;
     }
-    return round;
-  }
 
-  // spinning → settle (payouts + settled + result_ends_at)
-  if (round.status === "spinning") {
-    const spinEnds = round.spin_ends_at
-      ? new Date(round.spin_ends_at).getTime()
-      : 0;
-    if (now >= spinEnds) {
+    if (round.status === "spinning") {
+      const spinEnds = round.spin_ends_at
+        ? new Date(round.spin_ends_at).getTime()
+        : 0;
+      if (now < spinEnds) {
+        return round; // animation window
+      }
       round = await settleRound(round);
+      continue;
     }
-    return round;
-  }
 
-  // settled → wait RESULT_MS then new betting round
-  if (round.status === "settled") {
-    const resultEnds = round.result_ends_at
-      ? new Date(round.result_ends_at).getTime()
-      : 0;
-    // If result_ends_at missing (legacy bug), give a short window then advance
-    const ready =
-      !round.result_ends_at || now >= resultEnds || resultEnds === 0;
-    if (ready && round.result_ends_at && now >= resultEnds) {
-      return createBettingRound();
+    if (round.status === "settled") {
+      if (!round.result_ends_at) {
+        const db = getAdminClient();
+        const healed = new Date(now + ROULETTE_RESULT_MS).toISOString();
+        await db
+          .from("roulette_rounds")
+          .update({ result_ends_at: healed })
+          .eq("id", round.id)
+          .is("result_ends_at", null);
+        round = (await getLatestRound()) || round;
+        continue;
+      }
+      const resultEnds = new Date(round.result_ends_at).getTime();
+      if (now < resultEnds) {
+        return round; // show result
+      }
+      // Open next betting round (works with zero players — keeps LIVE alive)
+      round = await createBettingRound();
+      if (round.id === beforeId && round.status === "settled") {
+        return round; // safety
+      }
+      continue;
     }
-    if (!round.result_ends_at) {
-      // heal legacy row
-      const db = getAdminClient();
-      const healed = new Date(now + ROULETTE_RESULT_MS).toISOString();
-      await db
-        .from("roulette_rounds")
-        .update({ result_ends_at: healed })
-        .eq("id", round.id)
-        .is("result_ends_at", null);
-      return (await getLatestRound()) || round;
-    }
+
     return round;
   }
 
