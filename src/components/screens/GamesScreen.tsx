@@ -7,6 +7,7 @@ interface GamesScreenProps {
   onSelectRps: () => void;
   onSelectDice: () => void;
   onSelectXo?: () => void;
+  onBack?: () => void;
   rpsOnline?: number;
   diceOnline?: number;
   xoOnline?: number;
@@ -16,6 +17,7 @@ export function GamesScreen({
   onSelectRps,
   onSelectDice,
   onSelectXo,
+  onBack,
   rpsOnline = 0,
   diceOnline = 0,
   xoOnline = 0,
@@ -44,7 +46,16 @@ export function GamesScreen({
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      <div className="px-5 pt-2 pb-6">
+      <div className="px-5 pt-2 pb-6 relative">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="absolute left-4 top-2 w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/60 text-lg"
+          >
+            ‹
+          </button>
+        )}
         <h1 className="text-center text-[30px] font-bold tracking-tight text-white leading-none">
           {t("pvpGame")}
         </h1>

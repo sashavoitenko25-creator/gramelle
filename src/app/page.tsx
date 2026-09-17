@@ -8,6 +8,8 @@ import { ReferralsScreen } from "@/components/screens/ReferralsScreen";
 import { TransactionsScreen } from "@/components/screens/TransactionsScreen";
 import { TasksScreen } from "@/components/screens/TasksScreen";
 import { GamesScreen } from "@/components/screens/GamesScreen";
+import { PlayHubScreen } from "@/components/screens/PlayHubScreen";
+import { ModeSoonScreen } from "@/components/screens/ModeSoonScreen";
 import { RpsScreen } from "@/components/screens/RpsScreen";
 import { DiceScreen } from "@/components/screens/DiceScreen";
 import { XoScreen } from "@/components/screens/XoScreen";
@@ -300,9 +302,27 @@ export default function Home() {
       )}
 
       {screen === "games" && (
+        <PlayHubScreen
+          onSelectPvp={() => {
+            haptic("light");
+            setScreen("pvp");
+          }}
+          onSelectLive={() => {
+            haptic("light");
+            setScreen("live");
+          }}
+          onSelectSolo={() => {
+            haptic("light");
+            setScreen("solo");
+          }}
+        />
+      )}
+
+      {screen === "pvp" && (
         <GamesScreen
           rpsOnline={rpsOnline}
           diceOnline={diceOnline}
+          onBack={() => setScreen("games")}
           onSelectRps={() => {
             haptic("light");
             setScreen("rps");
@@ -319,6 +339,14 @@ export default function Home() {
         />
       )}
 
+      {screen === "live" && (
+        <ModeSoonScreen mode="live" onBack={() => setScreen("games")} />
+      )}
+
+      {screen === "solo" && (
+        <ModeSoonScreen mode="solo" onBack={() => setScreen("games")} />
+      )}
+
       {screen === "rps" && (
         <RpsScreen
           balance={balance}
@@ -326,7 +354,7 @@ export default function Home() {
           username={username}
           photoUrl={profile?.photo_url}
           serverMode={serverMode}
-          onBack={() => setScreen("games")}
+          onBack={() => setScreen("pvp")}
           onDeposit={() => {
             haptic("light");
             setDepositOpen(true);
@@ -359,7 +387,7 @@ export default function Home() {
           username={username}
           photoUrl={profile?.photo_url}
           serverMode={serverMode}
-          onBack={() => setScreen("games")}
+          onBack={() => setScreen("pvp")}
           onDeposit={() => {
             haptic("light");
             setDepositOpen(true);
@@ -418,7 +446,7 @@ export default function Home() {
           username={username}
           photoUrl={profile?.photo_url}
           serverMode={serverMode}
-          onBack={() => setScreen("games")}
+          onBack={() => setScreen("pvp")}
           onDeposit={() => {
             haptic("light");
             setDepositOpen(true);

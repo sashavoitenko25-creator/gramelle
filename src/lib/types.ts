@@ -17,6 +17,9 @@ export interface Profile {
 
 export type Screen =
   | "games"
+  | "pvp"
+  | "live"
+  | "solo"
   | "rps"
   | "dice"
   | "xo"
@@ -24,6 +27,7 @@ export type Screen =
   | "referrals"
   | "transactions"
   | "tasks"
-  | "fairness";
+  | "fairness"
+  | "race";
 
 export type DepositMethod = "ton";
