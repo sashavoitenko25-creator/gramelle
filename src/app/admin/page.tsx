@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-type Tab = "withdrawals" | "players" | "stats" | "roulette";
+type Tab = "withdrawals" | "players" | "stats";
 
 interface Withdrawal {
   id: string;
@@ -34,29 +34,10 @@ interface Stats {
   deposits24h: number;
   bets24h: number;
   rounds24h: number;
-}
-
-type RColor = "red" | "black" | "green";
-
-interface RouletteAnalytics {
-  expected: Record<RColor, number>;
-  totals: {
-    all: Record<RColor, number> & { total: number; pct: Record<RColor, number> };
-    d24: Record<RColor, number> & { total: number; pct: Record<RColor, number> };
-    d7: Record<RColor, number> & { total: number; pct: Record<RColor, number> };
-  };
-  recent: { id: string; color: RColor; slot: number | null; at: string }[];
-  byHour: number[];
-  economy24h: {
-    stake: number;
-    payout: number;
-    house: number;
-    bets: number;
-    players: number;
-  };
-  maxStreak: { color: RColor; len: number };
-  active: { id: string; status: string; bet_ends_at?: string } | null;
-  sampledRounds: number;
+  rpsFinished24h?: number;
+  raceFinished24h?: number;
+  diceFinished24h?: number;
+  xoFinished24h?: number;
 }
 
 export default function AdminPage() {
@@ -68,7 +49,6 @@ export default function AdminPage() {
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [roulette, setRoulette] = useState<RouletteAnalytics | null>(null);
   const [search, setSearch] = useState("");
   const [txHash, setTxHash] = useState<Record<string, string>>({});
 
@@ -141,24 +121,26 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/stats", { headers: headers() });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
-      setStats(data);
+      // normalize in case old API returns only rpsFinished24h
+      const normalized: Stats = {
+        players: Number(data.players) || 0,
+        banned: Number(data.banned) || 0,
+        pendingWithdrawals: Number(data.pendingWithdrawals) || 0,
+        deposits24h: Number(data.deposits24h) || 0,
+        bets24h: Number(data.bets24h) || 0,
+        rounds24h:
+          Number(data.rounds24h) ||
+          Number(data.rpsFinished24h) ||
+          0,
+        rpsFinished24h: Number(data.rpsFinished24h) || 0,
+        raceFinished24h: Number(data.raceFinished24h) || 0,
+        diceFinished24h: Number(data.diceFinished24h) || 0,
+        xoFinished24h: Number(data.xoFinished24h) || 0,
+      };
+      setStats(normalized);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
-    } finally {
-      setLoading(false);
-    }
-  }, [headers]);
-
-  const loadRoulette = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/admin/roulette", { headers: headers() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
-      setRoulette(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error");
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -268,7 +250,6 @@ export default function AdminPage() {
               ["withdrawals", "Withdrawals"],
               ["players", "Players"],
               ["stats", "Stats"],
-              ["roulette", "Roulette"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -295,27 +276,74 @@ export default function AdminPage() {
           <p className="text-xs text-white/30 mb-3 pulse-soft">Loading…</p>
         )}
 
-        {tab === "stats" && stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {[
-              ["Players", stats.players],
-              ["Banned", stats.banned],
-              ["Pending WD", stats.pendingWithdrawals],
-              ["Deposits 24h", stats.deposits24h],
-              ["Bets 24h", stats.bets24h],
-              ["Rounds 24h", stats.rounds24h],
-            ].map(([k, v]) => (
-              <div
-                key={String(k)}
-                className="rounded-2xl glass p-4 border border-white/[0.07]"
-              >
-                <div className="text-2xl font-semibold tabular-nums">{v}</div>
-                <div className="text-[10px] text-white/35 uppercase tracking-wider mt-1">
-                  {k}
+        {tab === "stats" && (
+          <>
+            {stats ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    ["Players", stats.players],
+                    ["Banned", stats.banned],
+                    ["Pending WD", stats.pendingWithdrawals],
+                    ["Deposits 24h", stats.deposits24h],
+                    ["Bets 24h", stats.bets24h],
+                    ["Rounds 24h", stats.rounds24h],
+                  ].map(([k, v]) => (
+                    <div
+                      key={String(k)}
+                      className="rounded-2xl glass p-4 border border-white/[0.07]"
+                    >
+                      <div className="text-2xl font-semibold tabular-nums">
+                        {v}
+                      </div>
+                      <div className="text-[10px] text-white/35 uppercase tracking-wider mt-1">
+                        {k}
+                      </div>
+                    </div>
+                  ))}
                 </div>
+
+                <div>
+                  <p className="text-[11px] text-white/40 uppercase tracking-wider mb-2 px-1">
+                    Games finished (24h)
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      ["RPS", stats.rpsFinished24h ?? 0],
+                      ["Race", stats.raceFinished24h ?? 0],
+                      ["Dice", stats.diceFinished24h ?? 0],
+                      ["XO", stats.xoFinished24h ?? 0],
+                    ].map(([k, v]) => (
+                      <div
+                        key={String(k)}
+                        className="rounded-2xl bg-white/[0.03] border border-white/[0.07] p-3"
+                      >
+                        <div className="text-lg font-semibold tabular-nums">
+                          {v}
+                        </div>
+                        <div className="text-[10px] text-white/35 mt-0.5">
+                          {k}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={loadStats}
+                  className="text-xs text-cyan-300/80 hover:text-cyan-200"
+                >
+                  Refresh stats
+                </button>
               </div>
-            ))}
-          </div>
+            ) : (
+              !loading && (
+                <p className="text-sm text-white/35 py-8 text-center">
+                  No stats data. Check ADMIN_SECRET and Supabase.
+                </p>
+              )
+            )}
+          </>
         )}
 
         {tab === "withdrawals" && (
@@ -409,6 +437,11 @@ export default function AdminPage() {
                 Search
               </button>
             </div>
+            {players.length === 0 && !loading && (
+              <p className="text-sm text-white/35 py-8 text-center">
+                No players found
+              </p>
+            )}
             {players.map((p) => (
               <div
                 key={p.id}
@@ -440,237 +473,6 @@ export default function AdminPage() {
             ))}
           </div>
         )}
-
-        {tab === "roulette" && roulette && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold">LIVE Roulette analytics</div>
-                <div className="text-[11px] text-white/35 mt-0.5">
-                  Sample {roulette.sampledRounds} settled rounds
-                  {roulette.active
-                    ? ` · active: ${roulette.active.status}`
-                    : " · no active round"}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => void loadRoulette()}
-                className="text-[11px] px-3 py-1.5 rounded-lg border border-white/10 text-white/60 hover:text-white"
-              >
-                Refresh
-              </button>
-            </div>
-
-            {/* Economy 24h */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                ["Stake 24h", roulette.economy24h.stake],
-                ["Payout 24h", roulette.economy24h.payout],
-                ["House 24h", roulette.economy24h.house],
-                ["Bets 24h", roulette.economy24h.bets],
-                ["Players 24h", roulette.economy24h.players],
-                ["Rounds 24h", roulette.totals.d24.total],
-              ].map(([k, v]) => (
-                <div
-                  key={String(k)}
-                  className="rounded-2xl glass p-4 border border-white/[0.07]"
-                >
-                  <div className="text-xl font-semibold tabular-nums">
-                    {typeof v === "number" && String(k).includes("24h") && !String(k).startsWith("Bets") && !String(k).startsWith("Players") && !String(k).startsWith("Rounds")
-                      ? Number(v).toFixed(2)
-                      : v}
-                  </div>
-                  <div className="text-[10px] text-white/40 mt-1 uppercase tracking-wider">
-                    {k}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Color distribution */}
-            {(
-              [
-                ["Last 24h", roulette.totals.d24],
-                ["Last 7 days", roulette.totals.d7],
-                ["All sampled", roulette.totals.all],
-              ] as const
-            ).map(([title, block]) => (
-              <div
-                key={title}
-                className="rounded-2xl bg-white/[0.03] border border-white/[0.07] p-4"
-              >
-                <div className="text-xs font-semibold text-white/70 mb-3">
-                  {title} · {block.total} spins
-                </div>
-                <div className="space-y-2.5">
-                  {(
-                    [
-                      ["red", "Red", "#fb7185", "×2"],
-                      ["black", "Black", "#94a3b8", "×2"],
-                      ["green", "Green", "#34d399", "×14"],
-                    ] as const
-                  ).map(([key, label, color, mult]) => {
-                    const n = block[key];
-                    const p = block.pct[key];
-                    const exp = roulette.expected[key];
-                    const delta = +(p - exp).toFixed(2);
-                    return (
-                      <div key={key}>
-                        <div className="flex items-center justify-between text-[11px] mb-1">
-                          <span className="font-medium" style={{ color }}>
-                            {label} {mult}
-                          </span>
-                          <span className="tabular-nums text-white/60">
-                            {n} · {p}%{" "}
-                            <span
-                              className={
-                                delta > 0.5
-                                  ? "text-amber-300"
-                                  : delta < -0.5
-                                    ? "text-cyan-300"
-                                    : "text-white/30"
-                              }
-                            >
-                              ({delta >= 0 ? "+" : ""}
-                              {delta}% vs {exp}%)
-                            </span>
-                          </span>
-                        </div>
-                        <div className="h-2 rounded-full bg-white/5 overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${Math.min(100, p)}%`,
-                              background: color,
-                              boxShadow: `0 0 12px ${color}66`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-
-            {/* Max streak */}
-            <div className="rounded-2xl bg-white/[0.03] border border-white/[0.07] p-4 flex items-center justify-between">
-              <div className="text-xs text-white/50">Longest streak (recent)</div>
-              <div className="text-sm font-semibold tabular-nums">
-                <span
-                  style={{
-                    color:
-                      roulette.maxStreak.color === "red"
-                        ? "#fb7185"
-                        : roulette.maxStreak.color === "green"
-                          ? "#34d399"
-                          : "#94a3b8",
-                  }}
-                >
-                  {roulette.maxStreak.color.toUpperCase()}
-                </span>{" "}
-                × {roulette.maxStreak.len}
-              </div>
-            </div>
-
-            {/* Recent results strip */}
-            <div className="rounded-2xl bg-white/[0.03] border border-white/[0.07] p-4">
-              <div className="text-xs font-semibold text-white/70 mb-3">
-                Recent results (newest → left)
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {roulette.recent.map((r) => (
-                  <div
-                    key={r.id}
-                    title={`${r.color} slot ${r.slot ?? "—"} · ${new Date(r.at).toLocaleString()}`}
-                    className="w-3.5 h-3.5 rounded-full border border-white/15"
-                    style={{
-                      background:
-                        r.color === "red"
-                          ? "#fb7185"
-                          : r.color === "green"
-                            ? "#34d399"
-                            : "#64748b",
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Hourly activity 24h */}
-            <div className="rounded-2xl bg-white/[0.03] border border-white/[0.07] p-4">
-              <div className="text-xs font-semibold text-white/70 mb-3">
-                Spins by hour (last 24h window, server local hours)
-              </div>
-              <div className="flex items-end gap-1 h-24">
-                {roulette.byHour.map((n, h) => {
-                  const max = Math.max(1, ...roulette.byHour);
-                  const hgt = Math.max(4, Math.round((n / max) * 100));
-                  return (
-                    <div
-                      key={h}
-                      className="flex-1 flex flex-col items-center gap-1"
-                      title={`${h}:00 — ${n} spins`}
-                    >
-                      <div
-                        className="w-full rounded-t bg-gradient-to-t from-emerald-600/80 to-cyan-400/80"
-                        style={{ height: `${hgt}%` }}
-                      />
-                      <div className="text-[8px] text-white/25 tabular-nums">
-                        {h}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Detailed recent table */}
-            <div className="rounded-2xl bg-white/[0.03] border border-white/[0.07] overflow-hidden">
-              <div className="px-4 py-3 text-xs font-semibold text-white/70 border-b border-white/[0.06]">
-                Last 30 results
-              </div>
-              <div className="divide-y divide-white/[0.05] max-h-[320px] overflow-y-auto">
-                {roulette.recent.slice(0, 30).map((r) => (
-                  <div
-                    key={r.id}
-                    className="px-4 py-2.5 flex items-center gap-3 text-[12px]"
-                  >
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{
-                        background:
-                          r.color === "red"
-                            ? "#fb7185"
-                            : r.color === "green"
-                              ? "#34d399"
-                              : "#64748b",
-                      }}
-                    />
-                    <span className="font-semibold uppercase w-14" style={{
-                      color:
-                        r.color === "red"
-                          ? "#fb7185"
-                          : r.color === "green"
-                            ? "#34d399"
-                            : "#94a3b8",
-                    }}>
-                      {r.color}
-                    </span>
-                    <span className="text-white/35 tabular-nums">
-                      slot {r.slot ?? "—"}
-                    </span>
-                    <span className="ml-auto text-white/35 text-[11px] tabular-nums">
-                      {new Date(r.at).toLocaleString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
       </div>
     </div>
   );
