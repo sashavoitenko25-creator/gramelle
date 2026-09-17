@@ -17,6 +17,7 @@ import { formatGram, cn } from "@/lib/utils";
 import {
   ROULETTE_MIN_BET,
   ROULETTE_MAX_BET,
+  ROULETTE_MAX_STAKE_PER_ROUND,
   ROULETTE_WHEEL,
   ROULETTE_MULT,
   ROULETTE_SLOT_COUNT,
@@ -148,14 +149,27 @@ export function RouletteScreen({
   const [amountStr, setAmountStr] = useState("");
   const [lastAmount, setLastAmount] = useState(1);
   const [betting, setBetting] = useState(false);
+  const bettingLockRef = useRef(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [displayMs, setDisplayMs] = useState(() => Date.now());
   const offsetRef = useRef(0);
   const onBalanceUpdateRef = useRef(onBalanceUpdate);
+  const telegramIdRef = useRef(telegramId);
+  const usernameRef = useRef(username);
+  const photoUrlRef = useRef(photoUrl);
   useEffect(() => {
     onBalanceUpdateRef.current = onBalanceUpdate;
   }, [onBalanceUpdate]);
+  useEffect(() => {
+    telegramIdRef.current = telegramId;
+  }, [telegramId]);
+  useEffect(() => {
+    usernameRef.current = username;
+  }, [username]);
+  useEffect(() => {
+    photoUrlRef.current = photoUrl;
+  }, [photoUrl]);
 
   const [wheelX, setWheelX] = useState(0);
   const wheelXRef = useRef(0);
@@ -187,7 +201,7 @@ export function RouletteScreen({
   const mergeState = useCallback(
     (data: RouletteStateResponse | Record<string, unknown>) => {
       const raw = data as Record<string, unknown>;
-      const flat = (
+      let flat = (
         raw.round
           ? raw
           : raw.state && typeof raw.state === "object"
@@ -205,6 +219,70 @@ export function RouletteScreen({
       } else if (flat.serverNow) {
         offsetRef.current = new Date(flat.serverNow).getTime() - Date.now();
       }
+
+      // Hold optimistic myBets until server catches up — prevents flash
+      const pending = pendingBetsRef.current;
+      const pools = { ...(flat.pools || { red: 0, black: 0, green: 0 }) };
+      const myBets = { ...(flat.myBets || { red: 0, black: 0, green: 0 }) };
+      let changed = false;
+      for (const c of ["red", "black", "green"] as RouletteColor[]) {
+        const want = pending[c] || 0;
+        if (want <= 0) continue;
+        const serverMine = myBets[c] || 0;
+        if (serverMine + 1e-9 >= want) {
+          pending[c] = 0;
+        } else {
+          const extra = want - serverMine;
+          myBets[c] = +want.toFixed(6);
+          pools[c] = +((pools[c] || 0) + extra).toFixed(6);
+          changed = true;
+        }
+      }
+      pendingBetsRef.current = pending;
+
+      if (changed) {
+        const tid = telegramIdRef.current;
+        const betsByColor = {
+          red: [...(flat.betsByColor?.red || [])],
+          black: [...(flat.betsByColor?.black || [])],
+          green: [...(flat.betsByColor?.green || [])],
+        };
+        if (tid) {
+          for (const c of ["red", "black", "green"] as RouletteColor[]) {
+            const want = myBets[c] || 0;
+            if (want <= 0) continue;
+            const list = betsByColor[c];
+            const idx = list.findIndex((b) => b.telegramId === tid);
+            if (idx >= 0) {
+              list[idx] = {
+                ...list[idx],
+                amount: want,
+                username:
+                  list[idx].username || usernameRef.current || "Player",
+                photoUrl:
+                  list[idx].photoUrl || photoUrlRef.current || null,
+              };
+            } else {
+              list.unshift({
+                telegramId: tid,
+                username: usernameRef.current || "Player",
+                photoUrl: photoUrlRef.current || null,
+                amount: want,
+              });
+            }
+            list.sort((a, b) => b.amount - a.amount);
+            betsByColor[c] = list.slice(0, 12);
+          }
+        }
+        flat = {
+          ...flat,
+          pools,
+          myBets,
+          myTotal: +(myBets.red + myBets.black + myBets.green).toFixed(6),
+          betsByColor,
+        };
+      }
+
       setState(flat);
       setLoadError(null);
       statusRef.current = flat.round.status;
@@ -356,6 +434,8 @@ export function RouletteScreen({
       if (spunForRound.current && spunForRound.current !== roundId) {
         spunForRound.current = null;
       }
+      // New round → drop pending from previous game
+      pendingBetsRef.current = {};
       // Snap wheel into first period so tiles stay visible
       const period = STRIDE * ROULETTE_SLOT_COUNT;
       const x = wheelXRef.current;
@@ -395,19 +475,61 @@ export function RouletteScreen({
       hapticError();
       return;
     }
-    // Instant optimistic UI (same identity as server — no "You" flash)
+    // Block spam-clicks (sync + async)
+    if (bettingLockRef.current) return;
+    const myTotalNow =
+      (state?.myBets?.red || 0) +
+      (state?.myBets?.black || 0) +
+      (state?.myBets?.green || 0);
+    const pendingExtra =
+      Object.values(pendingBetsRef.current).reduce(
+        (s, v) => s + (Number(v) || 0),
+        0
+      ) - myTotalNow;
+    const projected =
+      Math.max(myTotalNow, Object.values(pendingBetsRef.current).reduce((s, v) => s + (Number(v) || 0), 0)) +
+      amount;
+    // pending holds absolute myBets targets — use next absolute
+    const curPendingColor = pendingBetsRef.current[color] || state?.myBets?.[color] || 0;
+    const nextColorTotal = Math.max(curPendingColor, state?.myBets?.[color] || 0) + amount;
+    const other =
+      (Math.max(pendingBetsRef.current.red || 0, state?.myBets?.red || 0)) +
+      (Math.max(pendingBetsRef.current.black || 0, state?.myBets?.black || 0)) +
+      (Math.max(pendingBetsRef.current.green || 0, state?.myBets?.green || 0)) -
+      Math.max(pendingBetsRef.current[color] || 0, state?.myBets?.[color] || 0);
+    if (other + nextColorTotal > ROULETTE_MAX_STAKE_PER_ROUND + 1e-9) {
+      showToast(
+        tr(
+          `Max ${ROULETTE_MAX_STAKE_PER_ROUND} GRAM per round`,
+          `Макс. ${ROULETTE_MAX_STAKE_PER_ROUND} GRAM за раунд`
+        )
+      );
+      hapticError();
+      return;
+    }
+    bettingLockRef.current = true;
+    // Optimistic: pending tracks desired myBets so polls cannot wipe the row
     const prevBal = balance;
     const myName = (username || "").trim() || "Player";
     let myPhoto: string | null = photoUrl || null;
     if (state?.betsByColor) {
       for (const col of ["red", "black", "green"] as const) {
-        const hit = state.betsByColor[col]?.find((b) => b.telegramId === telegramId);
+        const hit = state.betsByColor[col]?.find(
+          (b) => b.telegramId === telegramId
+        );
         if (hit?.photoUrl) {
           myPhoto = hit.photoUrl;
           break;
         }
       }
     }
+
+    const prevMine = state?.myBets?.[color] || 0;
+    const nextMine = +(prevMine + amount).toFixed(6);
+    pendingBetsRef.current = {
+      ...pendingBetsRef.current,
+      [color]: Math.max(pendingBetsRef.current[color] || 0, nextMine),
+    };
 
     onBalanceUpdate(+(prevBal - amount).toFixed(4));
     setLastAmount(amount);
@@ -419,7 +541,7 @@ export function RouletteScreen({
       };
       const myBets = {
         ...prev.myBets,
-        [color]: +((prev.myBets[color] || 0) + amount).toFixed(6),
+        [color]: nextMine,
       };
       const list = [...(prev.betsByColor?.[color] || [])];
       const idx = list.findIndex((b) => b.telegramId === telegramId);
@@ -429,14 +551,14 @@ export function RouletteScreen({
           ...cur,
           username: cur.username || myName,
           photoUrl: cur.photoUrl || myPhoto,
-          amount: +(cur.amount + amount).toFixed(6),
+          amount: nextMine,
         };
       } else if (telegramId) {
         list.unshift({
           telegramId,
           username: myName,
           photoUrl: myPhoto,
-          amount,
+          amount: nextMine,
         });
       }
       list.sort((a, b) => b.amount - a.amount);
@@ -460,9 +582,13 @@ export function RouletteScreen({
     try {
       const res = await placeRouletteBetApi(color, amount);
       if (typeof res.balance === "number") onBalanceUpdate(res.balance);
-      // merge server state without blanking our optimistic row first
       mergeState(res);
     } catch (e) {
+      // roll back pending for this color toward server
+      pendingBetsRef.current = {
+        ...pendingBetsRef.current,
+        [color]: prevMine,
+      };
       onBalanceUpdate(prevBal);
       showToast(e instanceof Error ? e.message : "Error");
       hapticError();
@@ -472,6 +598,7 @@ export function RouletteScreen({
         /* */
       }
     } finally {
+      bettingLockRef.current = false;
       setBetting(false);
     }
   };
@@ -718,7 +845,7 @@ export function RouletteScreen({
           inputMode="decimal"
           placeholder={tr("Bet amount", "Сумма ставки")}
           className="w-full h-12 rounded-2xl bg-white/[0.05] border border-white/10 px-4 text-center text-[16px] tabular-nums outline-none focus:border-cyan-500/40 placeholder:text-white/25"
-          disabled={status !== "betting"}
+          disabled={status !== "betting" || betting}
         />
         <div className="mt-2 grid grid-cols-4 gap-2">
           {(
@@ -744,7 +871,7 @@ export function RouletteScreen({
                 haptic("light");
                 fn();
               }}
-              disabled={status !== "betting"}
+              disabled={status !== "betting" || betting}
               className="h-9 rounded-xl bg-white/[0.05] border border-white/10 text-[12px] font-medium text-white/70 active:scale-95 disabled:opacity-40"
             >
               {label}
@@ -765,7 +892,7 @@ export function RouletteScreen({
           <div key={btn.c} className="flex flex-col min-w-0">
             <button
               type="button"
-              disabled={status !== "betting"}
+              disabled={status !== "betting" || betting}
               onClick={() => void onBet(btn.c)}
               className="relative overflow-hidden rounded-[20px] border border-white/15 px-2.5 py-3 text-left active:scale-[0.97] transition disabled:opacity-45"
               style={{ background: grad(btn.c) }}

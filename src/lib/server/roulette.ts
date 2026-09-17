@@ -482,8 +482,34 @@ export async function getRouletteState(
       telegramId != null && telegramId > 0
         ? await getBalance(telegramId).catch(() => null)
         : null,
-    online: countRouletteOnline(),
+    // Real "playing": unique users with a stake on this open round
+    online:
+      round.status === "betting" || round.status === "spinning"
+        ? seen.size
+        : 0,
   };
+}
+
+/** Serialize bets per telegram user (prevents race over max stake) */
+const betLockTail = new Map<number, Promise<unknown>>();
+
+async function withRouletteBetLock<T>(
+  telegramId: number,
+  fn: () => Promise<T>
+): Promise<T> {
+  const prev = betLockTail.get(telegramId) || Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((r) => {
+    release = r;
+  });
+  const tail = prev.then(() => gate);
+  betLockTail.set(telegramId, tail);
+  try {
+    await prev.catch(() => {});
+    return await fn();
+  } finally {
+    release();
+  }
 }
 
 export async function placeRouletteBet(opts: {
@@ -501,58 +527,101 @@ export async function placeRouletteBet(opts: {
     throw new Error(`Max bet ${ROULETTE_MAX_BET} GRAM`);
   }
 
-  const round = await advanceRoulette();
-  if (round.status !== "betting") throw new Error("Bets closed");
+  return withRouletteBetLock(telegramId, async () => {
+    const round = await advanceRoulette();
+    if (round.status !== "betting") throw new Error("Bets closed");
 
-  const msLeft = new Date(round.bet_ends_at).getTime() - Date.now();
-  if (msLeft < ROULETTE_BET_LOCK_MS) throw new Error("Bets closed");
+    const msLeft = new Date(round.bet_ends_at).getTime() - Date.now();
+    if (msLeft < ROULETTE_BET_LOCK_MS) throw new Error("Bets closed");
 
-  const db = getAdminClient();
-  const { data: existing } = await db
-    .from("roulette_bets")
-    .select("amount")
-    .eq("round_id", round.id)
-    .eq("telegram_id", telegramId);
+    const db = getAdminClient();
+    const { data: existing } = await db
+      .from("roulette_bets")
+      .select("id, amount")
+      .eq("round_id", round.id)
+      .eq("telegram_id", telegramId);
 
-  const already = (existing || []).reduce(
-    (s, r) => s + (Number(r.amount) || 0),
-    0
-  );
-  if (already + amount > ROULETTE_MAX_STAKE_PER_ROUND + 1e-9) {
-    throw new Error(`Max ${ROULETTE_MAX_STAKE_PER_ROUND} GRAM per round`);
-  }
-
-  const { balance } = await creditBalance(telegramId, -amount, "bet", {
-    kind: "roulette_bet",
-    round_id: round.id,
-    color,
-    amount,
-    username,
-  });
-
-  const { error } = await db.from("roulette_bets").insert({
-    round_id: round.id,
-    telegram_id: telegramId,
-    username: String(username || "Player").slice(0, 64),
-    color,
-    amount,
-    payout: null,
-  });
-
-  if (error) {
-    try {
-      await creditBalance(telegramId, amount, "refund", {
-        kind: "roulette_bet_fail",
-        round_id: round.id,
-      });
-    } catch {
-      /* */
+    const already = (existing || []).reduce(
+      (s, r) => s + (Number(r.amount) || 0),
+      0
+    );
+    if (already + amount > ROULETTE_MAX_STAKE_PER_ROUND + 1e-9) {
+      throw new Error(
+        `Max ${ROULETTE_MAX_STAKE_PER_ROUND} GRAM per round`
+      );
     }
-    throw new Error(error.message || "Bet failed");
-  }
 
-  const state = await getRouletteState(telegramId);
-  return { balance, state };
+    const { balance } = await creditBalance(telegramId, -amount, "bet", {
+      kind: "roulette_bet",
+      round_id: round.id,
+      color,
+      amount,
+      username,
+    });
+
+    const { data: inserted, error } = await db
+      .from("roulette_bets")
+      .insert({
+        round_id: round.id,
+        telegram_id: telegramId,
+        username: String(username || "Player").slice(0, 64),
+        color,
+        amount,
+        payout: null,
+      })
+      .select("id, amount")
+      .single();
+
+    if (error || !inserted) {
+      try {
+        await creditBalance(telegramId, amount, "refund", {
+          kind: "roulette_bet_fail",
+          round_id: round.id,
+        });
+      } catch {
+        /* */
+      }
+      throw new Error(error?.message || "Bet failed");
+    }
+
+    // Hard cap: re-sum after insert (safety vs multi-instance races)
+    const { data: after } = await db
+      .from("roulette_bets")
+      .select("id, amount")
+      .eq("round_id", round.id)
+      .eq("telegram_id", telegramId);
+
+    const total = (after || []).reduce(
+      (s, r) => s + (Number(r.amount) || 0),
+      0
+    );
+    if (total > ROULETTE_MAX_STAKE_PER_ROUND + 1e-9) {
+      await db.from("roulette_bets").delete().eq("id", inserted.id);
+      try {
+        await creditBalance(telegramId, amount, "refund", {
+          kind: "roulette_bet_over_cap",
+          round_id: round.id,
+        });
+      } catch {
+        /* */
+      }
+      throw new Error(
+        `Max ${ROULETTE_MAX_STAKE_PER_ROUND} GRAM per round`
+      );
+    }
+
+    const state = await getRouletteState(telegramId);
+    // balance after possible nothing; re-read would be ideal — use ledger result
+    const { balance: bal2 } = await (async () => {
+      try {
+        const b = await getBalance(telegramId);
+        return { balance: b };
+      } catch {
+        return { balance };
+      }
+    })();
+    return { balance: bal2, state };
+  });
 }
 
 export async function getRouletteHistory(limit = 40) {
