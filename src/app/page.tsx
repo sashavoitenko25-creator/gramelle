@@ -11,6 +11,8 @@ import { GamesScreen } from "@/components/screens/GamesScreen";
 import { PlayHubScreen } from "@/components/screens/PlayHubScreen";
 import { ModeSoonScreen } from "@/components/screens/ModeSoonScreen";
 import { RouletteScreen } from "@/components/screens/RouletteScreen";
+import { LiveHubScreen } from "@/components/screens/LiveHubScreen";
+import { fetchRouletteState } from "@/lib/rouletteApi";
 import { RpsScreen } from "@/components/screens/RpsScreen";
 import { DiceScreen } from "@/components/screens/DiceScreen";
 import { XoScreen } from "@/components/screens/XoScreen";
@@ -88,6 +90,7 @@ export default function Home() {
   const [rpsOnline, setRpsOnline] = useState(0);
   const [diceOnline, setDiceOnline] = useState(0);
   const [xoOnline, setXoOnline] = useState(0);
+  const [liveOnline, setLiveOnline] = useState(0);
 
   useEffect(() => {
     if (!isReady) return;
@@ -136,7 +139,17 @@ export default function Home() {
         setRpsOnline(rpsN);
         setDiceOnline(diceN);
         setXoOnline(xoN);
-        setOnlineCount(rpsN + diceN + xoN);
+
+        let liveN = 0;
+        try {
+          const live = await fetchRouletteState();
+          liveN = Number(live?.online) || 0;
+          setLiveOnline(liveN);
+        } catch {
+          /* keep */
+        }
+
+        setOnlineCount(rpsN + diceN + xoN + liveN);
       } catch {
         /* keep */
       }
@@ -313,8 +326,9 @@ export default function Home() {
           }}
           onSelectLive={() => {
             haptic("light");
-            setScreen("roulette");
+            setScreen("live");
           }}
+          liveOnline={liveOnline}
         />
       )}
 
@@ -340,7 +354,14 @@ export default function Home() {
       )}
 
       {screen === "live" && (
-        <ModeSoonScreen mode="live" onBack={() => setScreen("games")} />
+        <LiveHubScreen
+          liveOnline={liveOnline}
+          onBack={() => setScreen("games")}
+          onSelectRoulette={() => {
+            haptic("light");
+            setScreen("roulette");
+          }}
+        />
       )}
 
       {screen === "solo" && (
@@ -352,7 +373,7 @@ export default function Home() {
           balance={balance}
           telegramId={telegramId}
           username={username}
-          onBack={() => setScreen("games")}
+          onBack={() => setScreen("live")}
           onBalanceUpdate={(b) => setBalanceFromServer(b)}
           onDeposit={() => {
             haptic("light");

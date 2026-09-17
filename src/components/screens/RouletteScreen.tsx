@@ -391,15 +391,50 @@ export function RouletteScreen({
       hapticError();
       return;
     }
-    setBetting(true);
+    // Instant optimistic UI
+    const prevBal = balance;
+    onBalanceUpdate(+(prevBal - amount).toFixed(4));
+    setLastAmount(amount);
+    setState((prev) => {
+      if (!prev) return prev;
+      const pools = { ...prev.pools, [color]: +((prev.pools[color] || 0) + amount).toFixed(6) };
+      const myBets = { ...prev.myBets, [color]: +((prev.myBets[color] || 0) + amount).toFixed(6) };
+      const list = [...(prev.betsByColor?.[color] || [])];
+      const idx = list.findIndex((b) => b.telegramId === telegramId);
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], amount: +(list[idx].amount + amount).toFixed(6) };
+      } else if (telegramId) {
+        list.unshift({
+          telegramId,
+          username: "You",
+          photoUrl: null,
+          amount,
+        });
+      }
+      list.sort((a, b) => b.amount - a.amount);
+      return {
+        ...prev,
+        pools,
+        myBets,
+        myTotal: +(myBets.red + myBets.black + myBets.green).toFixed(6),
+        betsByColor: {
+          red: prev.betsByColor?.red || [],
+          black: prev.betsByColor?.black || [],
+          green: prev.betsByColor?.green || [],
+          [color]: list.slice(0, 12),
+        },
+      };
+    });
     haptic("light");
+    hapticSuccess();
+
+    setBetting(true);
     try {
       const res = await placeRouletteBetApi(color, amount);
-      setLastAmount(amount);
       if (typeof res.balance === "number") onBalanceUpdate(res.balance);
       mergeState(res);
-      hapticSuccess();
     } catch (e) {
+      onBalanceUpdate(prevBal);
       showToast(e instanceof Error ? e.message : "Error");
       hapticError();
       try {
@@ -610,13 +645,7 @@ export function RouletteScreen({
               </div>
             </div>
           )}
-          {status === "spinning" && (
-            <div className="px-5 py-2.5 rounded-2xl bg-black/70 border border-cyan-400/35 backdrop-blur-md">
-              <div className="text-sm font-bold tracking-[0.3em] text-cyan-200">
-                SPIN
-              </div>
-            </div>
-          )}
+          {/* spinning: no overlay label — only Start / Result */}
           {status === "settled" && resultColor && (
             <div className="px-5 py-2.5 rounded-2xl bg-black/85 border border-white/20 backdrop-blur-md text-center">
               <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">
@@ -707,7 +736,7 @@ export function RouletteScreen({
           <div key={btn.c} className="flex flex-col min-w-0">
             <button
               type="button"
-              disabled={betting || status !== "betting"}
+              disabled={status !== "betting"}
               onClick={() => void onBet(btn.c)}
               className="relative overflow-hidden rounded-[20px] border border-white/15 p-3.5 text-left active:scale-[0.97] transition disabled:opacity-45"
               style={{ background: grad(btn.c) }}

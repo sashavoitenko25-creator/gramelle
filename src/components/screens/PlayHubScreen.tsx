@@ -10,6 +10,7 @@ interface PlayHubScreenProps {
   rpsOnline?: number;
   diceOnline?: number;
   xoOnline?: number;
+  liveOnline?: number;
 }
 
 /** Colorful multiplayer duel illustration — crossed energy blades + dual avatars */
@@ -113,7 +114,7 @@ function PvpArt() {
   );
 }
 
-/** LIVE mode art — spinning wheel + live pulse */
+/** LIVE hub art — global live signal / multiplayer stream feel */
 function LiveArt() {
   return (
     <svg
@@ -126,65 +127,57 @@ function LiveArt() {
       aria-hidden
     >
       <defs>
-        <linearGradient id="liveRing" x1="20" y1="20" x2="100" y2="80" gradientUnits="userSpaceOnUse">
+        <linearGradient id="lvWave" x1="10" y1="40" x2="110" y2="50" gradientUnits="userSpaceOnUse">
           <stop stopColor="#34d399" />
-          <stop offset="0.45" stopColor="#22d3ee" />
+          <stop offset="0.5" stopColor="#22d3ee" />
           <stop offset="1" stopColor="#a78bfa" />
         </linearGradient>
-        <linearGradient id="liveSegR" x1="0" y1="0" x2="1" y2="1">
-          <stop stopColor="#fb7185" />
-          <stop offset="1" stopColor="#e11d48" />
-        </linearGradient>
-        <linearGradient id="liveSegG" x1="0" y1="0" x2="1" y2="1">
-          <stop stopColor="#6ee7b7" />
-          <stop offset="1" stopColor="#059669" />
-        </linearGradient>
-        <linearGradient id="liveSegB" x1="0" y1="0" x2="1" y2="1">
-          <stop stopColor="#94a3b8" />
-          <stop offset="1" stopColor="#1e293b" />
-        </linearGradient>
-        <filter id="liveGlow" x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur stdDeviation="2.4" result="b" />
+        <filter id="lvGlow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="2.2" result="b" />
           <feMerge>
             <feMergeNode in="b" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <radialGradient id="liveCore" cx="0.5" cy="0.5" r="0.5">
+        <radialGradient id="lvOrb" cx="0.5" cy="0.5" r="0.5">
           <stop stopColor="#fff" stopOpacity="0.95" />
-          <stop offset="0.45" stopColor="#67e8f9" stopOpacity="0.75" />
-          <stop offset="1" stopColor="#10b981" stopOpacity="0" />
+          <stop offset="0.4" stopColor="#6ee7b7" stopOpacity="0.8" />
+          <stop offset="1" stopColor="#0ea5e9" stopOpacity="0" />
         </radialGradient>
       </defs>
 
-      <ellipse cx="60" cy="78" rx="36" ry="5.5" fill="#34d399" fillOpacity="0.22" />
+      <ellipse cx="60" cy="78" rx="36" ry="5.5" fill="#34d399" fillOpacity="0.2" />
 
-      {/* outer ring */}
-      <g filter="url(#liveGlow)">
-        <circle cx="60" cy="42" r="30" stroke="url(#liveRing)" strokeWidth="3.2" fill="#0a1628" fillOpacity="0.55" />
-        <circle cx="60" cy="42" r="24" stroke="#fff" strokeOpacity="0.12" strokeWidth="1" fill="none" />
+      {/* concentric live rings */}
+      <g filter="url(#lvGlow)" opacity="0.9">
+        <circle cx="60" cy="42" r="28" stroke="url(#lvWave)" strokeWidth="2" fill="none" opacity="0.35" />
+        <circle cx="60" cy="42" r="20" stroke="url(#lvWave)" strokeWidth="2.2" fill="none" opacity="0.55" />
+        <circle cx="60" cy="42" r="12" stroke="url(#lvWave)" strokeWidth="2.4" fill="none" opacity="0.8" />
       </g>
 
-      {/* color segments (simplified pie) */}
-      <g transform="translate(60 42)" filter="url(#liveGlow)">
-        <path d="M0 0 L0 -20 A20 20 0 0 1 17.3 -10 Z" fill="url(#liveSegR)" opacity="0.95" />
-        <path d="M0 0 L17.3 -10 A20 20 0 0 1 17.3 10 Z" fill="url(#liveSegB)" opacity="0.95" />
-        <path d="M0 0 L17.3 10 A20 20 0 0 1 0 20 Z" fill="url(#liveSegR)" opacity="0.9" />
-        <path d="M0 0 L0 20 A20 20 0 0 1 -17.3 10 Z" fill="url(#liveSegB)" opacity="0.9" />
-        <path d="M0 0 L-17.3 10 A20 20 0 0 1 -17.3 -10 Z" fill="url(#liveSegG)" opacity="0.95" />
-        <path d="M0 0 L-17.3 -10 A20 20 0 0 1 0 -20 Z" fill="url(#liveSegB)" opacity="0.9" />
+      {/* center live core */}
+      <circle cx="60" cy="42" r="9" fill="url(#lvOrb)" filter="url(#lvGlow)" />
+      <circle cx="60" cy="42" r="3.5" fill="#fff" />
+
+      {/* floating player nodes */}
+      <g filter="url(#lvGlow)">
+        <circle cx="28" cy="30" r="7" fill="#0f766e" stroke="#5eead4" strokeWidth="1.5" />
+        <circle cx="28" cy="28.5" r="2.5" fill="#ccfbf1" />
+        <circle cx="92" cy="30" r="7" fill="#155e75" stroke="#67e8f9" strokeWidth="1.5" />
+        <circle cx="92" cy="28.5" r="2.5" fill="#e0f2fe" />
+        <circle cx="36" cy="58" r="6.5" fill="#4c1d95" stroke="#c4b5fd" strokeWidth="1.4" />
+        <circle cx="36" cy="56.5" r="2.2" fill="#ede9fe" />
+        <circle cx="84" cy="58" r="6.5" fill="#9f1239" stroke="#fda4af" strokeWidth="1.4" />
+        <circle cx="84" cy="56.5" r="2.2" fill="#ffe4e6" />
       </g>
 
-      {/* center hub */}
-      <circle cx="60" cy="42" r="8" fill="url(#liveCore)" filter="url(#liveGlow)" />
-      <circle cx="60" cy="42" r="3.2" fill="#fff" />
-
-      {/* pointer */}
-      <path d="M60 14 L64 24 L56 24 Z" fill="#67e8f9" filter="url(#liveGlow)" />
-
-      {/* live pulse dots */}
-      <circle cx="96" cy="22" r="4" fill="#34d399" opacity="0.9" filter="url(#liveGlow)" />
-      <circle cx="96" cy="22" r="7" stroke="#34d399" strokeWidth="1.2" fill="none" opacity="0.45" />
+      {/* connection lines */}
+      <g stroke="#67e8f9" strokeOpacity="0.35" strokeWidth="1.2">
+        <path d="M34 34 L52 40" />
+        <path d="M86 34 L68 40" />
+        <path d="M42 54 L52 46" />
+        <path d="M78 54 L68 46" />
+      </g>
     </svg>
   );
 }
@@ -216,6 +209,7 @@ export function PlayHubScreen({
   rpsOnline = 0,
   diceOnline = 0,
   xoOnline = 0,
+  liveOnline = 0,
 }: PlayHubScreenProps) {
   const { t, lang } = useI18n();
   const tr = (en: string, ru: string) => (lang === "ru" ? ru : en);
@@ -302,15 +296,14 @@ export function PlayHubScreen({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
             </span>
-            <span className="text-[11px] font-semibold text-white/90">Live</span>
+            <span className="text-[11px] font-semibold text-white/90 tabular-nums">
+              {liveOnline > 99 ? "99+" : liveOnline}
+            </span>
           </div>
 
           <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
             <div className="flex items-start justify-between gap-2">
-              <div className="relative w-[52px] h-[52px] rounded-2xl bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] -rotate-6 group-hover:rotate-0 transition-transform duration-300 text-white">
-                <IconLive />
-              </div>
-              <div className="pr-1 pt-1 opacity-95 group-hover:scale-[1.03] transition-transform duration-300 origin-top-right">
+              <div className="opacity-95 group-hover:scale-[1.04] transition-transform duration-300 -ml-1 -mt-1">
                 <LiveArt />
               </div>
             </div>
@@ -320,8 +313,8 @@ export function PlayHubScreen({
               </div>
               <p className="mt-1 text-[13px] text-white/70 leading-snug max-w-[95%]">
                 {tr(
-                  "Live games · Roulette",
-                  "Игры в реальном времени · Рулетка"
+                  "Play together in real time",
+                  "Играйте вместе в реальном времени"
                 )}
               </p>
             </div>

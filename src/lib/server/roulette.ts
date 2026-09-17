@@ -57,6 +57,25 @@ export function slotFromSeed(serverSeed: string, roundId: string): number {
   return h.readUInt32BE(0) % ROULETTE_SLOT_COUNT;
 }
 
+/** In-memory LIVE viewers (per serverless instance; good enough for Hobby) */
+const presenceMap = new Map<number, number>();
+const PRESENCE_TTL_MS = 45_000;
+
+export function touchRoulettePresence(telegramId: number) {
+  if (!telegramId) return;
+  presenceMap.set(Number(telegramId), Date.now());
+}
+
+export function countRouletteOnline(): number {
+  const now = Date.now();
+  let n = 0;
+  for (const [id, t] of presenceMap) {
+    if (now - t < PRESENCE_TTL_MS) n += 1;
+    else presenceMap.delete(id);
+  }
+  return n;
+}
+
 function isColor(c: unknown): c is RouletteColor {
   return c === "red" || c === "black" || c === "green";
 }
@@ -335,6 +354,7 @@ async function getGameNo(round: RouletteRoundRow): Promise<number> {
 }
 
 export async function getRouletteState(telegramId?: number | null) {
+  if (telegramId) touchRoulettePresence(telegramId);
   const round = await advanceRoulette();
   const db = getAdminClient();
 
@@ -459,6 +479,7 @@ export async function getRouletteState(telegramId?: number | null) {
       telegramId != null && telegramId > 0
         ? await getBalance(telegramId).catch(() => null)
         : null,
+    online: countRouletteOnline(),
   };
 }
 

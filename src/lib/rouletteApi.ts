@@ -34,6 +34,7 @@ export type RouletteStateResponse = {
   serverNow: string;
   serverMs?: number;
   balance?: number;
+  online?: number;
   state?: RouletteStateResponse;
 };
 
