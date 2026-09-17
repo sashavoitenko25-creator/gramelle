@@ -2,9 +2,6 @@
 
 /**
  * Gramelle LIVE Roulette
- * - Smooth countdown via rAF + server clock offset (no 1s jumps)
- * - Wheel spins once per round to server result_slot (HMAC fair)
- * - All clients share the same round via /api/roulette/state
  */
 
 import {
@@ -30,6 +27,7 @@ import {
   fetchRouletteState,
   placeRouletteBetApi,
   type RouletteStateResponse,
+  type RouletteBettor,
 } from "@/lib/rouletteApi";
 
 interface RouletteScreenProps {
@@ -75,6 +73,59 @@ function glow(c: RouletteColor) {
   return "rgba(52,211,153,0.55)";
 }
 
+/** abcdef12…90abcdef */
+function shortMiddle(s: string | null | undefined, head = 8, tail = 8) {
+  if (!s) return "—";
+  if (s.length <= head + tail + 1) return s;
+  return `${s.slice(0, head)}…${s.slice(-tail)}`;
+}
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+function Avatar({
+  url,
+  name,
+  size = 28,
+}: {
+  url: string | null;
+  name: string;
+  size?: number;
+}) {
+  const letter = (name || "?").trim().charAt(0).toUpperCase() || "?";
+  return (
+    <div
+      className="rounded-full overflow-hidden shrink-0 border border-white/20 bg-white/10 flex items-center justify-center text-[11px] font-bold text-white/80"
+      style={{ width: size, height: size }}
+    >
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt="" className="w-full h-full object-cover" />
+      ) : (
+        letter
+      )}
+    </div>
+  );
+}
+
 export function RouletteScreen({
   balance,
   telegramId,
@@ -91,16 +142,14 @@ export function RouletteScreen({
   const tr = (en: string, ru: string) => (lang === "ru" ? ru : en);
 
   const [state, setState] = useState<RouletteStateResponse | null>(null);
-  const [amountStr, setAmountStr] = useState("1");
+  const [amountStr, setAmountStr] = useState("");
   const [lastAmount, setLastAmount] = useState(1);
   const [betting, setBetting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Smooth display clock (ms, aligned to server)
   const [displayMs, setDisplayMs] = useState(() => Date.now());
   const offsetRef = useRef(0);
 
-  // Wheel translation (px). Slot centers at i*STRIDE; pointer at 0 in local strip space after centering transform.
   const [wheelX, setWheelX] = useState(0);
   const wheelXRef = useRef(0);
   const spinRaf = useRef<number | null>(null);
@@ -118,7 +167,6 @@ export function RouletteScreen({
     return () => setBackButton(null);
   }, [onBack, setBackButton]);
 
-  // 60fps local clock
   useEffect(() => {
     let id = 0;
     const tick = () => {
@@ -129,16 +177,33 @@ export function RouletteScreen({
     return () => cancelAnimationFrame(id);
   }, []);
 
-  const mergeState = useCallback((data: RouletteStateResponse) => {
-    if (typeof data.serverMs === "number") {
-      offsetRef.current = data.serverMs - Date.now();
-    } else if (data.serverNow) {
-      offsetRef.current = new Date(data.serverNow).getTime() - Date.now();
-    }
-    setState(data);
-    setLoadError(null);
-    statusRef.current = data.round.status;
-  }, []);
+  const mergeState = useCallback(
+    (data: RouletteStateResponse | Record<string, unknown>) => {
+      const raw = data as Record<string, unknown>;
+      const flat = (
+        raw.round
+          ? raw
+          : raw.state && typeof raw.state === "object"
+            ? raw.state
+            : null
+      ) as RouletteStateResponse | null;
+
+      if (!flat || !flat.round) {
+        console.error("[roulette] bad state payload", data);
+        return;
+      }
+
+      if (typeof flat.serverMs === "number") {
+        offsetRef.current = flat.serverMs - Date.now();
+      } else if (flat.serverNow) {
+        offsetRef.current = new Date(flat.serverNow).getTime() - Date.now();
+      }
+      setState(flat);
+      setLoadError(null);
+      statusRef.current = flat.round.status;
+    },
+    []
+  );
 
   const load = useCallback(async () => {
     try {
@@ -174,10 +239,11 @@ export function RouletteScreen({
 
   const remainSec = Math.max(0, (endsAt - displayMs) / 1000);
 
+  // Always use canonical wheel — never empty strip
   const strip = useMemo(() => {
     const base =
-      state?.wheel && state.wheel.length === ROULETTE_SLOT_COUNT
-        ? state.wheel
+      Array.isArray(state?.wheel) && state!.wheel.length === ROULETTE_SLOT_COUNT
+        ? state!.wheel
         : ROULETTE_WHEEL;
     const out: RouletteColor[] = [];
     for (let i = 0; i < STRIP_COPIES; i++) out.push(...base);
@@ -189,7 +255,7 @@ export function RouletteScreen({
     return idx * STRIDE;
   }, []);
 
-  // Idle crawl in betting
+  // Idle crawl
   useEffect(() => {
     if (status !== "betting") {
       if (idleRaf.current) {
@@ -204,7 +270,6 @@ export function RouletteScreen({
     const step = (t: number) => {
       if (!alive) return;
       if (statusRef.current !== "betting") return;
-      // ~22px/s gentle motion
       writeX(origin + ((t - t0) / 1000) * 22);
       idleRaf.current = requestAnimationFrame(step);
     };
@@ -215,7 +280,7 @@ export function RouletteScreen({
     };
   }, [status, roundId]);
 
-  // Spin to result once per round — duration matches time left until spinEndsAt
+  // Spin
   useEffect(() => {
     if (!state) return;
     const r = state.round;
@@ -235,10 +300,10 @@ export function RouletteScreen({
     const minTravel = STRIDE * ROULETTE_SLOT_COUNT * 4;
     while (dest - startX < minTravel) dest += STRIDE * ROULETTE_SLOT_COUNT;
 
-    // Match server window so wheel stops as phase flips to settled
     let dur = ROULETTE_SPIN_MS;
     if (r.spinEndsAt) {
-      const left = new Date(r.spinEndsAt).getTime() - (Date.now() + offsetRef.current);
+      const left =
+        new Date(r.spinEndsAt).getTime() - (Date.now() + offsetRef.current);
       dur = Math.max(1200, Math.min(ROULETTE_SPIN_MS, left - 80));
     }
 
@@ -255,7 +320,6 @@ export function RouletteScreen({
         writeX(dest);
         spinRaf.current = null;
         hapticSuccess();
-        // refresh state/balance after land
         void load();
       }
     };
@@ -265,9 +329,13 @@ export function RouletteScreen({
       if (spinRaf.current) cancelAnimationFrame(spinRaf.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.round.id, state?.round.status, state?.round.resultSlot, state?.round.spinEndsAt]);
+  }, [
+    state?.round.id,
+    state?.round.status,
+    state?.round.resultSlot,
+    state?.round.spinEndsAt,
+  ]);
 
-  // New betting round → allow spin again
   useEffect(() => {
     if (status === "betting" && roundId) {
       if (spunForRound.current && spunForRound.current !== roundId) {
@@ -277,11 +345,15 @@ export function RouletteScreen({
   }, [status, roundId]);
 
   const amount = (() => {
+    if (!amountStr.trim()) return 0;
     const n = parseFloat(amountStr.replace(",", "."));
     return Number.isFinite(n) ? +n.toFixed(4) : 0;
   })();
 
-  const setAmt = (n: number) => setAmountStr(String(Math.max(0, +n.toFixed(4))));
+  const setAmt = (n: number) => {
+    if (n <= 0) setAmountStr("");
+    else setAmountStr(String(+n.toFixed(4)));
+  };
 
   const onBet = async (color: RouletteColor) => {
     if (!telegramId) {
@@ -308,43 +380,99 @@ export function RouletteScreen({
     try {
       const res = await placeRouletteBetApi(color, amount);
       setLastAmount(amount);
-      onBalanceUpdate(res.balance);
+      if (typeof res.balance === "number") onBalanceUpdate(res.balance);
       mergeState(res);
       hapticSuccess();
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Error");
       hapticError();
+      try {
+        await load();
+      } catch {
+        /* */
+      }
     } finally {
       setBetting(false);
     }
   };
 
+  const onCopy = async (label: string, full: string) => {
+    const ok = await copyText(full);
+    if (ok) {
+      haptic("light");
+      showToast(tr(`${label} copied`, `${label} скопирован`));
+    }
+  };
+
   const pools = state?.pools ?? { red: 0, black: 0, green: 0 };
   const myBets = state?.myBets ?? { red: 0, black: 0, green: 0 };
+  const betsByColor = state?.betsByColor ?? {
+    red: [] as RouletteBettor[],
+    black: [] as RouletteBettor[],
+    green: [] as RouletteBettor[],
+  };
   const resultColor = state?.round.resultColor;
   const resultSlot = state?.round.resultSlot;
-  const hashShort = state?.round.serverSeedHash?.slice(0, 10) ?? "··········";
+  const hashFull = state?.round.serverSeedHash || "";
+  const seedFull = state?.round.serverSeed || "";
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      <div className="px-4 pt-3 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[17px] font-bold tracking-tight">LIVE Roulette</div>
-          <div className="text-[10px] text-white/35 font-mono truncate mt-0.5">
-            #{state?.round.id?.slice(0, 8) ?? "········"} · {hashShort}
+      {/* Header — balance like Dice/PVP */}
+      <div className="px-4 pt-3 pb-2 flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="text-[15px] font-semibold tracking-tight">
+            LIVE Roulette
           </div>
         </div>
+        <div className="flex items-center shrink-0">
+          <div className="flex items-center h-9 rounded-full glass border border-white/[0.12] shadow-[0_4px_20px_rgba(0,0,0,0.3)] overflow-hidden">
+            <div className="flex items-center gap-1.5 pl-3 pr-2">
+              <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
+                {formatGram(balance)}
+              </span>
+              <span className="text-[10px] text-white/35 font-medium">GRAM</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                haptic("light");
+                onDeposit();
+              }}
+              className="h-full px-2.5 flex items-center justify-center text-cyan-200/90 hover:text-cyan-100 hover:bg-cyan-400/15 border-l border-white/[0.1] transition-colors btn-press"
+              aria-label="Deposit"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Hash — start…end, copy */}
+      <div className="mx-4 flex items-center gap-2">
         <button
           type="button"
-          onClick={onDeposit}
-          className="flex items-center gap-1.5 pl-3 pr-2 h-9 rounded-full bg-white/[0.06] border border-white/10 shrink-0"
+          onClick={() => hashFull && void onCopy("Hash", hashFull)}
+          className="flex-1 min-w-0 flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/[0.08] px-3 py-2 text-left active:scale-[0.99]"
         >
-          <span className="text-cyan-300 font-semibold text-sm tabular-nums">
-            {formatGram(balance)}
+          <span className="text-[10px] text-white/35 uppercase tracking-wider shrink-0">
+            Hash
           </span>
-          <span className="text-white/35 text-[10px]">GRAM</span>
-          <span className="w-5 h-5 rounded-full bg-cyan-500/25 text-cyan-200 flex items-center justify-center text-sm font-bold leading-none">
-            +
+          <span className="text-[11px] font-mono text-white/55 truncate">
+            {shortMiddle(hashFull, 10, 8)}
+          </span>
+          <span className="text-[10px] text-cyan-300/80 shrink-0 ml-auto">
+            {tr("Copy", "Копир.")}
           </span>
         </button>
       </div>
@@ -352,17 +480,20 @@ export function RouletteScreen({
       {loadError && (
         <div className="mx-4 mt-2 text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
           {loadError}
-          <button type="button" className="underline ml-2" onClick={() => void load()}>
+          <button
+            type="button"
+            className="underline ml-2"
+            onClick={() => void load()}
+          >
             retry
           </button>
         </div>
       )}
 
       {/* WHEEL */}
-      <div className="mx-3 mt-4 relative rounded-[28px] overflow-hidden border border-white/[0.1] bg-[#070b18] shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
+      <div className="mx-3 mt-3 relative rounded-[28px] overflow-hidden border border-white/[0.1] bg-[#070b18] shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_70%_at_50%_-10%,rgba(56,189,248,0.12),transparent_55%)] pointer-events-none" />
 
-        {/* pointers */}
         <div className="absolute left-1/2 top-1.5 z-30 -translate-x-1/2">
           <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[12px] border-l-transparent border-r-transparent border-t-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.9)]" />
         </div>
@@ -393,7 +524,9 @@ export function RouletteScreen({
                   key={`${i}-${c}`}
                   className={cn(
                     "shrink-0 rounded-[18px] border flex items-center justify-center",
-                    highlight ? "border-cyan-200/90 scale-[1.06]" : "border-white/12"
+                    highlight
+                      ? "border-cyan-200/90 scale-[1.06]"
+                      : "border-white/12"
                   )}
                   style={{
                     width: SLOT_W,
@@ -402,7 +535,8 @@ export function RouletteScreen({
                     boxShadow: highlight
                       ? `0 0 32px ${glow(c)}, inset 0 1px 0 rgba(255,255,255,0.2)`
                       : "inset 0 1px 0 rgba(255,255,255,0.1)",
-                    transition: "box-shadow 0.25s ease, transform 0.25s ease",
+                    transition:
+                      "box-shadow 0.25s ease, transform 0.25s ease",
                   }}
                 >
                   <div
@@ -419,7 +553,6 @@ export function RouletteScreen({
           </div>
         </div>
 
-        {/* center HUD */}
         <div className="absolute inset-0 flex items-center justify-center z-25 pointer-events-none">
           {status === "betting" && (
             <div className="px-5 py-2.5 rounded-2xl bg-black/80 border border-white/15 backdrop-blur-md text-center min-w-[108px]">
@@ -428,7 +561,9 @@ export function RouletteScreen({
               </div>
               <div className="text-[30px] font-bold tabular-nums text-white leading-none mt-0.5">
                 {remainSec.toFixed(1)}
-                <span className="text-[15px] text-white/40 font-semibold ml-0.5">s</span>
+                <span className="text-[15px] text-white/40 font-semibold ml-0.5">
+                  s
+                </span>
               </div>
             </div>
           )}
@@ -455,7 +590,7 @@ export function RouletteScreen({
         </div>
       </div>
 
-      {/* History */}
+      {/* History colors only — no numbers */}
       <div className="mx-4 mt-3 flex items-center gap-2">
         <span className="text-[10px] text-white/30 uppercase tracking-wider shrink-0">
           {tr("Last", "История")}
@@ -465,13 +600,16 @@ export function RouletteScreen({
             <div
               key={h.id}
               className="w-3.5 h-3.5 rounded-full shrink-0 border border-white/15"
-              style={{ background: hex(h.color), boxShadow: `0 0 8px ${glow(h.color)}` }}
+              style={{
+                background: hex(h.color),
+                boxShadow: `0 0 8px ${glow(h.color)}`,
+              }}
             />
           ))}
         </div>
       </div>
 
-      {/* Amount */}
+      {/* Amount — empty by default */}
       <div className="mx-4 mt-3">
         <input
           value={amountStr}
@@ -486,11 +624,15 @@ export function RouletteScreen({
             [
               ["Clear", () => setAmt(0)],
               ["Last", () => setAmt(lastAmount)],
-              ["+0.1", () => setAmt(amount + 0.1)],
-              ["+1", () => setAmt(amount + 1)],
-              ["+10", () => setAmt(amount + 10)],
+              ["+0.1", () => setAmt((amount || 0) + 0.1)],
+              ["+1", () => setAmt((amount || 0) + 1)],
+              ["+10", () => setAmt((amount || 0) + 10)],
               ["½", () => setAmt(amount / 2)],
-              ["×2", () => setAmt(Math.min(ROULETTE_MAX_BET, amount * 2 || 1))],
+              [
+                "×2",
+                () =>
+                  setAmt(Math.min(ROULETTE_MAX_BET, (amount || 1) * 2)),
+              ],
               ["Max", () => setAmt(Math.min(ROULETTE_MAX_BET, balance))],
             ] as const
           ).map(([label, fn]) => (
@@ -510,7 +652,7 @@ export function RouletteScreen({
         </div>
       </div>
 
-      {/* Colors */}
+      {/* Color buttons + bettors under each */}
       <div className="mx-4 mt-3 grid grid-cols-3 gap-2.5">
         {(
           [
@@ -519,34 +661,70 @@ export function RouletteScreen({
             { c: "black" as const, label: "BLACK", mult: 2 },
           ] as const
         ).map((btn) => (
-          <button
-            key={btn.c}
-            type="button"
-            disabled={betting || status !== "betting"}
-            onClick={() => void onBet(btn.c)}
-            className="relative overflow-hidden rounded-[20px] border border-white/15 p-3.5 text-left active:scale-[0.97] transition disabled:opacity-45"
-            style={{ background: grad(btn.c) }}
-          >
-            <div className="absolute inset-0 bg-black/25" />
-            <div className="relative">
-              <div className="text-[13px] font-black tracking-wide text-white">
-                {btn.label}{" "}
-                <span className="text-white/70">×{btn.mult}</span>
+          <div key={btn.c} className="flex flex-col min-w-0">
+            <button
+              type="button"
+              disabled={betting || status !== "betting"}
+              onClick={() => void onBet(btn.c)}
+              className="relative overflow-hidden rounded-[20px] border border-white/15 p-3.5 text-left active:scale-[0.97] transition disabled:opacity-45"
+              style={{ background: grad(btn.c) }}
+            >
+              <div className="absolute inset-0 bg-black/25" />
+              <div className="relative">
+                <div className="text-[13px] font-black tracking-wide text-white">
+                  {btn.label}{" "}
+                  <span className="text-white/70">×{btn.mult}</span>
+                </div>
+                <div className="mt-1.5 text-[10px] text-white/55">
+                  {tr("Pool", "Банк")} {formatGram(pools[btn.c])}
+                </div>
+                <div className="text-[10px] text-cyan-100/90">
+                  {tr("You", "Вы")} {formatGram(myBets[btn.c])}
+                </div>
               </div>
-              <div className="mt-1.5 text-[10px] text-white/55">
-                {tr("Pool", "Банк")} {formatGram(pools[btn.c])}
-              </div>
-              <div className="text-[10px] text-cyan-100/90">
-                {tr("You", "Вы")} {formatGram(myBets[btn.c])}
-              </div>
+            </button>
+
+            {/* Bettors under this color */}
+            <div className="mt-2 space-y-1.5 max-h-[120px] overflow-y-auto no-scrollbar">
+              {(betsByColor[btn.c] || []).map((b) => (
+                <div
+                  key={`${btn.c}-${b.telegramId}`}
+                  className="flex items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06] px-1.5 py-1"
+                >
+                  <Avatar url={b.photoUrl} name={b.username} size={22} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] text-white/70 truncate leading-tight">
+                      {b.username}
+                    </div>
+                    <div className="text-[10px] font-semibold tabular-nums text-cyan-200/90 leading-tight">
+                      {formatGram(b.amount)}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          </button>
+          </div>
         ))}
       </div>
 
-      {status === "settled" && state?.round.serverSeed && (
-        <div className="mx-4 mt-3 text-[9px] text-white/25 font-mono break-all leading-relaxed">
-          seed {state.round.serverSeed}
+      {/* Seed — only when revealed, start…end + copy */}
+      {status === "settled" && seedFull && (
+        <div className="mx-4 mt-3">
+          <button
+            type="button"
+            onClick={() => void onCopy("Seed", seedFull)}
+            className="w-full flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/[0.08] px-3 py-2 text-left active:scale-[0.99]"
+          >
+            <span className="text-[10px] text-white/35 uppercase tracking-wider shrink-0">
+              Seed
+            </span>
+            <span className="text-[11px] font-mono text-white/50 truncate">
+              {shortMiddle(seedFull, 10, 8)}
+            </span>
+            <span className="text-[10px] text-cyan-300/80 shrink-0 ml-auto">
+              {tr("Copy", "Копир.")}
+            </span>
+          </button>
         </div>
       )}
     </div>

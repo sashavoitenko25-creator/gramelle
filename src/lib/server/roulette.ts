@@ -339,6 +339,18 @@ export async function getRouletteState(telegramId?: number | null) {
   const myBets: Record<RouletteColor, number> = { red: 0, black: 0, green: 0 };
   const seen = new Set<number>();
 
+  // Aggregate stakes per user per color (for avatar strip under buttons)
+  type Agg = {
+    telegramId: number;
+    username: string;
+    amount: number;
+  };
+  const agg: Record<RouletteColor, Map<number, Agg>> = {
+    red: new Map(),
+    black: new Map(),
+    green: new Map(),
+  };
+
   for (const b of list) {
     const amt = Number(b.amount) || 0;
     pools[b.color] = +(pools[b.color] + amt).toFixed(6);
@@ -346,6 +358,52 @@ export async function getRouletteState(telegramId?: number | null) {
     if (telegramId && b.telegram_id === telegramId) {
       myBets[b.color] = +(myBets[b.color] + amt).toFixed(6);
     }
+    const m = agg[b.color];
+    const prev = m.get(b.telegram_id);
+    if (prev) {
+      prev.amount = +(prev.amount + amt).toFixed(6);
+    } else {
+      m.set(b.telegram_id, {
+        telegramId: b.telegram_id,
+        username: b.username || "Player",
+        amount: amt,
+      });
+    }
+  }
+
+  // Photos from profiles
+  const allIds = Array.from(seen);
+  const photoMap = new Map<number, string | null>();
+  if (allIds.length > 0) {
+    const { data: profiles } = await db
+      .from("profiles")
+      .select("telegram_id, photo_url")
+      .in("telegram_id", allIds);
+    for (const pr of profiles || []) {
+      photoMap.set(Number(pr.telegram_id), (pr.photo_url as string) || null);
+    }
+  }
+
+  const betsByColor: Record<
+    RouletteColor,
+    Array<{
+      telegramId: number;
+      username: string;
+      photoUrl: string | null;
+      amount: number;
+    }>
+  > = { red: [], black: [], green: [] };
+
+  for (const color of ["red", "black", "green"] as RouletteColor[]) {
+    betsByColor[color] = Array.from(agg[color].values())
+      .map((a) => ({
+        telegramId: a.telegramId,
+        username: a.username,
+        photoUrl: photoMap.get(a.telegramId) ?? null,
+        amount: a.amount,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 12);
   }
 
   const reveal = round.status === "spinning" || round.status === "settled";
@@ -375,6 +433,7 @@ export async function getRouletteState(telegramId?: number | null) {
     myBets,
     myTotal: +(myBets.red + myBets.black + myBets.green).toFixed(6),
     bettors: seen.size,
+    betsByColor,
     history: (hist || []).map((h) => ({
       id: h.id as string,
       color: h.result_color as RouletteColor,

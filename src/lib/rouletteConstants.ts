@@ -1,6 +1,6 @@
 /** LIVE Roulette — synchronized global rounds (Gramelle) */
 
-export const ROULETTE_COUNTDOWN_SEC = 12;
+export const ROULETTE_COUNTDOWN_SEC = 15;
 export const ROULETTE_SPIN_MS = 5200;
 export const ROULETTE_RESULT_MS = 3200;
 export const ROULETTE_MIN_BET = 0.25;

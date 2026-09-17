@@ -1,6 +1,13 @@
 import { apiFetch } from "@/lib/api";
 import type { RouletteColor } from "@/lib/rouletteConstants";
 
+export type RouletteBettor = {
+  telegramId: number;
+  username: string;
+  photoUrl: string | null;
+  amount: number;
+};
+
 export type RouletteStateResponse = {
   ok: boolean;
   round: {
@@ -19,11 +26,14 @@ export type RouletteStateResponse = {
   myBets: Record<RouletteColor, number>;
   myTotal: number;
   bettors?: number;
+  betsByColor?: Record<RouletteColor, RouletteBettor[]>;
   history: { id: string; color: RouletteColor; slot: number }[];
   wheel: RouletteColor[];
   mult: Record<RouletteColor, number>;
   serverNow: string;
   serverMs?: number;
+  balance?: number;
+  state?: RouletteStateResponse;
 };
 
 export function fetchRouletteState() {
