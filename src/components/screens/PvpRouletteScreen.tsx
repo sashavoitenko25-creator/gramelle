@@ -57,11 +57,85 @@ interface PvpRouletteScreenProps {
 const AVATAR = 56;
 const GAP = 10;
 const STRIDE = AVATAR + GAP;
-const STRIP_COPIES = 14;
-const SPIN_MIN_LOOPS = 5;
+/** Units in one weighted cycle (higher = finer %) */
+const WEIGHT_UNITS = 40;
+const SPIN_MIN_LOOPS = 3;
 
-function easeOutExpo(t: number) {
-  return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+/** Strong ease-out: long cruise, very slow final stop */
+function easeOutSpin(t: number) {
+  if (t >= 1) return 1;
+  // quintic ease-out → heavy deceleration at the end
+  return 1 - Math.pow(1 - t, 5);
+}
+
+/** Deterministic PRNG from string */
+function hashSeed(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(seed: number) {
+  return function () {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Build weighted strip: more slots ≈ higher win chance.
+ * Slots shuffled randomly (seeded) so 50/50 is not A-B-A-B.
+ */
+function buildWeightedCycle(
+  bets: PvpRouletteBetPublic[],
+  seedKey: string
+): PvpRouletteBetPublic[] {
+  if (!bets.length) return [];
+  const total = bets.reduce((s, b) => s + b.amount, 0) || 1;
+  const slots: PvpRouletteBetPublic[] = [];
+  // Assign at least 1 slot each, rest by share of WEIGHT_UNITS
+  const raw = bets.map((b) => ({
+    bet: b,
+    share: Math.max(1, Math.round((b.amount / total) * WEIGHT_UNITS)),
+  }));
+  let sum = raw.reduce((s, x) => s + x.share, 0);
+  // Normalize to ~WEIGHT_UNITS
+  while (sum > WEIGHT_UNITS + bets.length && sum > bets.length) {
+    const max = raw.reduce((a, b) => (a.share >= b.share ? a : b));
+    if (max.share <= 1) break;
+    max.share -= 1;
+    sum -= 1;
+  }
+  for (const x of raw) {
+    for (let i = 0; i < x.share; i++) slots.push(x.bet);
+  }
+  const rnd = mulberry32(hashSeed(seedKey));
+  for (let i = slots.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    const tmp = slots[i];
+    slots[i] = slots[j];
+    slots[j] = tmp;
+  }
+  return slots;
+}
+
+function buildStrip(
+  bets: PvpRouletteBetPublic[],
+  seedKey: string,
+  loops: number
+): PvpRouletteBetPublic[] {
+  const cycle = buildWeightedCycle(bets, seedKey);
+  if (!cycle.length) return [];
+  const out: PvpRouletteBetPublic[] = [];
+  for (let r = 0; r < loops; r++) {
+    for (const b of cycle) out.push(b);
+  }
+  return out;
 }
 
 function shortMiddle(s: string | null | undefined, head = 6, tail = 4) {
@@ -145,15 +219,6 @@ function Avatar({
       )}
     </div>
   );
-}
-
-function buildStrip(bets: PvpRouletteBetPublic[]) {
-  if (!bets.length) return [] as PvpRouletteBetPublic[];
-  const out: PvpRouletteBetPublic[] = [];
-  for (let r = 0; r < STRIP_COPIES; r++) {
-    for (const b of bets) out.push(b);
-  }
-  return out;
 }
 
 export function PvpRouletteScreen({
@@ -284,24 +349,31 @@ export function PvpRouletteScreen({
     if (spunForRound.current === round.id) return;
     spunForRound.current = round.id;
 
-    const resultIndex =
-      typeof round.resultIndex === "number" && round.resultIndex >= 0
-        ? round.resultIndex
-        : 0;
+    const winnerId =
+      round.winnerTelegramId != null
+        ? Number(round.winnerTelegramId)
+        : typeof round.resultIndex === "number" && bets[round.resultIndex]
+          ? Number(bets[round.resultIndex].telegramId)
+          : Number(bets[0]?.telegramId);
 
+    const seedKey = `${round.id}:${round.serverSeedHash || ""}`;
+    const cycle = buildWeightedCycle(bets, seedKey);
+    const period = STRIDE * Math.max(1, cycle.length);
+
+    // Target a winner slot in a far loop for long spin
+    let winnerSlot = cycle.findIndex((b) => Number(b.telegramId) === winnerId);
+    if (winnerSlot < 0) winnerSlot = 0;
+    const loops = SPIN_MIN_LOOPS + 2;
+    let dest = winnerSlot * STRIDE + loops * period;
     const startX = wheelXRef.current;
-    const period = STRIDE * bets.length;
-    let dest =
-      resultIndex * STRIDE +
-      SPIN_MIN_LOOPS * period +
-      Math.floor(Math.random() * 2) * period;
-    while (dest - startX < period * 3) dest += period;
+    while (dest - startX < period * 4) dest += period;
 
     let dur = PVP_ROULETTE_SPIN_MS;
     if (round.spinEndsAt) {
       const left =
         new Date(round.spinEndsAt).getTime() - (Date.now() + offsetRef.current);
-      dur = Math.max(1400, Math.min(PVP_ROULETTE_SPIN_MS, left - 60));
+      // Prefer server window; floor 12s so it never feels instant
+      dur = Math.max(12000, Math.min(PVP_ROULETTE_SPIN_MS, left - 80));
     }
 
     resumeAudio();
@@ -312,7 +384,7 @@ export function PvpRouletteScreen({
     const t0 = performance.now();
     const step = (now: number) => {
       const p = Math.min(1, (now - t0) / dur);
-      writeX(startX + (dest - startX) * easeOutExpo(p));
+      writeX(startX + (dest - startX) * easeOutSpin(p));
       if (p < 1) spinRaf.current = requestAnimationFrame(step);
       else {
         writeX(dest);
@@ -334,12 +406,7 @@ export function PvpRouletteScreen({
       if (spunForRound.current && spunForRound.current !== roundId) {
         spunForRound.current = null;
       }
-      if (bets.length > 0) {
-        const period = STRIDE * bets.length;
-        const x = wheelXRef.current;
-        const snapped = ((x % period) + period) % period;
-        if (Math.abs(x - snapped) > 1) writeX(snapped);
-      } else writeX(0);
+      writeX(0);
     }
   }, [status, roundId, bets.length, writeX]);
 
@@ -367,12 +434,14 @@ export function PvpRouletteScreen({
   }, [showWinner]);
 
   const isSpinPhase = status === "spinning" || status === "finished";
+  const stripSeed = `${round?.id || "x"}:${round?.serverSeedHash || ""}`;
   const strip = useMemo(() => {
     if (!bets.length) return [] as PvpRouletteBetPublic[];
-    // During wait/bet — each player once (no clones)
+    // Waiting/betting: one avatar per player
     if (!isSpinPhase) return bets;
-    return buildStrip(bets);
-  }, [bets, isSpinPhase]);
+    // Spin: weighted by chance, shuffled, many loops
+    return buildStrip(bets, stripSeed, 10);
+  }, [bets, isSpinPhase, stripSeed]);
 
   const amount = (() => {
     if (!amountStr.trim()) return 0;
@@ -579,13 +648,14 @@ export function PvpRouletteScreen({
       <div className="mx-3 mt-3 relative rounded-[28px] overflow-hidden border border-white/[0.1] bg-[#070b18] shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_70%_at_50%_-10%,rgba(56,189,248,0.12),transparent_55%)] pointer-events-none" />
 
-        <div className="absolute left-1/2 top-1.5 z-30 -translate-x-1/2">
-          <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[12px] border-l-transparent border-r-transparent border-t-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.9)]" />
+        {/* Pointers fixed to frame edge */}
+        <div className="absolute left-1/2 top-0 z-30 -translate-x-1/2 -translate-y-[1px] pointer-events-none">
+          <div className="w-0 h-0 border-l-[9px] border-r-[9px] border-t-[11px] border-l-transparent border-r-transparent border-t-cyan-300 drop-shadow-[0_2px_8px_rgba(34,211,238,0.85)]" />
         </div>
-        <div className="absolute left-1/2 bottom-1.5 z-30 -translate-x-1/2 rotate-180">
-          <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[12px] border-l-transparent border-r-transparent border-t-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.9)]" />
+        <div className="absolute left-1/2 bottom-0 z-30 -translate-x-1/2 translate-y-[1px] rotate-180 pointer-events-none">
+          <div className="w-0 h-0 border-l-[9px] border-r-[9px] border-t-[11px] border-l-transparent border-r-transparent border-t-cyan-300 drop-shadow-[0_2px_8px_rgba(34,211,238,0.85)]" />
         </div>
-        <div className="absolute left-1/2 top-0 bottom-0 w-px z-20 bg-gradient-to-b from-transparent via-cyan-300/60 to-transparent pointer-events-none" />
+        <div className="absolute left-1/2 top-0 bottom-0 w-px z-20 bg-gradient-to-b from-cyan-300/50 via-cyan-300/25 to-cyan-300/50 pointer-events-none" />
 
         <div className="relative h-[120px] overflow-hidden">
           {strip.length === 0 ? (
