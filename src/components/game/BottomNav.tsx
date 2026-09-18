@@ -145,7 +145,7 @@ export function BottomNav({ screen, onChange }: BottomNavProps) {
             const active =
               screen === item.id ||
               (item.id === "games" &&
-                (screen === "rps" || screen === "dice" || screen === "xo")) ||
+                (screen === "rps" || screen === "dice" || screen === "xo" || screen === "pvp_roulette")) ||
               (item.id === "profile" &&
                 (screen === "referrals" ||
                   screen === "transactions" ||

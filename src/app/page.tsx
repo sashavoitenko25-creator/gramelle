@@ -14,6 +14,7 @@ import { RouletteScreen } from "@/components/screens/RouletteScreen";
 import { PvpRouletteScreen } from "@/components/screens/PvpRouletteScreen";
 import { LiveHubScreen } from "@/components/screens/LiveHubScreen";
 import { fetchRouletteState } from "@/lib/rouletteApi";
+import { fetchPvpRouletteState } from "@/lib/pvpRouletteApi";
 import { RpsScreen } from "@/components/screens/RpsScreen";
 import { DiceScreen } from "@/components/screens/DiceScreen";
 import { XoScreen } from "@/components/screens/XoScreen";
@@ -92,6 +93,7 @@ export default function Home() {
   const [diceOnline, setDiceOnline] = useState(0);
   const [xoOnline, setXoOnline] = useState(0);
   const [liveOnline, setLiveOnline] = useState(0);
+  const [pvpRouletteOnline, setPvpRouletteOnline] = useState(0);
 
   useEffect(() => {
     if (!isReady) return;
@@ -362,11 +364,7 @@ export default function Home() {
             haptic("light");
             setScreen("roulette");
           }}
-          onSelectPvpRoulette={() => {
-            haptic("light");
-            setScreen("pvp_roulette");
-          }}
-        />
+/>
       )}
 
       {screen === "solo" && (
@@ -398,7 +396,7 @@ export default function Home() {
           telegramId={telegramId}
           username={username}
           photoUrl={profile?.photo_url}
-          onBack={() => setScreen("live")}
+          onBack={() => setScreen("pvp")}
           onBalanceUpdate={(b) => setBalanceFromServer(b)}
           onReloadBalance={() => reloadProfile()}
           onDeposit={() => {

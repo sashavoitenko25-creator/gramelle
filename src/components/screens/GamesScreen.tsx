@@ -9,20 +9,24 @@ interface GamesScreenProps {
   onSelectRps: () => void;
   onSelectDice: () => void;
   onSelectXo?: () => void;
+  onSelectPvpRoulette?: () => void;
   onBack?: () => void;
   rpsOnline?: number;
   diceOnline?: number;
   xoOnline?: number;
+  pvpRouletteOnline?: number;
 }
 
 export function GamesScreen({
   onSelectRps,
   onSelectDice,
   onSelectXo,
+  onSelectPvpRoulette,
   onBack,
   rpsOnline = 0,
   diceOnline = 0,
   xoOnline = 0,
+  pvpRouletteOnline = 0,
 }: GamesScreenProps) {
   const { t, lang } = useI18n();
   const isRu = lang === "ru";
@@ -65,6 +69,45 @@ export function GamesScreen({
       </div>
 
       <div className="px-4 flex flex-col gap-4">
+
+        {/* PvP Roulette — first */}
+        {onSelectPvpRoulette && (
+          <button
+            type="button"
+            onClick={onSelectPvpRoulette}
+            className="group relative overflow-hidden rounded-[28px] text-left btn-press active:scale-[0.98] transition-all duration-200"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b] via-[#5b21b6] to-[#9d174d]" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_15%_20%,rgba(167,139,250,0.5),transparent_55%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_55%_50%_at_100%_10%,rgba(251,191,36,0.22),transparent_50%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_40%_40%_at_70%_90%,rgba(34,211,238,0.18),transparent_50%)]" />
+            <OnlineBadge count={pvpRouletteOnline} />
+            <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
+              <div className="flex items-center gap-2">
+                <div className="relative w-[52px] h-[52px] rounded-full bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] -rotate-6 group-hover:rotate-0 transition-transform duration-300 overflow-hidden">
+                  <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-600" />
+                </div>
+                <div className="relative w-[52px] h-[52px] rounded-full bg-white/[0.14] border border-amber-300/40 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] rotate-3 group-hover:rotate-0 transition-transform duration-300 -ml-2 overflow-hidden ring-2 ring-amber-400/30">
+                  <div className="w-full h-full bg-gradient-to-br from-amber-400 to-orange-500" />
+                </div>
+                <div className="relative w-[52px] h-[52px] rounded-full bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] rotate-6 group-hover:rotate-0 transition-transform duration-300 -ml-2 overflow-hidden">
+                  <div className="w-full h-full bg-gradient-to-br from-cyan-400 to-blue-600" />
+                </div>
+              </div>
+              <div className="mt-6">
+                <div className="text-[22px] font-bold text-white tracking-tight leading-none">
+                  {isRu ? "PvP Рулетка" : "PvP Roulette"}
+                </div>
+                <div className="text-[13px] text-white/55 mt-1.5 leading-snug">
+                  {isRu
+                    ? "Один против всех · победитель забирает банк"
+                    : "One vs all · winner takes the bank"}
+                </div>
+              </div>
+            </div>
+          </button>
+        )}
+
         {/* RPS */}
         <button
           type="button"

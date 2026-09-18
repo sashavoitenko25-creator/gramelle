@@ -532,12 +532,7 @@ export function PvpRouletteScreen({
               </span>
               <span className="text-[12px] font-semibold text-amber-200/50">GRAM</span>
             </div>
-            {myBet > 0 && (
-              <div className="mt-1.5 text-[11px] text-cyan-300/80 font-medium">
-                {tr("Your bet", "Ваша ставка")}{" "}
-                <span className="tabular-nums font-bold">{formatGram(myBet)}</span>
-              </div>
-            )}
+
           </div>
         </div>
       </div>

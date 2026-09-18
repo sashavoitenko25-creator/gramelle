@@ -1,5 +1,5 @@
 /**
- * Patch src/app/page.tsx for PvP Roulette screen + online counter.
+ * Patch src/app/page.tsx for PvP Roulette in PVP hub (GamesScreen).
  * Run from project root: node apply_page_patch.js
  */
 const fs = require("fs");
@@ -12,10 +12,6 @@ if (!fs.existsSync(file)) {
 let t = fs.readFileSync(file, "utf8");
 
 if (!t.includes("PvpRouletteScreen")) {
-  if (!t.includes('from "@/components/screens/RouletteScreen"')) {
-    console.error("RouletteScreen import not found");
-    process.exit(1);
-  }
   t = t.replace(
     'import { RouletteScreen } from "@/components/screens/RouletteScreen";',
     'import { RouletteScreen } from "@/components/screens/RouletteScreen";\nimport { PvpRouletteScreen } from "@/components/screens/PvpRouletteScreen";'
@@ -23,17 +19,10 @@ if (!t.includes("PvpRouletteScreen")) {
 }
 
 if (!t.includes("fetchPvpRouletteState")) {
-  if (t.includes('from "@/lib/rouletteApi"')) {
-    t = t.replace(
-      'import { fetchRouletteState } from "@/lib/rouletteApi";',
-      'import { fetchRouletteState } from "@/lib/rouletteApi";\nimport { fetchPvpRouletteState } from "@/lib/pvpRouletteApi";'
-    );
-  } else {
-    t = t.replace(
-      'import { fetchRouletteState }',
-      'import { fetchPvpRouletteState } from "@/lib/pvpRouletteApi";\nimport { fetchRouletteState }'
-    );
-  }
+  t = t.replace(
+    'import { fetchRouletteState } from "@/lib/rouletteApi";',
+    'import { fetchRouletteState } from "@/lib/rouletteApi";\nimport { fetchPvpRouletteState } from "@/lib/pvpRouletteApi";'
+  );
 }
 
 if (!t.includes("pvpRouletteOnline")) {
@@ -43,7 +32,6 @@ if (!t.includes("pvpRouletteOnline")) {
   );
 }
 
-// online tick: after color roulette live fetch, add pvp
 if (!t.includes("setPvpRouletteOnline")) {
   const liveBlock = `        let liveN = 0;
         try {
@@ -74,40 +62,52 @@ if (!t.includes("setPvpRouletteOnline")) {
         }
 
         setOnlineCount(rpsN + diceN + xoN + liveN + pvpN);`;
-  if (t.includes(liveBlock)) {
-    t = t.replace(liveBlock, liveNew);
-  } else {
-    console.warn("online block pattern not exact — add pvpRouletteOnline manually");
-  }
+  if (t.includes(liveBlock)) t = t.replace(liveBlock, liveNew);
+  else console.warn("online block: apply pvp online manually");
 }
 
-// LiveHub props
+// GamesScreen — add onSelectPvpRoulette + online
 if (!t.includes("onSelectPvpRoulette")) {
-  const liveOld = `onSelectRoulette={() => {
+  // try inject into GamesScreen block
+  const gOld = `onSelectRps={() => {
             haptic("light");
-            setScreen("roulette");
-          }}
-        />`;
-  const liveNew = `onSelectRoulette={() => {
-            haptic("light");
-            setScreen("roulette");
-          }}
-          onSelectPvpRoulette={() => {
+            setScreen("rps");
+          }}`;
+  const gNew = `onSelectPvpRoulette={() => {
             haptic("light");
             setScreen("pvp_roulette");
           }}
           pvpRouletteOnline={pvpRouletteOnline}
-        />`;
-  if (t.includes(liveOld)) t = t.replace(liveOld, liveNew);
-  else console.warn("LiveHub block not found");
+          onSelectRps={() => {
+            haptic("light");
+            setScreen("rps");
+          }}`;
+  if (t.includes(gOld)) t = t.replace(gOld, gNew);
+  else console.warn("GamesScreen onSelectRps not found");
 } else if (!t.includes("pvpRouletteOnline={pvpRouletteOnline}")) {
-  t = t.replace(
-    "onSelectPvpRoulette={() => {",
-    "pvpRouletteOnline={pvpRouletteOnline}\n          onSelectPvpRoulette={() => {"
-  );
+  // already has select but maybe missing online on GamesScreen
+  if (t.includes("onSelectPvpRoulette={() => {") && !t.includes("pvpRouletteOnline={pvpRouletteOnline}")) {
+    t = t.replace(
+      "onSelectPvpRoulette={() => {",
+      "pvpRouletteOnline={pvpRouletteOnline}\n          onSelectPvpRoulette={() => {"
+    );
+  }
 }
 
-// Screen block
+// Remove from LiveHub if present
+t = t.replace(
+  /\n\s*onSelectPvpRoulette=\{\(\) => \{\s*haptic\("light"\);\s*setScreen\("pvp_roulette"\);\s*\}\}\s*/g,
+  "\n"
+);
+t = t.replace(/\n\s*pvpRouletteOnline=\{pvpRouletteOnline\}\s*(?=\/>)/g, "\n");
+// careful - might remove from GamesScreen too if adjacent to />
+// Fix onBack for pvp_roulette screen to pvp
+t = t.replace(
+  /screen === "pvp_roulette"[\s\S]*?onBack=\{\(\) => setScreen\("live"\)\}/,
+  (m) => m.replace('setScreen("live")', 'setScreen("pvp")')
+);
+
+// Ensure screen block exists
 if (!t.includes('screen === "pvp_roulette"')) {
   const rouletteEnd = `showToast={showToast}
         />
@@ -124,7 +124,7 @@ if (!t.includes('screen === "pvp_roulette"')) {
           telegramId={telegramId}
           username={username}
           photoUrl={profile?.photo_url}
-          onBack={() => setScreen("live")}
+          onBack={() => setScreen("pvp")}
           onBalanceUpdate={(b) => setBalanceFromServer(b)}
           onReloadBalance={() => reloadProfile()}
           onDeposit={() => {
@@ -140,7 +140,6 @@ if (!t.includes('screen === "pvp_roulette"')) {
 
       {screen === "rps" && (`;
   if (t.includes(rouletteEnd)) t = t.replace(rouletteEnd, insert);
-  else console.warn("roulette→rps block not found");
 }
 
 fs.writeFileSync(file, t);
