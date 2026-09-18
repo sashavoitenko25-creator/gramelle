@@ -345,7 +345,13 @@ export function PvpRouletteScreen({
     if (status === "waiting" || status === "betting") setShowWinner(false);
   }, [status, round?.id, round?.winnerTelegramId, telegramId, myBet, hapticSuccess, hapticError]);
 
-  const strip = useMemo(() => buildStrip(bets), [bets]);
+  const isSpinPhase = status === "spinning" || status === "finished";
+  const strip = useMemo(() => {
+    if (!bets.length) return [] as PvpRouletteBetPublic[];
+    // During wait/bet — each player once (no clones)
+    if (!isSpinPhase) return bets;
+    return buildStrip(bets);
+  }, [bets, isSpinPhase]);
 
   const amount = (() => {
     if (!amountStr.trim()) return 0;
@@ -536,6 +542,16 @@ export function PvpRouletteScreen({
           </div>
         </div>
       </div>
+      {status === "waiting" && bets.length > 0 && (
+        <div className="mx-4 mt-2 flex justify-center">
+          <div className="px-3 py-1 rounded-full bg-white/[0.05] border border-white/[0.1] text-[11px] font-medium text-white/55">
+            {tr(
+              `Waiting for players · ${bets.length}/${PVP_ROULETTE_MIN_PLAYERS}`,
+              `Ждём игроков · ${bets.length}/${PVP_ROULETTE_MIN_PLAYERS}`
+            )}
+          </div>
+        </div>
+      )}
 
       {/* WHEEL */}
       <div className="mx-3 mt-3 relative rounded-[28px] overflow-hidden border border-white/[0.1] bg-[#070b18] shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
@@ -552,7 +568,7 @@ export function PvpRouletteScreen({
         <div className="relative h-[120px] overflow-hidden">
           {strip.length === 0 ? (
             <div className="absolute inset-0" aria-hidden />
-          ) : (
+          ) : isSpinPhase ? (
             <div
               className="absolute top-1/2 left-1/2 flex items-center"
               style={{
@@ -583,6 +599,23 @@ export function PvpRouletteScreen({
                 );
               })}
             </div>
+          ) : (
+            /* Waiting / betting: unique avatars centered, no clones */
+            <div className="absolute inset-0 flex items-center justify-center gap-2.5 px-4">
+              {strip.map((b) => (
+                <div key={b.id} className="flex flex-col items-center gap-1 shrink-0">
+                  <Avatar
+                    url={b.avatarUrl}
+                    name={b.username}
+                    size={AVATAR}
+                    me={Number(b.telegramId) === Number(telegramId)}
+                  />
+                  <span className="text-[10px] font-semibold tabular-nums text-white/50">
+                    {formatGram(b.amount)}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
@@ -609,16 +642,7 @@ export function PvpRouletteScreen({
               </div>
             </div>
           )}
-          {status === "waiting" && bets.length > 0 && (
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
-              <div className="px-3 py-1 rounded-full bg-black/70 border border-white/12 backdrop-blur-md text-[10px] font-semibold text-white/70 uppercase tracking-wider">
-                {tr(
-                  `Need ${PVP_ROULETTE_MIN_PLAYERS}+ to start`,
-                  `Нужно ${PVP_ROULETTE_MIN_PLAYERS}+ для старта`
-                )}
-              </div>
-            </div>
-          )}
+
           {status === "finished" && winnerBet && (
             <div className="px-5 py-2.5 rounded-2xl bg-black/85 border border-white/20 backdrop-blur-md text-center">
               <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">
