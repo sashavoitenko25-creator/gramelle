@@ -256,6 +256,13 @@ export async function getPvpRouletteState(opts?: {
 
   const history = await getRecentHistory(12);
 
+  // Online = only players who placed a bet in the current open/active round
+  // (not pure spectators watching the screen)
+  const st = String(round.status || "");
+  const active =
+    st === "waiting" || st === "betting" || st === "spinning";
+  const online = active ? bets.length : 0;
+
   return {
     ok: true as const,
     round: publicRound(round),
@@ -265,7 +272,7 @@ export async function getPvpRouletteState(opts?: {
     serverNow: new Date().toISOString(),
     serverMs: Date.now(),
     balance,
-    online: countPvpRouletteOnline(),
+    online,
     history,
   };
 }

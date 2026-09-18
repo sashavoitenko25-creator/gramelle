@@ -679,16 +679,16 @@ export function PvpRouletteScreen({
 
       {/* WHEEL */}
       <div className="mx-3 mt-3 relative rounded-[28px] overflow-hidden border border-white/[0.1] bg-[#070b18] shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_70%_at_50%_-10%,rgba(56,189,248,0.12),transparent_55%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_70%_at_50%_-10%,rgba(251,191,36,0.1),transparent_55%)] pointer-events-none" />
 
-        {/* Pointers fixed to frame edge */}
+        {/* Pointers fixed to frame edge — amber like bank / history */}
         <div className="absolute left-1/2 top-0 z-30 -translate-x-1/2 -translate-y-[1px] pointer-events-none">
-          <div className="w-0 h-0 border-l-[9px] border-r-[9px] border-t-[11px] border-l-transparent border-r-transparent border-t-cyan-300 drop-shadow-[0_2px_8px_rgba(34,211,238,0.85)]" />
+          <div className="w-0 h-0 border-l-[9px] border-r-[9px] border-t-[11px] border-l-transparent border-r-transparent border-t-amber-300 drop-shadow-[0_2px_10px_rgba(251,191,36,0.9)]" />
         </div>
         <div className="absolute left-1/2 bottom-0 z-30 -translate-x-1/2 translate-y-[1px] rotate-180 pointer-events-none">
-          <div className="w-0 h-0 border-l-[9px] border-r-[9px] border-t-[11px] border-l-transparent border-r-transparent border-t-cyan-300 drop-shadow-[0_2px_8px_rgba(34,211,238,0.85)]" />
+          <div className="w-0 h-0 border-l-[9px] border-r-[9px] border-t-[11px] border-l-transparent border-r-transparent border-t-amber-300 drop-shadow-[0_2px_10px_rgba(251,191,36,0.9)]" />
         </div>
-        <div className="absolute left-1/2 top-0 bottom-0 w-px z-20 bg-gradient-to-b from-cyan-300/50 via-cyan-300/25 to-cyan-300/50 pointer-events-none" />
+        <div className="absolute left-1/2 top-0 bottom-0 w-px z-20 bg-gradient-to-b from-amber-300/55 via-amber-300/25 to-amber-300/55 pointer-events-none" />
 
         <div className="relative h-[120px] overflow-hidden">
           {strip.length === 0 ? (
@@ -744,13 +744,16 @@ export function PvpRouletteScreen({
         {/* Overlay: countdown / result — same as color roulette */}
         <div className="absolute inset-0 flex items-center justify-center z-[25] pointer-events-none">
           {status === "betting" && (
-            <div className="px-5 py-2.5 rounded-2xl bg-black/80 border border-white/15 backdrop-blur-md text-center min-w-[108px]">
-              <div className="text-[10px] uppercase tracking-[0.22em] text-white/45">
+            <div className="px-4 py-2 rounded-2xl bg-black/25 border border-white/10 backdrop-blur-[2px] text-center min-w-[96px] shadow-[0_4px_20px_rgba(0,0,0,0.35)]">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-white/70 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
                 {tr("Start", "Старт")}
               </div>
-              <div className="text-[30px] font-bold tabular-nums text-white leading-none mt-0.5">
+              <div
+                className="text-[28px] font-bold tabular-nums text-white leading-none mt-0.5"
+                style={{ textShadow: "0 1px 4px rgba(0,0,0,0.95), 0 0 12px rgba(0,0,0,0.5)" }}
+              >
                 {remainSec.toFixed(1)}
-                <span className="text-[15px] text-white/40 font-semibold ml-0.5">s</span>
+                <span className="text-[14px] text-white/60 font-semibold ml-0.5">s</span>
               </div>
             </div>
           )}
