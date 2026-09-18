@@ -497,23 +497,23 @@ export function PvpRouletteScreen({
         )}
       </div>
 
-      {/* Bank line */}
-      <div className="mx-4 mt-2 flex items-center justify-between gap-2">
-        <div className="text-[12px] text-white/45">
-          {tr("Bank", "Банк")}{" "}
-          <span className="text-white font-semibold tabular-nums">
+      {/* Bank — centered */}
+      <div className="mx-4 mt-3 mb-1 text-center">
+        <div className="text-[10px] uppercase tracking-[0.2em] text-white/35 font-semibold">
+          {tr("Bank", "Банк")}
+        </div>
+        <div className="mt-1 flex items-baseline justify-center gap-1.5">
+          <span className="text-[28px] font-black tabular-nums tracking-tight text-white leading-none">
             {formatGram(totalBank)}
           </span>
-          <span className="text-white/30"> GRAM</span>
+          <span className="text-[13px] font-semibold text-white/35">GRAM</span>
         </div>
-        <div className="text-[12px] text-white/40">
-          {bets.length}/{PVP_ROULETTE_MIN_PLAYERS}+
-          {myBet > 0 && (
-            <span className="ml-2 text-cyan-300/90">
-              {tr("You", "Вы")} {formatGram(myBet)}
-            </span>
-          )}
-        </div>
+        {myBet > 0 && (
+          <div className="mt-1.5 text-[12px] text-cyan-300/85 font-medium">
+            {tr("Your bet", "Ваша ставка")}{" "}
+            <span className="tabular-nums font-bold">{formatGram(myBet)}</span>
+          </div>
+        )}
       </div>
 
       {/* WHEEL */}
@@ -582,15 +582,22 @@ export function PvpRouletteScreen({
               </div>
             </div>
           )}
-          {status === "waiting" && (
+          {status === "waiting" && bets.length === 0 && (
             <div className="px-5 py-2.5 rounded-2xl bg-black/80 border border-white/15 backdrop-blur-md text-center">
               <div className="text-[10px] uppercase tracking-[0.22em] text-white/45">
                 {tr("Waiting", "Ожидание")}
               </div>
-              <div className="text-[14px] font-semibold text-white/80 mt-0.5">
+              <div className="text-[13px] font-semibold text-white/75 mt-0.5">
+                {tr("Be the first", "Будь первым")}
+              </div>
+            </div>
+          )}
+          {status === "waiting" && bets.length > 0 && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+              <div className="px-3 py-1 rounded-full bg-black/70 border border-white/12 backdrop-blur-md text-[10px] font-semibold text-white/70 uppercase tracking-wider">
                 {tr(
-                  `${PVP_ROULETTE_MIN_PLAYERS}+ players`,
-                  `${PVP_ROULETTE_MIN_PLAYERS}+ игрока`
+                  `Need ${PVP_ROULETTE_MIN_PLAYERS}+ to start`,
+                  `Нужно ${PVP_ROULETTE_MIN_PLAYERS}+ для старта`
                 )}
               </div>
             </div>
