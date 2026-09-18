@@ -672,10 +672,7 @@ export function PvpRouletteScreen({
       {status === "waiting" && bets.length > 0 && (
         <div className="mx-4 mt-2 flex justify-center">
           <div className="px-3 py-1 rounded-full bg-white/[0.05] border border-white/[0.1] text-[11px] font-medium text-white/55">
-            {tr(
-              `Waiting for players · ${bets.length}/${PVP_ROULETTE_MIN_PLAYERS}`,
-              `Ждём игроков · ${bets.length}/${PVP_ROULETTE_MIN_PLAYERS}`
-            )}
+            {tr("Waiting for players", "Ждём игроков")}
           </div>
         </div>
       )}
@@ -731,16 +728,13 @@ export function PvpRouletteScreen({
             /* Waiting / betting: unique avatars centered, no clones */
             <div className="absolute inset-0 flex items-center justify-center gap-2.5 px-4">
               {strip.map((b) => (
-                <div key={b.id} className="flex flex-col items-center gap-1 shrink-0">
+                <div key={b.id} className="flex items-center justify-center shrink-0">
                   <Avatar
                     url={b.avatarUrl}
                     name={b.username}
                     size={AVATAR}
                     me={Number(b.telegramId) === Number(telegramId)}
                   />
-                  <span className="text-[10px] font-semibold tabular-nums text-white/50">
-                    {formatGram(b.amount)}
-                  </span>
                 </div>
               ))}
             </div>
@@ -881,15 +875,10 @@ export function PvpRouletteScreen({
               : "bg-white/[0.08] text-white/40 border border-white/10"
           )}
         >
-          {myBet > 0
-            ? tr(
-                `Raise +${formatGram(amount || lastAmount || 0)}`,
-                `Увеличить +${formatGram(amount || lastAmount || 0)}`
-              )
-            : tr(
-                `Bet ${formatGram(amount || lastAmount || PVP_ROULETTE_MIN_BET)}`,
-                `Ставка ${formatGram(amount || lastAmount || PVP_ROULETTE_MIN_BET)}`
-              )}
+          {tr(
+            `Bet ${formatGram(amount || lastAmount || PVP_ROULETTE_MIN_BET)}`,
+            `Ставка ${formatGram(amount || lastAmount || PVP_ROULETTE_MIN_BET)}`
+          )}
         </button>
       </div>
 
@@ -931,7 +920,7 @@ export function PvpRouletteScreen({
                       {b.username}
                       {isMe && (
                         <span className="ml-1 text-[10px] text-cyan-300/80">
-                          you
+                          {tr("you", "вы")}
                         </span>
                       )}
                     </div>

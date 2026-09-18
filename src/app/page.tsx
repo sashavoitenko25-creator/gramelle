@@ -152,7 +152,16 @@ export default function Home() {
           /* keep */
         }
 
-        setOnlineCount(rpsN + diceN + xoN + liveN);
+        let pvpN = 0;
+        try {
+          const pvp = await fetchPvpRouletteState();
+          pvpN = Number(pvp?.online) || 0;
+          setPvpRouletteOnline(pvpN);
+        } catch {
+          /* keep */
+        }
+
+        setOnlineCount(rpsN + diceN + xoN + liveN + pvpN);
       } catch {
         /* keep */
       }
