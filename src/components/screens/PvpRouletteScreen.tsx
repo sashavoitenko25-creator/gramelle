@@ -19,6 +19,7 @@ import {
   PVP_ROULETTE_MIN_BET,
   PVP_ROULETTE_MAX_BET,
   PVP_ROULETTE_SPIN_MS,
+  PVP_ROULETTE_RESULT_MS,
   PVP_ROULETTE_MIN_PLAYERS,
 } from "@/lib/pvpRouletteConstants";
 import {
@@ -247,6 +248,15 @@ export function PvpRouletteScreen({
   const [displayMs, setDisplayMs] = useState(Date.now());
   const [wheelX, setWheelX] = useState(0);
   const [showWinner, setShowWinner] = useState(false);
+  /** Snapshot so modal stays 5s even after next round opens */
+  const [winnerSnap, setWinnerSnap] = useState<{
+    username: string;
+    avatarUrl: string | null;
+    amount: number;
+    bank: number;
+    won: boolean;
+  } | null>(null);
+  const winnerHoldUntil = useRef(0);
   const [showHistory, setShowHistory] = useState(false);
   const [histLoading, setHistLoading] = useState(false);
   const [histItems, setHistItems] = useState<
@@ -413,8 +423,18 @@ export function PvpRouletteScreen({
   useEffect(() => {
     if (status === "finished" && round?.id && round.id !== lastResultId.current) {
       lastResultId.current = round.id;
-      setShowWinner(true);
+      const wBet =
+        typeof round.resultIndex === "number" ? bets[round.resultIndex] : undefined;
       const won = Number(round.winnerTelegramId) === Number(telegramId);
+      setWinnerSnap({
+        username: wBet?.username || "—",
+        avatarUrl: wBet?.avatarUrl ?? null,
+        amount: Number(round.winnerAmount) || 0,
+        bank: Number(round.totalBank) || 0,
+        won,
+      });
+      setShowWinner(true);
+      winnerHoldUntil.current = Date.now() + PVP_ROULETTE_RESULT_MS;
       if (won) {
         playWinSound();
         hapticSuccess();
@@ -423,13 +443,29 @@ export function PvpRouletteScreen({
         hapticError();
       }
     }
-    if (status === "waiting" || status === "betting") setShowWinner(false);
-  }, [status, round?.id, round?.winnerTelegramId, telegramId, myBet, hapticSuccess, hapticError]);
+    // Do NOT clear showWinner on waiting — timer holds 5s
+  }, [
+    status,
+    round?.id,
+    round?.winnerTelegramId,
+    round?.resultIndex,
+    round?.winnerAmount,
+    round?.totalBank,
+    bets,
+    telegramId,
+    myBet,
+    hapticSuccess,
+    hapticError,
+  ]);
 
-  // Keep winner toast ~3s; seed stays visible on main screen for full RESULT window (5s)
+  // Hold winner modal for full RESULT_MS (5s), even if next round already started
   useEffect(() => {
     if (!showWinner) return;
-    const id = setTimeout(() => setShowWinner(false), 3200);
+    const left = Math.max(50, winnerHoldUntil.current - Date.now());
+    const id = setTimeout(() => {
+      setShowWinner(false);
+      setWinnerSnap(null);
+    }, left);
     return () => clearTimeout(id);
   }, [showWinner]);
 
@@ -1148,37 +1184,40 @@ export function PvpRouletteScreen({
       )}
 
 {/* Winner modal */}
-      {showWinner && status === "finished" && winnerBet && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-5"
-          onClick={() => setShowWinner(false)}
-        >
+      {showWinner && winnerSnap && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-5">
           <div
-            className="w-full max-w-sm rounded-[24px] border border-white/12 bg-[#0c0e16] p-6 text-center shadow-2xl"
+            className="w-full max-w-sm rounded-[24px] border border-amber-400/20 bg-[#0c0e16] p-6 text-center shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-[11px] text-white/40 uppercase tracking-[0.16em] mb-3">
-              {iWon ? tr("You won!", "Вы победили!") : tr("Winner", "Победитель")}
+            <div className="text-[11px] text-amber-200/50 uppercase tracking-[0.16em] mb-3">
+              {winnerSnap.won
+                ? tr("You won!", "Вы победили!")
+                : tr("Winner", "Победитель")}
             </div>
             <div className="flex justify-center mb-3">
               <Avatar
-                url={winnerBet.avatarUrl}
-                name={winnerBet.username}
+                url={winnerSnap.avatarUrl}
+                name={winnerSnap.username}
                 size={72}
                 highlight
               />
             </div>
-            <div className="text-[18px] font-bold text-white">{winnerBet.username}</div>
+            <div className="text-[18px] font-bold text-white">
+              {winnerSnap.username}
+            </div>
             <div className="text-[28px] font-black text-amber-300 tabular-nums mt-1">
-              +{formatGram(round?.winnerAmount || 0)}
+              +{formatGram(winnerSnap.amount)}
             </div>
             <div className="text-[12px] text-white/35 mt-1">
-              {tr("Bank", "Банк")} {formatGram(totalBank)}
+              {tr("Bank", "Банк")} {formatGram(winnerSnap.bank)}
             </div>
             <button
               type="button"
               onClick={() => {
                 setShowWinner(false);
+                setWinnerSnap(null);
+                winnerHoldUntil.current = 0;
                 playClickSound();
               }}
               className="mt-5 w-full h-11 rounded-2xl font-bold bg-gradient-to-r from-cyan-500 to-violet-500 text-white active:scale-[0.98]"

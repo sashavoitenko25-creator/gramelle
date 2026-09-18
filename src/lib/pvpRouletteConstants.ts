@@ -13,7 +13,7 @@ export const PVP_ROULETTE_COUNTDOWN_SEC = 18;
 /** Spin animation duration (ms) */
 export const PVP_ROULETTE_SPIN_MS = 25000;
 /** Show result / winner modal (ms) before next round */
-export const PVP_ROULETTE_RESULT_MS = 5000;
+export const PVP_ROULETTE_RESULT_MS = 5500;
 /** Reject bets this many ms before bet_ends_at */
 export const PVP_ROULETTE_BET_LOCK_MS = 500;
 /** Brief pause after lock before spin starts (ms) */
