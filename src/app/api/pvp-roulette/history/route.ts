@@ -35,28 +35,32 @@ export async function GET(req: NextRequest) {
       ),
     ];
     const nameMap = new Map<number, string>();
+    const photoMap = new Map<number, string | null>();
     if (winnerIds.length) {
       const { data: profiles } = await db
         .from("profiles")
-        .select("telegram_id, username")
+        .select("telegram_id, username, photo_url")
         .in("telegram_id", winnerIds);
       for (const p of profiles || []) {
-        nameMap.set(Number(p.telegram_id), p.username || "Player");
+        const tid = Number(p.telegram_id);
+        nameMap.set(tid, p.username || "Player");
+        photoMap.set(tid, (p as { photo_url?: string | null }).photo_url || null);
       }
     }
 
-    const history = rounds.map((r) => ({
-      id: r.id,
-      winnerTelegramId:
-        r.winner_telegram_id != null ? Number(r.winner_telegram_id) : null,
-      winnerUsername:
-        r.winner_telegram_id != null
-          ? nameMap.get(Number(r.winner_telegram_id)) || "Player"
-          : undefined,
-      totalBank: Number(r.total_bank) || 0,
-      winnerAmount: r.winner_amount != null ? Number(r.winner_amount) : null,
-      createdAt: r.created_at,
-    }));
+    const history = rounds.map((r) => {
+      const tid =
+        r.winner_telegram_id != null ? Number(r.winner_telegram_id) : null;
+      return {
+        id: r.id,
+        winnerTelegramId: tid,
+        winnerUsername: tid != null ? nameMap.get(tid) || "Player" : undefined,
+        winnerAvatarUrl: tid != null ? photoMap.get(tid) ?? null : null,
+        totalBank: Number(r.total_bank) || 0,
+        winnerAmount: r.winner_amount != null ? Number(r.winner_amount) : null,
+        createdAt: r.created_at,
+      };
+    });
 
     return NextResponse.json({ ok: true, history });
   } catch (e) {

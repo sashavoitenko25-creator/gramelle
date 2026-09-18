@@ -23,6 +23,7 @@ import {
 } from "@/lib/pvpRouletteConstants";
 import {
   fetchPvpRouletteState,
+  fetchPvpRouletteHistory,
   placePvpRouletteBetApi,
   type PvpRouletteBetPublic,
   type PvpRouletteStateResponse,
@@ -181,6 +182,11 @@ export function PvpRouletteScreen({
   const [displayMs, setDisplayMs] = useState(Date.now());
   const [wheelX, setWheelX] = useState(0);
   const [showWinner, setShowWinner] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [histLoading, setHistLoading] = useState(false);
+  const [histItems, setHistItems] = useState<
+    NonNullable<PvpRouletteStateResponse["history"]>
+  >([]);
 
   const offsetRef = useRef(0);
   const wheelXRef = useRef(0);
@@ -412,6 +418,21 @@ export function PvpRouletteScreen({
     }
   };
 
+  const openHistory = async () => {
+    setShowHistory(true);
+    playClickSound();
+    haptic("light");
+    setHistLoading(true);
+    try {
+      const res = await fetchPvpRouletteHistory(30);
+      setHistItems(res.history || state?.history || []);
+    } catch {
+      setHistItems(state?.history || []);
+    } finally {
+      setHistLoading(false);
+    }
+  };
+
   const canBet =
     (status === "waiting" || status === "betting") &&
     !betting &&
@@ -497,23 +518,28 @@ export function PvpRouletteScreen({
         )}
       </div>
 
-      {/* Bank — centered */}
-      <div className="mx-4 mt-3 mb-1 text-center">
-        <div className="text-[10px] uppercase tracking-[0.2em] text-white/35 font-semibold">
-          {tr("Bank", "Банк")}
-        </div>
-        <div className="mt-1 flex items-baseline justify-center gap-1.5">
-          <span className="text-[28px] font-black tabular-nums tracking-tight text-white leading-none">
-            {formatGram(totalBank)}
-          </span>
-          <span className="text-[13px] font-semibold text-white/35">GRAM</span>
-        </div>
-        {myBet > 0 && (
-          <div className="mt-1.5 text-[12px] text-cyan-300/85 font-medium">
-            {tr("Your bet", "Ваша ставка")}{" "}
-            <span className="tabular-nums font-bold">{formatGram(myBet)}</span>
+      {/* Bank — glass pill */}
+      <div className="mx-4 mt-3 flex justify-center">
+        <div className="relative overflow-hidden rounded-2xl border border-white/[0.1] bg-white/[0.04] px-6 py-3 min-w-[200px] text-center shadow-[0_8px_28px_rgba(0,0,0,0.25)]">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_100%_at_50%_0%,rgba(251,191,36,0.1),transparent_60%)] pointer-events-none" />
+          <div className="relative">
+            <div className="text-[9px] uppercase tracking-[0.18em] text-white/40 font-semibold">
+              {tr("Bank", "Банк")}
+            </div>
+            <div className="mt-1 flex items-baseline justify-center gap-1.5">
+              <span className="text-[26px] font-black tabular-nums tracking-tight text-white leading-none">
+                {formatGram(totalBank)}
+              </span>
+              <span className="text-[12px] font-semibold text-amber-200/50">GRAM</span>
+            </div>
+            {myBet > 0 && (
+              <div className="mt-1.5 text-[11px] text-cyan-300/80 font-medium">
+                {tr("Your bet", "Ваша ставка")}{" "}
+                <span className="tabular-nums font-bold">{formatGram(myBet)}</span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* WHEEL */}
@@ -611,30 +637,41 @@ export function PvpRouletteScreen({
         </div>
       </div>
 
-      {/* History — only when we have results */}
-      {(state?.history?.length ?? 0) > 0 && (
-        <div className="mx-4 mt-3 flex items-center gap-2">
-          <span className="text-[10px] text-white/30 uppercase tracking-wider shrink-0">
-            {tr("Last", "История")}
-          </span>
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar flex-1 py-0.5 items-center">
-            {state!.history!.slice(0, 12).map((h) => (
-              <div
+      {/* History strip — label opens full history */}
+      <div className="mx-4 mt-3 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void openHistory()}
+          className="shrink-0 text-[10px] text-white/45 uppercase tracking-wider font-semibold active:opacity-70 hover:text-white/70 transition-colors"
+        >
+          {tr("History", "История")}
+        </button>
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar flex-1 py-0.5 items-center min-h-[32px]">
+          {(state?.history ?? []).length === 0 ? (
+            <span className="text-[11px] text-white/25">—</span>
+          ) : (
+            (state?.history ?? []).slice(0, 14).map((h) => (
+              <button
                 key={h.id}
-                className="shrink-0 flex items-center gap-1.5 rounded-full bg-white/[0.05] border border-white/[0.08] pl-1 pr-2.5 py-1"
+                type="button"
+                onClick={() => void openHistory()}
+                className="shrink-0 flex items-center gap-1.5 rounded-full bg-white/[0.05] border border-white/[0.1] pl-1 pr-2.5 py-1 active:scale-[0.97] transition"
                 title={h.winnerUsername || ""}
               >
-                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-[9px] font-bold text-white leading-none">
-                  {(h.winnerUsername || "?").charAt(0).toUpperCase()}
-                </div>
-                <span className="text-[11px] text-white/55 tabular-nums font-medium">
-                  {formatGram(h.winnerAmount || 0)}
+                <Avatar
+                  url={h.winnerAvatarUrl ?? null}
+                  name={h.winnerUsername || "?"}
+                  size={22}
+                  highlight
+                />
+                <span className="text-[11px] text-amber-200/80 tabular-nums font-semibold">
+                  +{formatGram(h.winnerAmount || 0)}
                 </span>
-              </div>
-            ))}
-          </div>
+              </button>
+            ))
+          )}
         </div>
-      )}
+      </div>
 
       {/* Amount — same pattern as color roulette */}
       <div className="mx-4 mt-3">
@@ -765,6 +802,115 @@ export function PvpRouletteScreen({
 
       {/* spacer under BottomNav */}
       <div className="h-4 shrink-0" aria-hidden />
+
+
+      {/* Full history panel */}
+      {showHistory && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-[#06060a]/96 backdrop-blur-md safe-top">
+          <div className="px-4 pt-3 pb-2 flex items-center gap-3 border-b border-white/[0.06]">
+            <button
+              type="button"
+              onClick={() => {
+                setShowHistory(false);
+                playClickSound();
+              }}
+              className="h-9 w-9 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-white/70 active:scale-95"
+              aria-label="Back"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <div className="flex-1 min-w-0">
+              <div className="text-[16px] font-bold text-white tracking-tight">
+                {tr("History", "История")}
+              </div>
+              <div className="text-[11px] text-white/35">
+                {tr("Recent PvP Roulette rounds", "Недавние раунды PvP Рулетки")}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 py-3 pb-28 space-y-2">
+            {histLoading && (
+              <div className="text-center text-white/40 text-sm py-10 animate-pulse">
+                {tr("Loading…", "Загрузка…")}
+              </div>
+            )}
+            {!histLoading && histItems.length === 0 && (
+              <div className="text-center text-white/30 text-sm py-10">
+                {tr("No games yet", "Игр пока нет")}
+              </div>
+            )}
+            {!histLoading &&
+              histItems.map((h, i) => {
+                const iWon =
+                  h.winnerTelegramId != null &&
+                  Number(h.winnerTelegramId) === Number(telegramId);
+                return (
+                  <div
+                    key={h.id}
+                    className={cn(
+                      "rounded-[18px] border px-3.5 py-3",
+                      iWon
+                        ? "border-amber-400/30 bg-amber-500/[0.08]"
+                        : "border-white/[0.07] bg-white/[0.03]"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar
+                        url={h.winnerAvatarUrl ?? null}
+                        name={h.winnerUsername || "?"}
+                        size={44}
+                        highlight={iWon}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[14px] font-semibold text-white truncate">
+                            {h.winnerUsername || "—"}
+                          </span>
+                          {iWon && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300/90">
+                              {tr("You", "Вы")}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-white/35">
+                          {tr("Bank", "Банк")}{" "}
+                          <span className="tabular-nums text-white/50">
+                            {formatGram(h.totalBank)}
+                          </span>
+                          <span className="mx-1.5 text-white/20">·</span>
+                          <span className="tabular-nums text-white/30">
+                            {h.createdAt
+                              ? new Date(h.createdAt).toLocaleString(
+                                  isRu ? "ru-RU" : "en-GB",
+                                  {
+                                    day: "2-digit",
+                                    month: "short",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )
+                              : ""}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="text-[15px] font-bold tabular-nums text-amber-300 tracking-tight">
+                          +{formatGram(h.winnerAmount || 0)}
+                        </div>
+                        <div className="text-[10px] text-white/30 uppercase tracking-wider">
+                          GRAM
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
 
       {/* Winner modal */}
       {showWinner && status === "finished" && winnerBet && (

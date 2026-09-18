@@ -40,6 +40,7 @@ export type PvpRouletteStateResponse = {
     id: string;
     winnerTelegramId: number | null;
     winnerUsername?: string;
+    winnerAvatarUrl?: string | null;
     totalBank: number;
     winnerAmount: number | null;
     createdAt: string;
