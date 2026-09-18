@@ -214,6 +214,70 @@ function IconSolo() {
   );
 }
 
+
+/** Target / house solo art */
+function SoloArt() {
+  return (
+    <svg
+      width="120"
+      height="88"
+      viewBox="0 0 120 88"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="drop-shadow-[0_12px_28px_rgba(0,0,0,0.4)]"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="soRing" x1="20" y1="16" x2="100" y2="72" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#fdba74" />
+          <stop offset="0.5" stopColor="#f472b6" />
+          <stop offset="1" stopColor="#a78bfa" />
+        </linearGradient>
+        <linearGradient id="soCore" x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#fef3c7" />
+          <stop offset="0.5" stopColor="#fb923c" />
+          <stop offset="1" stopColor="#ea580c" />
+        </linearGradient>
+        <radialGradient id="soGlow" cx="0.5" cy="0.5" r="0.5">
+          <stop stopColor="#fb923c" stopOpacity="0.55" />
+          <stop offset="1" stopColor="#fb923c" stopOpacity="0" />
+        </radialGradient>
+        <filter id="soD" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="1.8" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <ellipse cx="60" cy="78" rx="34" ry="5" fill="#f97316" fillOpacity="0.22" />
+      <circle cx="60" cy="44" r="34" fill="url(#soGlow)" />
+
+      {/* concentric target */}
+      <g filter="url(#soD)">
+        <circle cx="60" cy="44" r="28" stroke="url(#soRing)" strokeWidth="2.4" fill="#12081a" fillOpacity="0.55" />
+        <circle cx="60" cy="44" r="20" stroke="#fdba74" strokeOpacity="0.55" strokeWidth="1.6" fill="none" />
+        <circle cx="60" cy="44" r="12" stroke="#f9a8d4" strokeOpacity="0.65" strokeWidth="1.5" fill="none" />
+        <circle cx="60" cy="44" r="5.5" fill="url(#soCore)" />
+        <circle cx="60" cy="44" r="2.2" fill="#fff" fillOpacity="0.9" />
+      </g>
+
+      {/* crosshair ticks */}
+      <g stroke="#fff" strokeOpacity="0.35" strokeWidth="1.4" strokeLinecap="round">
+        <path d="M60 14 v8" />
+        <path d="M60 66 v8" />
+        <path d="M30 44 h8" />
+        <path d="M82 44 h8" />
+      </g>
+
+      {/* spark */}
+      <circle cx="88" cy="22" r="1.4" fill="#fde68a" fillOpacity="0.85" />
+      <circle cx="28" cy="28" r="1.1" fill="#f9a8d4" fillOpacity="0.7" />
+    </svg>
+  );
+}
+
 export function PlayHubScreen({
   onSelectPvp,
   onSelectLive,
@@ -333,30 +397,38 @@ export function PlayHubScreen({
           </div>
         </button>
 
-        {/* SOLO — not clickable */}
+        {/* SOLO — not clickable yet */}
         <div
-          className="relative overflow-hidden rounded-[28px] text-left opacity-90 pointer-events-none select-none"
+          className="relative overflow-hidden rounded-[28px] text-left opacity-95 pointer-events-none select-none"
           aria-disabled="true"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-[#7c2d12] via-[#9d174d] to-[#6b21a8]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_20%_15%,rgba(251,146,60,0.35),transparent_55%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_100%_0%,rgba(244,114,182,0.3),transparent_50%)]" />
-          <div className="absolute inset-0 bg-black/35" />
-          <div className="absolute top-3.5 right-3.5 z-20 px-2.5 py-1 rounded-full bg-black/40 border border-white/15 backdrop-blur-md">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200/90">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#7c2d12] via-[#9d174d] to-[#4c1d95]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_15%_20%,rgba(251,146,60,0.45),transparent_55%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_55%_50%_at_100%_0%,rgba(244,114,182,0.35),transparent_50%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_40%_40%_at_80%_90%,rgba(167,139,250,0.25),transparent_50%)]" />
+          <div className="absolute inset-0 bg-black/25" />
+
+          <div className="absolute top-3.5 right-3.5 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/45 border border-amber-300/25 backdrop-blur-md">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-100/90">
               {tr("Soon", "Скоро")}
             </span>
           </div>
-          <div className="relative p-5 min-h-[132px] flex flex-col justify-between">
-            <div className="flex items-center gap-2">
-              <div className="relative w-[52px] h-[52px] rounded-2xl bg-white/[0.12] border border-white/20 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.35)] text-white/85">
-                <IconSolo />
-              </div>
+
+          <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
+            <div className="opacity-95 -ml-1 -mt-1">
+              <SoloArt />
             </div>
             <div>
-              <div className="text-[22px] font-black tracking-tight text-white/90">
+              <div className="text-[22px] font-black tracking-tight text-white">
                 SOLO
               </div>
+              <p className="mt-1 text-[13px] text-white/70 leading-snug max-w-[95%]">
+                {tr(
+                  "You vs the house · fair & fast",
+                  "Ты против дома · честно и быстро"
+                )}
+              </p>
             </div>
           </div>
         </div>

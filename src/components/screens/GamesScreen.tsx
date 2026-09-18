@@ -31,75 +31,66 @@ function PvpRouletteCardArt() {
       aria-hidden
     >
       <defs>
-        <linearGradient id="prGlass" x1="12" y1="20" x2="136" y2="72" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#ffffff" stopOpacity="0.22" />
-          <stop offset="0.5" stopColor="#ffffff" stopOpacity="0.06" />
-          <stop offset="1" stopColor="#ffffff" stopOpacity="0.14" />
-        </linearGradient>
         <linearGradient id="prEdge" x1="16" y1="28" x2="132" y2="60" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#e9d5ff" stopOpacity="0.9" />
-          <stop offset="0.35" stopColor="#fde68a" stopOpacity="0.95" />
-          <stop offset="0.7" stopColor="#67e8f9" stopOpacity="0.9" />
-          <stop offset="1" stopColor="#c4b5fd" stopOpacity="0.85" />
+          <stop stopColor="#e9d5ff" stopOpacity="0.85" />
+          <stop offset="0.5" stopColor="#fde68a" stopOpacity="0.9" />
+          <stop offset="1" stopColor="#67e8f9" stopOpacity="0.85" />
         </linearGradient>
         <linearGradient id="prInner" x1="0" y1="0" x2="0" y2="1">
-          <stop stopColor="#1a1030" stopOpacity="0.92" />
+          <stop stopColor="#1a1030" stopOpacity="0.95" />
           <stop offset="1" stopColor="#0c0818" stopOpacity="0.98" />
+        </linearGradient>
+        <linearGradient id="prGlass" x1="0" y1="0" x2="0" y2="1">
+          <stop stopColor="#ffffff" stopOpacity="0.14" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0.03" />
         </linearGradient>
         <linearGradient id="prV" x1="0" y1="0" x2="1" y2="1">
           <stop stopColor="#ddd6fe" />
-          <stop offset="0.45" stopColor="#8b5cf6" />
-          <stop offset="1" stopColor="#5b21b6" />
+          <stop offset="1" stopColor="#6d28d9" />
         </linearGradient>
         <linearGradient id="prP" x1="0" y1="0" x2="1" y2="1">
           <stop stopColor="#fbcfe8" />
-          <stop offset="0.45" stopColor="#ec4899" />
-          <stop offset="1" stopColor="#9d174d" />
+          <stop offset="1" stopColor="#db2777" />
         </linearGradient>
         <linearGradient id="prG" x1="0" y1="0" x2="1" y2="1">
-          <stop stopColor="#fef3c7" />
-          <stop offset="0.4" stopColor="#fbbf24" />
+          <stop stopColor="#fef9c3" />
+          <stop offset="0.45" stopColor="#fbbf24" />
           <stop offset="1" stopColor="#b45309" />
         </linearGradient>
         <linearGradient id="prC" x1="0" y1="0" x2="1" y2="1">
           <stop stopColor="#cffafe" />
-          <stop offset="0.45" stopColor="#22d3ee" />
           <stop offset="1" stopColor="#0e7490" />
         </linearGradient>
         <linearGradient id="prE" x1="0" y1="0" x2="1" y2="1">
           <stop stopColor="#d1fae5" />
-          <stop offset="0.45" stopColor="#34d399" />
           <stop offset="1" stopColor="#047857" />
         </linearGradient>
-        <radialGradient id="prSpot" cx="0.35" cy="0.25" r="0.7">
-          <stop stopColor="#fff" stopOpacity="0.55" />
-          <stop offset="0.4" stopColor="#fff" stopOpacity="0.08" />
+        <linearGradient id="prPtr" x1="0" y1="0" x2="0" y2="1">
+          <stop stopColor="#fef3c7" />
+          <stop offset="1" stopColor="#f59e0b" />
+        </linearGradient>
+        <radialGradient id="prSpot" cx="0.32" cy="0.28" r="0.65">
+          <stop stopColor="#fff" stopOpacity="0.5" />
           <stop offset="1" stopColor="#fff" stopOpacity="0" />
         </radialGradient>
-        <radialGradient id="prGoldHalo" cx="0.5" cy="0.5" r="0.5">
-          <stop stopColor="#fbbf24" stopOpacity="0.55" />
+        <radialGradient id="prHalo" cx="0.5" cy="0.5" r="0.5">
+          <stop stopColor="#fbbf24" stopOpacity="0.45" />
           <stop offset="1" stopColor="#fbbf24" stopOpacity="0" />
         </radialGradient>
         <filter id="prD" x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur stdDeviation="1.6" result="b" />
+          <feGaussianBlur stdDeviation="1.4" result="b" />
           <feMerge>
             <feMergeNode in="b" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
-        </filter>
-        <filter id="prSoftBlur" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="4" />
         </filter>
         <clipPath id="prClip">
           <rect x="22" y="30" width="104" height="36" rx="18" />
         </clipPath>
       </defs>
 
-      {/* ambient */}
-      <ellipse cx="74" cy="78" rx="48" ry="7" fill="#8b5cf6" fillOpacity="0.2" />
-      <ellipse cx="74" cy="48" rx="56" ry="28" fill="#fbbf24" fillOpacity="0.06" filter="url(#prSoftBlur)" />
+      <ellipse cx="74" cy="78" rx="46" ry="6" fill="#8b5cf6" fillOpacity="0.18" />
 
-      {/* glass capsule shell */}
       <rect
         x="18"
         y="26"
@@ -111,93 +102,39 @@ function PvpRouletteCardArt() {
         strokeWidth="1.5"
         filter="url(#prD)"
       />
-      {/* inner glass sheen */}
-      <rect
-        x="22"
-        y="30"
-        width="104"
-        height="36"
-        rx="18"
-        fill="url(#prGlass)"
-      />
+      <rect x="22" y="30" width="104" height="36" rx="18" fill="url(#prGlass)" />
 
-      {/* avatars clipped in reel */}
-      <g clipPath="url(#prClip)" filter="url(#prD)">
-        {/* side fade avatars slightly smaller / dimmer */}
-        <g opacity="0.55" transform="translate(0 2)">
-          <circle cx="28" cy="46" r="11" fill="url(#prV)" />
-          <circle cx="120" cy="46" r="11" fill="url(#prE)" />
-        </g>
-        <circle cx="48" cy="48" r="13" fill="url(#prP)" />
-        {/* winner — larger + halo */}
-        <circle cx="74" cy="48" r="18" fill="url(#prGoldHalo)" />
-        <circle cx="74" cy="48" r="14.5" fill="url(#prG)" />
-        <circle cx="100" cy="48" r="13" fill="url(#prC)" />
-
-        {/* specular on orbs */}
-        <ellipse cx="43" cy="43" rx="5" ry="3.2" fill="url(#prSpot)" />
-        <ellipse cx="69" cy="42" rx="6" ry="3.8" fill="url(#prSpot)" />
-        <ellipse cx="95" cy="43" rx="5" ry="3.2" fill="url(#prSpot)" />
+      {/* orbs — spaced so they don't stack; gold drawn last = on top */}
+      <g clipPath="url(#prClip)">
+        <circle cx="30" cy="48" r="10" fill="url(#prV)" opacity="0.7" />
+        <circle cx="48" cy="48" r="11.5" fill="url(#prP)" />
+        <circle cx="100" cy="48" r="11.5" fill="url(#prC)" />
+        <circle cx="118" cy="48" r="10" fill="url(#prE)" opacity="0.7" />
+        {/* winner center on top */}
+        <circle cx="74" cy="48" r="17" fill="url(#prHalo)" />
+        <circle cx="74" cy="48" r="13.5" fill="url(#prG)" />
+        <ellipse cx="70" cy="43" rx="5" ry="3.2" fill="url(#prSpot)" />
+        <circle
+          cx="74"
+          cy="48"
+          r="14.2"
+          stroke="#fde68a"
+          strokeWidth="1.6"
+          fill="none"
+        />
       </g>
 
-      {/* winner ring */}
-      <circle
-        cx="74"
-        cy="48"
-        r="15.5"
-        stroke="#fde68a"
-        strokeOpacity="0.95"
-        strokeWidth="1.8"
-        fill="none"
-        filter="url(#prD)"
-      />
-      <circle
-        cx="74"
-        cy="48"
-        r="17.2"
-        stroke="#fbbf24"
-        strokeOpacity="0.25"
-        strokeWidth="3"
-        fill="none"
-      />
-
-      {/* top pointer — gold chevron seated on glass */}
+      {/* matching gold pointers top + bottom */}
       <g filter="url(#prD)">
-        <path
-          d="M66 18 L82 18 L74 30 Z"
-          fill="#fbbf24"
-        />
-        <path
-          d="M68.5 18.5 L79.5 18.5 L74 27 Z"
-          fill="#fef3c7"
-          opacity="0.55"
-        />
+        <path d="M66 17 L82 17 L74 29 Z" fill="url(#prPtr)" />
+        <path d="M68.2 17.4 L79.8 17.4 L74 26.5 Z" fill="#fff" opacity="0.35" />
       </g>
-
-      {/* bottom pointer */}
       <g filter="url(#prD)">
-        <path
-          d="M66 78 L82 78 L74 66 Z"
-          fill="#67e8f9"
-          opacity="0.9"
-        />
+        <path d="M66 79 L82 79 L74 67 Z" fill="url(#prPtr)" />
+        <path d="M68.2 78.6 L79.8 78.6 L74 69.5 Z" fill="#fff" opacity="0.25" />
       </g>
 
-      {/* thin center line */}
-      <line
-        x1="74"
-        y1="30"
-        x2="74"
-        y2="66"
-        stroke="#ffffff"
-        strokeOpacity="0.12"
-        strokeWidth="1"
-      />
-
-      {/* micro sparkles */}
-      <circle cx="30" cy="20" r="1.2" fill="#fff" fillOpacity="0.55" />
-      <circle cx="124" cy="24" r="1" fill="#fde68a" fillOpacity="0.7" />
-      <circle cx="14" cy="48" r="0.9" fill="#c4b5fd" fillOpacity="0.5" />
+      <line x1="74" y1="30" x2="74" y2="66" stroke="#fff" strokeOpacity="0.1" strokeWidth="1" />
     </svg>
   );
 }
