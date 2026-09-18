@@ -187,6 +187,9 @@ export function PvpRouletteScreen({
   const [histItems, setHistItems] = useState<
     NonNullable<PvpRouletteStateResponse["history"]>
   >([]);
+  const [histDetail, setHistDetail] = useState<
+    NonNullable<PvpRouletteStateResponse["history"]>[number] | null
+  >(null);
 
   const offsetRef = useRef(0);
   const wheelXRef = useRef(0);
@@ -201,9 +204,20 @@ export function PvpRouletteScreen({
   }, [balance]);
 
   useEffect(() => {
-    setBackButton(() => onBack());
+    if (showHistory) {
+      if (histDetail) {
+        setBackButton(() => setHistDetail(null));
+      } else {
+        setBackButton(() => {
+          setShowHistory(false);
+          setHistDetail(null);
+        });
+      }
+    } else {
+      setBackButton(() => onBack());
+    }
     return () => setBackButton(null);
-  }, [onBack, setBackButton]);
+  }, [onBack, setBackButton, showHistory, histDetail]);
 
   const writeX = useCallback((x: number) => {
     wheelXRef.current = x;
@@ -345,6 +359,13 @@ export function PvpRouletteScreen({
     if (status === "waiting" || status === "betting") setShowWinner(false);
   }, [status, round?.id, round?.winnerTelegramId, telegramId, myBet, hapticSuccess, hapticError]);
 
+  // Keep winner toast ~3s; seed stays visible on main screen for full RESULT window (5s)
+  useEffect(() => {
+    if (!showWinner) return;
+    const id = setTimeout(() => setShowWinner(false), 3200);
+    return () => clearTimeout(id);
+  }, [showWinner]);
+
   const isSpinPhase = status === "spinning" || status === "finished";
   const strip = useMemo(() => {
     if (!bets.length) return [] as PvpRouletteBetPublic[];
@@ -426,6 +447,7 @@ export function PvpRouletteScreen({
 
   const openHistory = async () => {
     setShowHistory(true);
+    setHistDetail(null);
     playClickSound();
     haptic("light");
     setHistLoading(true);
@@ -823,30 +845,16 @@ export function PvpRouletteScreen({
       <div className="h-4 shrink-0" aria-hidden />
 
 
-      {/* Full history panel */}
-      {showHistory && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-[#06060a]/96 backdrop-blur-md safe-top">
-          <div className="px-4 pt-3 pb-2 flex items-center gap-3 border-b border-white/[0.06]">
-            <button
-              type="button"
-              onClick={() => {
-                setShowHistory(false);
-                playClickSound();
-              }}
-              className="h-9 w-9 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-white/70 active:scale-95"
-              aria-label="Back"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
-            <div className="flex-1 min-w-0">
-              <div className="text-[16px] font-bold text-white tracking-tight">
-                {tr("History", "История")}
-              </div>
-              <div className="text-[11px] text-white/35">
-                {tr("Recent PvP Roulette rounds", "Недавние раунды PvP Рулетки")}
-              </div>
+      
+      {/* Full history panel — TG back only, no in-UI back */}
+      {showHistory && !histDetail && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-[#06060a] safe-top">
+          <div className="px-4 pt-3 pb-3 border-b border-white/[0.06]">
+            <div className="text-[18px] font-bold text-white tracking-tight">
+              {tr("History", "История")}
+            </div>
+            <div className="text-[12px] text-white/35 mt-0.5">
+              {tr("Tap a round for details", "Нажми на раунд для деталей")}
             </div>
           </div>
 
@@ -862,15 +870,21 @@ export function PvpRouletteScreen({
               </div>
             )}
             {!histLoading &&
-              histItems.map((h, i) => {
+              histItems.map((h) => {
                 const iWon =
                   h.winnerTelegramId != null &&
                   Number(h.winnerTelegramId) === Number(telegramId);
                 return (
-                  <div
+                  <button
                     key={h.id}
+                    type="button"
+                    onClick={() => {
+                      setHistDetail(h);
+                      playClickSound();
+                      haptic("light");
+                    }}
                     className={cn(
-                      "rounded-[18px] border px-3.5 py-3",
+                      "w-full text-left rounded-[18px] border px-3.5 py-3 transition active:scale-[0.99]",
                       iWon
                         ? "border-amber-400/30 bg-amber-500/[0.08]"
                         : "border-white/[0.07] bg-white/[0.03]"
@@ -899,39 +913,171 @@ export function PvpRouletteScreen({
                           <span className="tabular-nums text-white/50">
                             {formatGram(h.totalBank)}
                           </span>
-                          <span className="mx-1.5 text-white/20">·</span>
-                          <span className="tabular-nums text-white/30">
-                            {h.createdAt
-                              ? new Date(h.createdAt).toLocaleString(
-                                  isRu ? "ru-RU" : "en-GB",
-                                  {
-                                    day: "2-digit",
-                                    month: "short",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }
-                                )
-                              : ""}
-                          </span>
+                          {h.players && h.players.length > 0 && (
+                            <>
+                              <span className="mx-1.5 text-white/20">·</span>
+                              <span>
+                                {h.players.length}{" "}
+                                {tr("players", "игроков")}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
                         <div className="text-[15px] font-bold tabular-nums text-amber-300 tracking-tight">
                           +{formatGram(h.winnerAmount || 0)}
                         </div>
-                        <div className="text-[10px] text-white/30 uppercase tracking-wider">
-                          GRAM
-                        </div>
+                        <div className="text-[10px] text-white/30">GRAM</div>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
           </div>
         </div>
       )}
 
-      {/* Winner modal */}
+      {/* History detail */}
+      {showHistory && histDetail && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-[#06060a] safe-top">
+          <div className="px-4 pt-3 pb-3 border-b border-white/[0.06]">
+            <div className="text-[18px] font-bold text-white tracking-tight">
+              {tr("Round details", "Детали раунда")}
+            </div>
+            <div className="text-[12px] text-white/35 mt-0.5">
+              {histDetail.createdAt
+                ? new Date(histDetail.createdAt).toLocaleString(
+                    isRu ? "ru-RU" : "en-GB",
+                    {
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }
+                  )
+                : ""}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 py-4 pb-28 space-y-4">
+            {/* Winner card */}
+            <div className="relative overflow-hidden rounded-[22px] border border-amber-400/25 bg-gradient-to-b from-amber-500/10 to-white/[0.03] p-5 text-center">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-amber-200/60 font-semibold mb-3">
+                {tr("Winner", "Победитель")}
+              </div>
+              <div className="flex justify-center mb-3">
+                <Avatar
+                  url={histDetail.winnerAvatarUrl ?? null}
+                  name={histDetail.winnerUsername || "?"}
+                  size={72}
+                  highlight
+                />
+              </div>
+              <div className="text-[18px] font-bold text-white">
+                {histDetail.winnerUsername || "—"}
+              </div>
+              <div className="mt-2 text-[28px] font-black tabular-nums text-amber-300 tracking-tight">
+                +{formatGram(histDetail.winnerAmount || 0)}
+              </div>
+              <div className="text-[12px] text-white/40 mt-1">
+                {tr("Bank", "Банк")} {formatGram(histDetail.totalBank)} GRAM
+              </div>
+            </div>
+
+            {/* Players */}
+            {histDetail.players && histDetail.players.length > 0 && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-white/35 font-semibold mb-2">
+                  {tr("Players", "Игроки")} · {histDetail.players.length}
+                </div>
+                <div className="space-y-1.5">
+                  {histDetail.players.map((pl) => {
+                    const isW =
+                      histDetail.winnerTelegramId != null &&
+                      Number(pl.telegramId) ===
+                        Number(histDetail.winnerTelegramId);
+                    return (
+                      <div
+                        key={pl.telegramId}
+                        className={cn(
+                          "flex items-center gap-2.5 rounded-xl px-2.5 py-2 border",
+                          isW
+                            ? "border-amber-400/30 bg-amber-500/10"
+                            : "border-white/[0.06] bg-white/[0.03]"
+                        )}
+                      >
+                        <Avatar
+                          url={pl.avatarUrl}
+                          name={pl.username}
+                          size={32}
+                          highlight={isW}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13px] text-white/85 truncate">
+                            {pl.username}
+                            {isW && (
+                              <span className="ml-1.5 text-[10px] text-amber-300/80">
+                                ✓
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-[13px] font-semibold tabular-nums text-white">
+                          {formatGram(pl.amount)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Fairness */}
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-white/35 font-semibold mb-2">
+                {tr("Fairness", "Честность")}
+              </div>
+              <div className="space-y-2">
+                {histDetail.serverSeedHash && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void onCopy("Hash", histDetail.serverSeedHash || "")
+                    }
+                    className="w-full flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/[0.08] px-3 py-2.5 text-left active:scale-[0.99]"
+                  >
+                    <span className="text-[10px] text-white/35 uppercase shrink-0">
+                      Hash
+                    </span>
+                    <span className="text-[11px] font-mono text-cyan-200/70 truncate flex-1">
+                      {histDetail.serverSeedHash}
+                    </span>
+                  </button>
+                )}
+                {histDetail.serverSeed && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void onCopy("Seed", histDetail.serverSeed || "")
+                    }
+                    className="w-full flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/[0.08] px-3 py-2.5 text-left active:scale-[0.99]"
+                  >
+                    <span className="text-[10px] text-white/35 uppercase shrink-0">
+                      Seed
+                    </span>
+                    <span className="text-[11px] font-mono text-emerald-200/70 truncate flex-1">
+                      {histDetail.serverSeed}
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+{/* Winner modal */}
       {showWinner && status === "finished" && winnerBet && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-5"

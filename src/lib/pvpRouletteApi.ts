@@ -43,6 +43,15 @@ export type PvpRouletteStateResponse = {
     winnerAvatarUrl?: string | null;
     totalBank: number;
     winnerAmount: number | null;
+    houseFee?: number | null;
+    serverSeed?: string | null;
+    serverSeedHash?: string | null;
+    players?: {
+      telegramId: number;
+      username: string;
+      avatarUrl: string | null;
+      amount: number;
+    }[];
     createdAt: string;
   }[];
 };

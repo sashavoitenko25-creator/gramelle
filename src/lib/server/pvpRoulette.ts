@@ -272,7 +272,9 @@ async function getRecentHistory(limit: number) {
   const db = getAdminClient();
   const { data: rounds } = await db
     .from("pvp_roulette_rounds")
-    .select("id, winner_telegram_id, total_bank, winner_amount, created_at, status")
+    .select(
+      "id, winner_telegram_id, total_bank, winner_amount, house_fee, server_seed, server_seed_hash, created_at, status"
+    )
     .eq("status", "finished")
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -301,9 +303,33 @@ async function getRecentHistory(limit: number) {
     }
   }
 
+  // Load bets for these rounds (avatars + stakes)
+  const roundIds = rounds.map((r) => r.id);
+  const betsByRound = new Map<string, { telegramId: number; username: string; avatarUrl: string | null; amount: number }[]>();
+  if (roundIds.length) {
+    const { data: allBets } = await db
+      .from("pvp_roulette_bets")
+      .select("round_id, telegram_id, username, avatar_url, amount")
+      .in("round_id", roundIds);
+    for (const b of allBets || []) {
+      const rid = b.round_id as string;
+      const list = betsByRound.get(rid) || [];
+      list.push({
+        telegramId: Number(b.telegram_id),
+        username: b.username || "Player",
+        avatarUrl: b.avatar_url || null,
+        amount: Number(b.amount) || 0,
+      });
+      betsByRound.set(rid, list);
+    }
+  }
+
   return rounds.map((r) => {
     const tid =
       r.winner_telegram_id != null ? Number(r.winner_telegram_id) : null;
+    const players = (betsByRound.get(r.id) || []).sort(
+      (a, b) => b.amount - a.amount
+    );
     return {
       id: r.id,
       winnerTelegramId: tid,
@@ -311,6 +337,11 @@ async function getRecentHistory(limit: number) {
       winnerAvatarUrl: tid != null ? photoMap.get(tid) ?? null : null,
       totalBank: Number(r.total_bank) || 0,
       winnerAmount: r.winner_amount != null ? Number(r.winner_amount) : null,
+      houseFee: r.house_fee != null ? Number(r.house_fee) : null,
+      serverSeed: (r as { server_seed?: string | null }).server_seed || null,
+      serverSeedHash:
+        (r as { server_seed_hash?: string | null }).server_seed_hash || null,
+      players,
       createdAt: r.created_at,
     };
   });
