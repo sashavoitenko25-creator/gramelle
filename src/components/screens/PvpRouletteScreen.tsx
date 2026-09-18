@@ -433,7 +433,7 @@ export function PvpRouletteScreen({
       : "";
 
   return (
-    <div className="flex flex-col min-h-[100dvh] pb-40 safe-top">
+    <div className="flex flex-col min-h-[100dvh] pb-32 safe-top">
       {/* Header — same as LIVE Roulette */}
       <div className="px-4 pt-3 pb-2 flex items-center gap-3">
         <div className="flex-1 min-w-0">
@@ -530,11 +530,7 @@ export function PvpRouletteScreen({
 
         <div className="relative h-[120px] overflow-hidden">
           {strip.length === 0 ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[12px] text-white/30 px-6 text-center">
-                {tr("Place a bet to join", "Сделайте ставку, чтобы войти")}
-              </span>
-            </div>
+            <div className="absolute inset-0" aria-hidden />
           ) : (
             <div
               className="absolute top-1/2 left-1/2 flex items-center"
@@ -583,12 +579,12 @@ export function PvpRouletteScreen({
             </div>
           )}
           {status === "waiting" && bets.length === 0 && (
-            <div className="px-5 py-2.5 rounded-2xl bg-black/80 border border-white/15 backdrop-blur-md text-center">
-              <div className="text-[10px] uppercase tracking-[0.22em] text-white/45">
+            <div className="px-5 py-3 rounded-2xl bg-black/75 border border-white/12 backdrop-blur-md text-center shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 font-semibold">
                 {tr("Waiting", "Ожидание")}
               </div>
-              <div className="text-[13px] font-semibold text-white/75 mt-0.5">
-                {tr("Be the first", "Будь первым")}
+              <div className="text-[14px] font-semibold text-white/85 mt-1">
+                {tr("Place a bet to start", "Сделайте ставку")}
               </div>
             </div>
           )}
@@ -615,31 +611,30 @@ export function PvpRouletteScreen({
         </div>
       </div>
 
-      {/* History */}
-      <div className="mx-4 mt-3 flex items-center gap-2">
-        <span className="text-[10px] text-white/30 uppercase tracking-wider shrink-0">
-          {tr("Last", "История")}
-        </span>
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar flex-1 py-1 items-center">
-          {(state?.history ?? []).slice(0, 16).map((h) => (
-            <div
-              key={h.id}
-              className="shrink-0 flex items-center gap-1 rounded-full bg-white/[0.04] border border-white/[0.08] pl-0.5 pr-2 py-0.5"
-              title={h.winnerUsername || ""}
-            >
-              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-violet-600 to-cyan-600 flex items-center justify-center text-[9px] font-bold text-white">
-                {(h.winnerUsername || "?").charAt(0).toUpperCase()}
+      {/* History — only when we have results */}
+      {(state?.history?.length ?? 0) > 0 && (
+        <div className="mx-4 mt-3 flex items-center gap-2">
+          <span className="text-[10px] text-white/30 uppercase tracking-wider shrink-0">
+            {tr("Last", "История")}
+          </span>
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar flex-1 py-0.5 items-center">
+            {state!.history!.slice(0, 12).map((h) => (
+              <div
+                key={h.id}
+                className="shrink-0 flex items-center gap-1.5 rounded-full bg-white/[0.05] border border-white/[0.08] pl-1 pr-2.5 py-1"
+                title={h.winnerUsername || ""}
+              >
+                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-[9px] font-bold text-white leading-none">
+                  {(h.winnerUsername || "?").charAt(0).toUpperCase()}
+                </div>
+                <span className="text-[11px] text-white/55 tabular-nums font-medium">
+                  {formatGram(h.winnerAmount || 0)}
+                </span>
               </div>
-              <span className="text-[10px] text-white/50 tabular-nums">
-                {formatGram(h.winnerAmount || 0)}
-              </span>
-            </div>
-          ))}
-          {(state?.history ?? []).length === 0 && (
-            <span className="text-[11px] text-white/25">—</span>
-          )}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Amount — same pattern as color roulette */}
       <div className="mx-4 mt-3">
@@ -714,17 +709,13 @@ export function PvpRouletteScreen({
         </button>
       </div>
 
-      {/* Players list */}
+      {/* Players list — only when someone bet */}
+      {bets.length > 0 && (
       <div className="mx-4 mt-4 mb-2">
         <div className="text-[10px] text-white/30 uppercase tracking-wider mb-2">
           {tr("Players", "Игроки")} · {bets.length}
         </div>
         <div className="space-y-1.5 max-h-[140px] overflow-y-auto no-scrollbar">
-          {bets.length === 0 && (
-            <div className="text-[12px] text-white/25 py-3 text-center">
-              {tr("No bets yet", "Ставок пока нет")}
-            </div>
-          )}
           {[...bets]
             .sort((a, b) => b.amount - a.amount)
             .map((b) => {
@@ -770,9 +761,10 @@ export function PvpRouletteScreen({
             })}
         </div>
       </div>
+      )}
 
       {/* spacer under BottomNav */}
-      <div className="h-6 shrink-0" aria-hidden />
+      <div className="h-4 shrink-0" aria-hidden />
 
       {/* Winner modal */}
       {showWinner && status === "finished" && winnerBet && (
