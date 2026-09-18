@@ -17,6 +17,153 @@ interface GamesScreenProps {
   pvpRouletteOnline?: number;
 }
 
+
+/** Premium avatar-strip art for PvP Roulette card */
+function PvpRouletteCardArt() {
+  return (
+    <svg
+      width="132"
+      height="92"
+      viewBox="0 0 132 92"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="drop-shadow-[0_12px_28px_rgba(0,0,0,0.45)] group-hover:scale-[1.04] transition-transform duration-300"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="prTrack" x1="8" y1="40" x2="124" y2="60" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#a78bfa" stopOpacity="0.9" />
+          <stop offset="0.45" stopColor="#fbbf24" stopOpacity="0.95" />
+          <stop offset="1" stopColor="#22d3ee" stopOpacity="0.9" />
+        </linearGradient>
+        <linearGradient id="prA1" x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#c4b5fd" />
+          <stop offset="1" stopColor="#7c3aed" />
+        </linearGradient>
+        <linearGradient id="prA2" x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#fcd34d" />
+          <stop offset="1" stopColor="#f59e0b" />
+        </linearGradient>
+        <linearGradient id="prA3" x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#67e8f9" />
+          <stop offset="1" stopColor="#0891b2" />
+        </linearGradient>
+        <linearGradient id="prA4" x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#f9a8d4" />
+          <stop offset="1" stopColor="#db2777" />
+        </linearGradient>
+        <linearGradient id="prA5" x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#86efac" />
+          <stop offset="1" stopColor="#059669" />
+        </linearGradient>
+        <radialGradient id="prGlow" cx="0.5" cy="0.45" r="0.55">
+          <stop stopColor="#fbbf24" stopOpacity="0.55" />
+          <stop offset="1" stopColor="#fbbf24" stopOpacity="0" />
+        </radialGradient>
+        <filter id="prSoft" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="1.8" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id="prBlur" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3.5" />
+        </filter>
+      </defs>
+
+      {/* soft ground glow */}
+      <ellipse cx="66" cy="82" rx="42" ry="6" fill="#a78bfa" fillOpacity="0.28" />
+
+      {/* motion trails behind strip */}
+      <g opacity="0.35" filter="url(#prBlur)">
+        <circle cx="22" cy="50" r="11" fill="#7c3aed" />
+        <circle cx="110" cy="50" r="11" fill="#0891b2" />
+      </g>
+
+      {/* track frame */}
+      <rect
+        x="10"
+        y="34"
+        width="112"
+        height="36"
+        rx="18"
+        fill="#0a0a14"
+        fillOpacity="0.65"
+        stroke="url(#prTrack)"
+        strokeWidth="1.8"
+        filter="url(#prSoft)"
+      />
+      <rect
+        x="14"
+        y="38"
+        width="104"
+        height="28"
+        rx="14"
+        fill="#12101f"
+        fillOpacity="0.5"
+      />
+
+      {/* gold pointer top */}
+      <g filter="url(#prSoft)">
+        <path d="M58 22 L74 22 L66 34 Z" fill="#fbbf24" />
+        <path d="M60 22 L72 22 L66 31 Z" fill="#fef3c7" opacity="0.55" />
+      </g>
+      {/* cyan pointer bottom */}
+      <g filter="url(#prSoft)">
+        <path d="M58 82 L74 82 L66 70 Z" fill="#22d3ee" />
+      </g>
+
+      {/* center selection glow */}
+      <ellipse cx="66" cy="52" rx="16" ry="16" fill="url(#prGlow)" />
+
+      {/* avatars on strip */}
+      <g filter="url(#prSoft)">
+        <circle cx="30" cy="52" r="12" fill="url(#prA1)" />
+        <circle cx="48" cy="52" r="12" fill="url(#prA4)" />
+        <circle cx="66" cy="52" r="13.5" fill="url(#prA2)" />
+        <circle cx="84" cy="52" r="12" fill="url(#prA3)" />
+        <circle cx="102" cy="52" r="12" fill="url(#prA5)" />
+      </g>
+
+      {/* rings */}
+      <circle cx="30" cy="52" r="12" stroke="#fff" strokeOpacity="0.22" strokeWidth="1" fill="none" />
+      <circle cx="48" cy="52" r="12" stroke="#fff" strokeOpacity="0.22" strokeWidth="1" fill="none" />
+      <circle cx="66" cy="52" r="13.5" stroke="#fbbf24" strokeOpacity="0.95" strokeWidth="2" fill="none" />
+      <circle cx="84" cy="52" r="12" stroke="#fff" strokeOpacity="0.22" strokeWidth="1" fill="none" />
+      <circle cx="102" cy="52" r="12" stroke="#fff" strokeOpacity="0.2" strokeWidth="1" fill="none" />
+
+      {/* face hints */}
+      <g opacity="0.9">
+        <circle cx="26.5" cy="49" r="1.3" fill="#fff" fillOpacity="0.85" />
+        <circle cx="33.5" cy="49" r="1.3" fill="#fff" fillOpacity="0.85" />
+        <path d="M27 55 Q30 57.5 33 55" stroke="#fff" strokeOpacity="0.55" strokeWidth="1.1" strokeLinecap="round" fill="none" />
+
+        <circle cx="44.5" cy="49" r="1.3" fill="#fff" fillOpacity="0.85" />
+        <circle cx="51.5" cy="49" r="1.3" fill="#fff" fillOpacity="0.85" />
+        <path d="M45 55 Q48 57.5 51 55" stroke="#fff" strokeOpacity="0.55" strokeWidth="1.1" strokeLinecap="round" fill="none" />
+
+        <circle cx="62" cy="48.5" r="1.5" fill="#1c1917" fillOpacity="0.55" />
+        <circle cx="70" cy="48.5" r="1.5" fill="#1c1917" fillOpacity="0.55" />
+        <path d="M62 56 Q66 59 70 56" stroke="#1c1917" strokeOpacity="0.45" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+
+        <circle cx="80.5" cy="49" r="1.3" fill="#fff" fillOpacity="0.9" />
+        <circle cx="87.5" cy="49" r="1.3" fill="#fff" fillOpacity="0.9" />
+        <path d="M81 55 Q84 57.5 87 55" stroke="#fff" strokeOpacity="0.55" strokeWidth="1.1" strokeLinecap="round" fill="none" />
+
+        <circle cx="98.5" cy="49" r="1.3" fill="#fff" fillOpacity="0.85" />
+        <circle cx="105.5" cy="49" r="1.3" fill="#fff" fillOpacity="0.85" />
+        <path d="M99 55 Q102 57.5 105 55" stroke="#fff" strokeOpacity="0.55" strokeWidth="1.1" strokeLinecap="round" fill="none" />
+      </g>
+
+      {/* sparkles */}
+      <circle cx="20" cy="28" r="1.4" fill="#fff" fillOpacity="0.7" />
+      <circle cx="112" cy="30" r="1.2" fill="#fde68a" fillOpacity="0.8" />
+      <circle cx="118" cy="48" r="1" fill="#67e8f9" fillOpacity="0.7" />
+    </svg>
+  );
+}
+
 export function GamesScreen({
   onSelectRps,
   onSelectDice,
@@ -82,16 +229,8 @@ export function GamesScreen({
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_40%_40%_at_70%_90%,rgba(34,211,238,0.18),transparent_50%)]" />
             <OnlineBadge count={pvpRouletteOnline} />
             <div className="relative p-5 min-h-[168px] flex flex-col justify-between">
-              <div className="flex items-center gap-2">
-                <div className="relative w-[52px] h-[52px] rounded-full bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] -rotate-6 group-hover:rotate-0 transition-transform duration-300 overflow-hidden">
-                  <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-600" />
-                </div>
-                <div className="relative w-[52px] h-[52px] rounded-full bg-white/[0.14] border border-amber-300/40 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] rotate-3 group-hover:rotate-0 transition-transform duration-300 -ml-2 overflow-hidden ring-2 ring-amber-400/30">
-                  <div className="w-full h-full bg-gradient-to-br from-amber-400 to-orange-500" />
-                </div>
-                <div className="relative w-[52px] h-[52px] rounded-full bg-white/[0.14] border border-white/25 backdrop-blur-md flex items-center justify-center shadow-[0_10px_24px_rgba(0,0,0,0.4)] rotate-6 group-hover:rotate-0 transition-transform duration-300 -ml-2 overflow-hidden">
-                  <div className="w-full h-full bg-gradient-to-br from-cyan-400 to-blue-600" />
-                </div>
+              <div className="opacity-100 -ml-1 -mt-1">
+                <PvpRouletteCardArt />
               </div>
               <div className="mt-6">
                 <div className="text-[22px] font-bold text-white tracking-tight leading-none">
