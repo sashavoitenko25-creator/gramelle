@@ -6,6 +6,7 @@ import { useTelegram } from "@/hooks/useTelegram";
 
 interface LiveHubScreenProps {
   onSelectRoulette: () => void;
+  onSelectPvpRoulette?: () => void;
   onBack?: () => void;
   liveOnline?: number;
 }
@@ -78,6 +79,7 @@ function RouletteArt() {
 
 export function LiveHubScreen({
   onSelectRoulette,
+  onSelectPvpRoulette,
   onBack,
   liveOnline = 0,
 }: LiveHubScreenProps) {
@@ -146,6 +148,29 @@ export function LiveHubScreen({
             </div>
           </div>
         </button>
+
+        {onSelectPvpRoulette && (
+          <button
+            type="button"
+            onClick={onSelectPvpRoulette}
+            className="group relative overflow-hidden rounded-[28px] text-left btn-press active:scale-[0.98] transition-all duration-200"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b] via-[#4c1d95] to-[#831843]" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_15%_20%,rgba(167,139,250,0.45),transparent_55%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_50%_at_100%_0%,rgba(244,114,182,0.3),transparent_50%)]" />
+            <div className="relative p-5 min-h-[148px] flex flex-col justify-end">
+              <div className="text-[22px] font-black tracking-tight text-white">
+                {tr("PvP Roulette", "PvP Рулетка")}
+              </div>
+              <p className="mt-1 text-[13px] text-white/70">
+                {tr(
+                  "Player avatars · winner takes the bank −5%",
+                  "Аватарки игроков · победитель забирает банк −5%"
+                )}
+              </p>
+            </div>
+          </button>
+        )}
       </div>
     </div>
   );

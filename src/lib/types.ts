@@ -21,6 +21,7 @@ export type Screen =
   | "live"
   | "solo"
   | "roulette"
+  | "pvp_roulette"
   | "rps"
   | "dice"
   | "xo"

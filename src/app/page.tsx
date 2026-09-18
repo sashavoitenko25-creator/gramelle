@@ -11,6 +11,7 @@ import { GamesScreen } from "@/components/screens/GamesScreen";
 import { PlayHubScreen } from "@/components/screens/PlayHubScreen";
 import { ModeSoonScreen } from "@/components/screens/ModeSoonScreen";
 import { RouletteScreen } from "@/components/screens/RouletteScreen";
+import { PvpRouletteScreen } from "@/components/screens/PvpRouletteScreen";
 import { LiveHubScreen } from "@/components/screens/LiveHubScreen";
 import { fetchRouletteState } from "@/lib/rouletteApi";
 import { RpsScreen } from "@/components/screens/RpsScreen";
@@ -361,6 +362,10 @@ export default function Home() {
             haptic("light");
             setScreen("roulette");
           }}
+          onSelectPvpRoulette={() => {
+            haptic("light");
+            setScreen("pvp_roulette");
+          }}
         />
       )}
 
@@ -376,6 +381,26 @@ export default function Home() {
           photoUrl={profile?.photo_url}
           onBack={() => setScreen("live")}
           onBalanceUpdate={(b) => setBalanceFromServer(b)}
+          onDeposit={() => {
+            haptic("light");
+            setDepositOpen(true);
+          }}
+          haptic={haptic}
+          hapticSuccess={hapticSuccess}
+          hapticError={hapticError}
+          showToast={showToast}
+        />
+      )}
+
+      {screen === "pvp_roulette" && telegramId != null && (
+        <PvpRouletteScreen
+          balance={balance}
+          telegramId={telegramId}
+          username={username}
+          photoUrl={profile?.photo_url}
+          onBack={() => setScreen("live")}
+          onBalanceUpdate={(b) => setBalanceFromServer(b)}
+          onReloadBalance={() => reloadProfile()}
           onDeposit={() => {
             haptic("light");
             setDepositOpen(true);
