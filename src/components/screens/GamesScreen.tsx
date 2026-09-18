@@ -71,10 +71,9 @@ export function GamesScreen({
       <div className="px-4 flex flex-col gap-4">
 
         {/* PvP Roulette — first */}
-        {onSelectPvpRoulette && (
-          <button
+        <button
             type="button"
-            onClick={onSelectPvpRoulette}
+            onClick={() => onSelectPvpRoulette?.()}
             className="group relative overflow-hidden rounded-[28px] text-left btn-press active:scale-[0.98] transition-all duration-200"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b] via-[#5b21b6] to-[#9d174d]" />
@@ -106,7 +105,6 @@ export function GamesScreen({
               </div>
             </div>
           </button>
-        )}
 
         {/* RPS */}
         <button

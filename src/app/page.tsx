@@ -337,6 +337,12 @@ export default function Home() {
 
       {screen === "pvp" && (
         <GamesScreen
+          onSelectPvpRoulette={() => {
+            haptic("light");
+            setScreen("pvp_roulette");
+          }}
+          pvpRouletteOnline={pvpRouletteOnline}
+          
           rpsOnline={rpsOnline}
           diceOnline={diceOnline}
           onBack={() => setScreen("games")}

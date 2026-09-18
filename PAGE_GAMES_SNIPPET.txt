@@ -1,0 +1,35 @@
+
+В src/app/page.tsx внутри <GamesScreen ...> ДОБАВЬ:
+
+          onSelectPvpRoulette={() => {
+            haptic("light");
+            setScreen("pvp_roulette");
+          }}
+          pvpRouletteOnline={pvpRouletteOnline}
+
+Пример:
+
+      {screen === "pvp" && (
+        <GamesScreen
+          onSelectPvpRoulette={() => {
+            haptic("light");
+            setScreen("pvp_roulette");
+          }}
+          pvpRouletteOnline={pvpRouletteOnline}
+          rpsOnline={rpsOnline}
+          diceOnline={diceOnline}
+          onBack={() => setScreen("games")}
+          onSelectRps={() => {
+            haptic("light");
+            setScreen("rps");
+          }}
+          ...
+        />
+      )}
+
+И state рядом с liveOnline:
+  const [pvpRouletteOnline, setPvpRouletteOnline] = useState(0);
+
+И import:
+  import { fetchPvpRouletteState } from "@/lib/pvpRouletteApi";
+  import { PvpRouletteScreen } from "@/components/screens/PvpRouletteScreen";
