@@ -423,12 +423,6 @@ export function PlayHubScreen({
               <div className="text-[22px] font-black tracking-tight text-white">
                 SOLO
               </div>
-              <p className="mt-1 text-[13px] text-white/70 leading-snug max-w-[95%]">
-                {tr(
-                  "You vs the house · fair & fast",
-                  "Ты против дома · честно и быстро"
-                )}
-              </p>
             </div>
           </div>
         </div>
