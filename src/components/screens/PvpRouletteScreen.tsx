@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * Gramelle LIVE PvP Avatar Roulette — premium UI
+ * Gramelle LIVE PvP Avatar Roulette
+ * Layout mirrors RouletteScreen 1:1 (flow, pb-28, no fixed bet bar).
  */
 
 import {
@@ -19,7 +20,6 @@ import {
   PVP_ROULETTE_MAX_BET,
   PVP_ROULETTE_SPIN_MS,
   PVP_ROULETTE_MIN_PLAYERS,
-  PVP_ROULETTE_COUNTDOWN_SEC,
 } from "@/lib/pvpRouletteConstants";
 import {
   fetchPvpRouletteState,
@@ -53,19 +53,17 @@ interface PvpRouletteScreenProps {
   showToast: (msg: string) => void;
 }
 
-const AVATAR = 64;
-const GAP = 12;
+const AVATAR = 56;
+const GAP = 10;
 const STRIDE = AVATAR + GAP;
-const STRIP_COPIES = 12;
+const STRIP_COPIES = 14;
 const SPIN_MIN_LOOPS = 5;
-
-const CHIPS = [0.25, 0.5, 1, 2, 5, 10, 25, 50, 100];
 
 function easeOutExpo(t: number) {
   return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
 }
 
-function shortMiddle(s: string | null | undefined, head = 8, tail = 6) {
+function shortMiddle(s: string | null | undefined, head = 6, tail = 4) {
   if (!s) return "—";
   if (s.length <= head + tail + 1) return s;
   return `${s.slice(0, head)}…${s.slice(-tail)}`;
@@ -96,36 +94,33 @@ function Avatar({
   url,
   name,
   size = AVATAR,
-  ring = "default",
-  glow = false,
-  dim = false,
+  highlight = false,
+  me = false,
 }: {
   url: string | null;
   name: string;
   size?: number;
-  ring?: "default" | "gold" | "cyan" | "win";
-  glow?: boolean;
-  dim?: boolean;
+  highlight?: boolean;
+  me?: boolean;
 }) {
   const letter = (name || "?").charAt(0).toUpperCase();
-  const ringCls =
-    ring === "win"
-      ? "ring-[2.5px] ring-amber-400"
-      : ring === "gold"
-        ? "ring-2 ring-amber-400/70"
-        : ring === "cyan"
-          ? "ring-2 ring-cyan-400/60"
-          : "ring-1 ring-white/20";
-
   return (
     <div
       className={cn(
-        "relative rounded-full flex-shrink-0 overflow-hidden transition-all duration-500",
-        ringCls,
-        dim && "opacity-35 scale-[0.92] grayscale-[0.3]",
-        glow && "shadow-[0_0_28px_rgba(251,191,36,0.65)]"
+        "relative rounded-full flex-shrink-0 overflow-hidden border transition-all duration-300",
+        highlight
+          ? "border-amber-300/90 scale-[1.06]"
+          : me
+            ? "border-cyan-300/50"
+            : "border-white/15"
       )}
-      style={{ width: size, height: size }}
+      style={{
+        width: size,
+        height: size,
+        boxShadow: highlight
+          ? "0 0 28px rgba(251,191,36,0.55), inset 0 1px 0 rgba(255,255,255,0.2)"
+          : "inset 0 1px 0 rgba(255,255,255,0.1)",
+      }}
     >
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -139,24 +134,20 @@ function Avatar({
         <div
           className="w-full h-full flex items-center justify-center text-white font-black"
           style={{
-            fontSize: size * 0.38,
+            fontSize: size * 0.36,
             background:
-              "linear-gradient(145deg,#4c1d95 0%,#7c3aed 45%,#06b6d4 100%)",
+              "linear-gradient(145deg,#4c1d95 0%,#7c3aed 50%,#0891b2 100%)",
           }}
         >
           {letter}
         </div>
       )}
-      <div className="absolute inset-0 rounded-full ring-1 ring-inset ring-white/15 pointer-events-none" />
-      {ring === "win" && (
-        <div className="absolute inset-0 rounded-full bg-gradient-to-t from-amber-400/25 to-transparent pointer-events-none" />
-      )}
     </div>
   );
 }
 
-function buildStrip(bets: PvpRouletteBetPublic[]): PvpRouletteBetPublic[] {
-  if (!bets.length) return [];
+function buildStrip(bets: PvpRouletteBetPublic[]) {
+  if (!bets.length) return [] as PvpRouletteBetPublic[];
   const out: PvpRouletteBetPublic[] = [];
   for (let r = 0; r < STRIP_COPIES; r++) {
     for (const b of bets) out.push(b);
@@ -184,20 +175,20 @@ export function PvpRouletteScreen({
   const { setBackButton } = useTelegram();
 
   const [state, setState] = useState<PvpRouletteStateResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [amountStr, setAmountStr] = useState("");
+  const [lastAmount, setLastAmount] = useState(1);
   const [betting, setBetting] = useState(false);
-  const [amountStr, setAmountStr] = useState("1");
-  const [showWinner, setShowWinner] = useState(false);
   const [displayMs, setDisplayMs] = useState(Date.now());
   const [wheelX, setWheelX] = useState(0);
+  const [showWinner, setShowWinner] = useState(false);
 
   const offsetRef = useRef(0);
   const wheelXRef = useRef(0);
   const spinRaf = useRef<number | null>(null);
   const spunForRound = useRef<string | null>(null);
-  const lastResultId = useRef<string>("");
+  const lastResultId = useRef("");
   const balanceRef = useRef(balance);
-  const bettingLock = useRef(false);
+  const betLock = useRef(false);
 
   useEffect(() => {
     balanceRef.current = balance;
@@ -213,26 +204,21 @@ export function PvpRouletteScreen({
     setWheelX(x);
   }, []);
 
-  const syncClock = useCallback((serverMs?: number, serverNow?: string) => {
-    if (serverMs) offsetRef.current = serverMs - Date.now();
-    else if (serverNow)
-      offsetRef.current = new Date(serverNow).getTime() - Date.now();
-  }, []);
-
   const load = useCallback(async () => {
     try {
       const s = await fetchPvpRouletteState({ presence: true });
-      syncClock(s.serverMs, s.serverNow);
+      if (s.serverMs) offsetRef.current = s.serverMs - Date.now();
+      else if (s.serverNow)
+        offsetRef.current = new Date(s.serverNow).getTime() - Date.now();
       setState(s);
       if (typeof s.balance === "number") {
         balanceRef.current = s.balance;
         onBalanceUpdate(s.balance);
       }
-      setLoading(false);
     } catch {
-      setLoading(false);
+      /* */
     }
-  }, [onBalanceUpdate, syncClock]);
+  }, [onBalanceUpdate]);
 
   useEffect(() => {
     void load();
@@ -257,18 +243,13 @@ export function PvpRouletteScreen({
   const status = round?.status || "waiting";
   const roundId = round?.id;
 
-  const countdownSec = useMemo(() => {
-    if (status !== "betting" || !round?.betEndsAt) return null;
-    const left = Math.max(0, new Date(round.betEndsAt).getTime() - displayMs);
-    return Math.ceil(left / 1000);
-  }, [status, round?.betEndsAt, displayMs]);
+  const endsAt =
+    status === "betting" && round?.betEndsAt
+      ? new Date(round.betEndsAt).getTime()
+      : 0;
+  const remainSec = endsAt ? Math.max(0, (endsAt - displayMs) / 1000) : 0;
 
-  const countdownPct = useMemo(() => {
-    if (status !== "betting" || !round?.betEndsAt) return 0;
-    const left = Math.max(0, new Date(round.betEndsAt).getTime() - displayMs);
-    return Math.min(100, (left / (PVP_ROULETTE_COUNTDOWN_SEC * 1000)) * 100);
-  }, [status, round?.betEndsAt, displayMs]);
-
+  /* spin */
   useEffect(() => {
     if (!round || status !== "spinning" || !bets.length) {
       if (status !== "spinning") {
@@ -311,15 +292,9 @@ export function PvpRouletteScreen({
     const t0 = performance.now();
     const step = (now: number) => {
       const p = Math.min(1, (now - t0) / dur);
-      const e = easeOutExpo(p);
-      const bounce =
-        p > 0.94
-          ? Math.sin(((p - 0.94) / 0.06) * Math.PI) * 4 * (1 - (p - 0.94) / 0.06)
-          : 0;
-      writeX(startX + (dest - startX) * e + bounce);
-      if (p < 1) {
-        spinRaf.current = requestAnimationFrame(step);
-      } else {
+      writeX(startX + (dest - startX) * easeOutExpo(p));
+      if (p < 1) spinRaf.current = requestAnimationFrame(step);
+      else {
         writeX(dest);
         spinRaf.current = null;
         stopWheelSound();
@@ -327,7 +302,6 @@ export function PvpRouletteScreen({
       }
     };
     spinRaf.current = requestAnimationFrame(step);
-
     return () => {
       if (spinRaf.current) cancelAnimationFrame(spinRaf.current);
       stopWheelSound();
@@ -345,18 +319,12 @@ export function PvpRouletteScreen({
         const x = wheelXRef.current;
         const snapped = ((x % period) + period) % period;
         if (Math.abs(x - snapped) > 1) writeX(snapped);
-      } else {
-        writeX(0);
-      }
+      } else writeX(0);
     }
   }, [status, roundId, bets.length, writeX]);
 
   useEffect(() => {
-    if (
-      status === "finished" &&
-      round?.id &&
-      round.id !== lastResultId.current
-    ) {
+    if (status === "finished" && round?.id && round.id !== lastResultId.current) {
       lastResultId.current = round.id;
       setShowWinner(true);
       const won = Number(round.winnerTelegramId) === Number(telegramId);
@@ -368,20 +336,10 @@ export function PvpRouletteScreen({
         hapticError();
       }
     }
-    if (status === "waiting" || status === "betting") {
-      setShowWinner(false);
-    }
-  }, [
-    status,
-    round?.id,
-    round?.winnerTelegramId,
-    telegramId,
-    myBet,
-    hapticSuccess,
-    hapticError,
-  ]);
+    if (status === "waiting" || status === "betting") setShowWinner(false);
+  }, [status, round?.id, round?.winnerTelegramId, telegramId, myBet, hapticSuccess, hapticError]);
 
-  const stripBets = useMemo(() => buildStrip(bets), [bets]);
+  const strip = useMemo(() => buildStrip(bets), [bets]);
 
   const amount = (() => {
     if (!amountStr.trim()) return 0;
@@ -394,21 +352,26 @@ export function PvpRouletteScreen({
     else setAmountStr(String(+n.toFixed(4)));
   };
 
+  const onCopy = async (label: string, full: string) => {
+    if (!full) return;
+    if (await copyText(full)) {
+      haptic("light");
+      playClickSound();
+      showToast(tr(`${label} copied`, `${label} скопирован`));
+    }
+  };
+
   const placeBet = async () => {
-    if (bettingLock.current) return;
+    if (betLock.current) return;
     if (status !== "waiting" && status !== "betting") {
       showToast(tr("Bets closed", "Ставки закрыты"));
       hapticError();
       return;
     }
-    const nextTotal = myBet > 0 ? +(myBet + amount).toFixed(4) : amount;
-    if (amount < PVP_ROULETTE_MIN_BET && myBet === 0) {
+    const add = amount > 0 ? amount : lastAmount || PVP_ROULETTE_MIN_BET;
+    const nextTotal = myBet > 0 ? +(myBet + add).toFixed(4) : add;
+    if (add < PVP_ROULETTE_MIN_BET && myBet === 0) {
       showToast(`Min ${PVP_ROULETTE_MIN_BET} GRAM`);
-      hapticError();
-      return;
-    }
-    if (amount <= 0) {
-      showToast(tr("Enter amount", "Введите сумму"));
       hapticError();
       return;
     }
@@ -417,15 +380,16 @@ export function PvpRouletteScreen({
       hapticError();
       return;
     }
-    if (amount > balanceRef.current) {
+    if (add > balanceRef.current) {
       showToast(tr("Not enough balance", "Недостаточно средств"));
       onDeposit?.();
       hapticError();
       return;
     }
 
-    bettingLock.current = true;
+    betLock.current = true;
     setBetting(true);
+    setLastAmount(add);
     resumeAudio();
     playBetSound();
     haptic("medium");
@@ -443,7 +407,7 @@ export function PvpRouletteScreen({
       onReloadBalance();
       void load();
     } finally {
-      bettingLock.current = false;
+      betLock.current = false;
       setBetting(false);
     }
   };
@@ -451,7 +415,7 @@ export function PvpRouletteScreen({
   const canBet =
     (status === "waiting" || status === "betting") &&
     !betting &&
-    (countdownSec == null || countdownSec > 0);
+    (status !== "betting" || remainSec > 0.4);
 
   const winnerBet =
     status === "finished" && typeof round?.resultIndex === "number"
@@ -462,430 +426,385 @@ export function PvpRouletteScreen({
     status === "finished" &&
     Number(round?.winnerTelegramId) === Number(telegramId);
 
-  const statusLabel = (() => {
-    if (status === "betting" && countdownSec != null) return `${countdownSec}s`;
-    if (status === "waiting") return tr("Waiting", "Ожидание");
-    if (status === "spinning") return tr("Spinning", "Крутим");
-    if (status === "finished") return tr("Result", "Итог");
-    if (status === "cancelled") return tr("Cancelled", "Отмена");
-    return status;
-  })();
-
-  const onCopy = async (label: string, full: string) => {
-    if (!full) return;
-    const ok = await copyText(full);
-    if (ok) {
-      haptic("light");
-      playClickSound();
-      showToast(tr(`${label} copied`, `${label} скопирован`));
-    }
-  };
+  const hashFull = round?.serverSeedHash || "";
+  const seedFull =
+    (status === "finished" || status === "cancelled") && round?.serverSeed
+      ? round.serverSeed
+      : "";
 
   return (
-    <div className="flex flex-col min-h-[100dvh] pb-[7.5rem] safe-top">
-      <div className="px-4 pt-1 pb-2 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-black tracking-tight text-white leading-none">
-            {tr("PvP Roulette", "PvP Рулетка")}
-          </h1>
-          <p className="text-[12px] text-white/40 mt-1.5 leading-snug">
-            {tr(
-              "Avatars · winner takes bank −5%",
-              "Аватарки · победитель забирает банк −5%"
-            )}
-          </p>
-        </div>
-        <div className="text-right shrink-0 rounded-2xl bg-white/[0.04] border border-white/[0.08] px-3 py-2">
-          <div className="text-[9px] text-white/35 uppercase tracking-wider">
-            {tr("Balance", "Баланс")}
-          </div>
-          <div className="text-[15px] font-bold text-amber-300 tabular-nums leading-tight mt-0.5">
-            {formatGram(balance)}
+    <div className="flex flex-col min-h-[100dvh] pb-40 safe-top">
+      {/* Header — same as LIVE Roulette */}
+      <div className="px-4 pt-3 pb-2 flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="text-[15px] font-semibold tracking-tight flex items-center gap-2">
+            <span>{tr("PvP Roulette", "PvP Рулетка")}</span>
           </div>
         </div>
-      </div>
-
-      <div className="mx-4 mb-2">
-        <div className="relative overflow-hidden rounded-[22px] border border-white/[0.1] bg-[#0a0c14]/90 px-4 py-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_0%_0%,rgba(251,191,36,0.12),transparent_50%)] pointer-events-none" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_100%_100%,rgba(34,211,238,0.08),transparent_50%)] pointer-events-none" />
-          <div className="relative flex items-center justify-between gap-3">
-            <div>
-              <div className="text-[10px] text-white/40 uppercase tracking-[0.14em] font-semibold">
-                {tr("Bank", "Банк")}
-              </div>
-              <div className="mt-1 flex items-baseline gap-1.5">
-                <span className="text-[28px] font-black text-white tabular-nums tracking-tight leading-none">
-                  {formatGram(totalBank)}
-                </span>
-                <span className="text-[12px] font-semibold text-white/35">GRAM</span>
-              </div>
-              {myBet > 0 && (
-                <div className="mt-1.5 text-[11px] text-cyan-300/90 font-medium">
-                  {tr("Your bet", "Ваша ставка")}{" "}
-                  <span className="tabular-nums font-bold">{formatGram(myBet)}</span>
-                  {totalBank > 0 && (
-                    <span className="text-white/35 ml-1">
-                      · {((myBet / totalBank) * 100).toFixed(1)}%
-                    </span>
-                  )}
-                </div>
-              )}
+        <div className="flex items-center shrink-0">
+          <div className="flex items-center h-9 rounded-full glass border border-white/[0.12] shadow-[0_4px_20px_rgba(0,0,0,0.3)] overflow-hidden">
+            <div className="flex items-center gap-1.5 pl-3 pr-2">
+              <span className="text-[13px] font-semibold tabular-nums text-gradient-cyan">
+                {formatGram(balance)}
+              </span>
+              <span className="text-[10px] text-white/35 font-medium">GRAM</span>
             </div>
-            <div className="text-right">
-              <div
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 border text-[13px] font-bold tabular-nums",
-                  status === "betting" &&
-                    countdownSec != null &&
-                    countdownSec <= 5
-                    ? "bg-rose-500/15 border-rose-400/30 text-rose-300"
-                    : status === "spinning"
-                      ? "bg-amber-500/15 border-amber-400/30 text-amber-300 animate-pulse"
-                      : status === "finished"
-                        ? "bg-emerald-500/15 border-emerald-400/30 text-emerald-300"
-                        : "bg-white/[0.06] border-white/10 text-white/70"
-                )}
-              >
-                {status === "betting" && countdownSec != null && (
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-50" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-current" />
-                  </span>
-                )}
-                {statusLabel}
-              </div>
-              <div className="mt-1.5 text-[11px] text-white/35">
-                {bets.length}{" "}
-                {tr(
-                  bets.length === 1 ? "player" : "players",
-                  bets.length === 1 ? "игрок" : "игроков"
-                )}
-                {status === "waiting" && (
-                  <span>
-                    {" "}
-                    · {tr("need", "нужно")} {PVP_ROULETTE_MIN_PLAYERS}+
-                  </span>
-                )}
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                haptic("light");
+                onDeposit?.();
+              }}
+              className="h-full px-2.5 flex items-center justify-center text-cyan-200/90 hover:text-cyan-100 hover:bg-cyan-400/15 border-l border-white/[0.1] transition-colors btn-press"
+              aria-label="Deposit"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
           </div>
-          {status === "betting" && (
-            <div className="relative mt-3 h-1 rounded-full bg-white/[0.08] overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-violet-400 to-amber-400 transition-[width] duration-200 ease-linear"
-                style={{ width: `${countdownPct}%` }}
-              />
-            </div>
-          )}
         </div>
       </div>
 
-      <div className="mx-4 mb-2 flex gap-2">
+      {/* Hash + Seed */}
+      <div className="mx-4 flex items-center gap-2">
         <button
           type="button"
-          onClick={() => void onCopy("Hash", round?.serverSeedHash || "")}
+          onClick={() => hashFull && void onCopy("Hash", hashFull)}
           className="flex-1 min-w-0 flex items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] px-2.5 py-1.5 text-left active:scale-[0.99]"
         >
-          <span className="text-[9px] text-white/35 uppercase tracking-wider shrink-0">
-            Hash
-          </span>
-          <span className="text-[10px] font-mono text-cyan-200/75 truncate">
-            {shortMiddle(round?.serverSeedHash, 6, 4)}
+          <span className="text-[9px] text-white/35 uppercase tracking-wider shrink-0">Hash</span>
+          <span className="text-[10px] font-mono text-white/55 truncate">
+            {shortMiddle(hashFull)}
           </span>
         </button>
-        {round?.serverSeed ? (
+        {seedFull ? (
           <button
             type="button"
-            onClick={() => void onCopy("Seed", round.serverSeed || "")}
+            onClick={() => void onCopy("Seed", seedFull)}
             className="flex-1 min-w-0 flex items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] px-2.5 py-1.5 text-left active:scale-[0.99]"
           >
-            <span className="text-[9px] text-white/35 uppercase tracking-wider shrink-0">
-              Seed
-            </span>
-            <span className="text-[10px] font-mono text-emerald-200/75 truncate">
-              {shortMiddle(round.serverSeed, 6, 4)}
+            <span className="text-[9px] text-white/35 uppercase tracking-wider shrink-0">Seed</span>
+            <span className="text-[10px] font-mono text-white/55 truncate">
+              {shortMiddle(seedFull)}
             </span>
           </button>
         ) : (
           <div className="flex-1 min-w-0 rounded-xl bg-white/[0.02] border border-white/[0.05] px-2.5 py-1.5 flex items-center gap-1.5 opacity-40">
-            <span className="text-[9px] text-white/30 uppercase tracking-wider shrink-0">
-              Seed
-            </span>
+            <span className="text-[9px] text-white/30 uppercase tracking-wider shrink-0">Seed</span>
             <span className="text-[10px] font-mono text-white/25">—</span>
           </div>
         )}
       </div>
 
-      <div className="mx-3 mt-1 relative rounded-[28px] overflow-hidden border border-white/[0.1] bg-[#070b18] shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
+      {/* Bank line */}
+      <div className="mx-4 mt-2 flex items-center justify-between gap-2">
+        <div className="text-[12px] text-white/45">
+          {tr("Bank", "Банк")}{" "}
+          <span className="text-white font-semibold tabular-nums">
+            {formatGram(totalBank)}
+          </span>
+          <span className="text-white/30"> GRAM</span>
+        </div>
+        <div className="text-[12px] text-white/40">
+          {bets.length}/{PVP_ROULETTE_MIN_PLAYERS}+
+          {myBet > 0 && (
+            <span className="ml-2 text-cyan-300/90">
+              {tr("You", "Вы")} {formatGram(myBet)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* WHEEL */}
+      <div className="mx-3 mt-3 relative rounded-[28px] overflow-hidden border border-white/[0.1] bg-[#070b18] shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_70%_at_50%_-10%,rgba(56,189,248,0.12),transparent_55%)] pointer-events-none" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_80%_120%,rgba(167,139,250,0.1),transparent_50%)] pointer-events-none" />
 
         <div className="absolute left-1/2 top-1.5 z-30 -translate-x-1/2">
-          <div className="w-0 h-0 border-l-[9px] border-r-[9px] border-t-[13px] border-l-transparent border-r-transparent border-t-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.95)]" />
+          <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[12px] border-l-transparent border-r-transparent border-t-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.9)]" />
         </div>
         <div className="absolute left-1/2 bottom-1.5 z-30 -translate-x-1/2 rotate-180">
-          <div className="w-0 h-0 border-l-[9px] border-r-[9px] border-t-[13px] border-l-transparent border-r-transparent border-t-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.95)]" />
+          <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[12px] border-l-transparent border-r-transparent border-t-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.9)]" />
         </div>
-        <div className="absolute left-1/2 top-0 bottom-0 w-px z-20 bg-gradient-to-b from-transparent via-amber-400/70 to-transparent pointer-events-none" />
+        <div className="absolute left-1/2 top-0 bottom-0 w-px z-20 bg-gradient-to-b from-transparent via-cyan-300/60 to-transparent pointer-events-none" />
 
-        <div className="absolute left-0 top-0 bottom-0 w-10 z-20 bg-gradient-to-r from-[#070b18] to-transparent pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-10 z-20 bg-gradient-to-l from-[#070b18] to-transparent pointer-events-none" />
-
-        <div className="relative h-[132px] overflow-hidden">
-          {stripBets.length === 0 ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-6">
-              <div className="w-12 h-12 rounded-full bg-white/[0.04] border border-dashed border-white/15 flex items-center justify-center">
-                <span className="text-white/25 text-xl">+</span>
-              </div>
-              <p className="text-[12px] text-white/30 text-center leading-snug">
-                {tr(
-                  "Place a bet — your avatar joins the strip",
-                  "Сделайте ставку — аватарка появится на ленте"
-                )}
-              </p>
+        <div className="relative h-[120px] overflow-hidden">
+          {strip.length === 0 ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-[12px] text-white/30 px-6 text-center">
+                {tr("Place a bet to join", "Сделайте ставку, чтобы войти")}
+              </span>
             </div>
           ) : (
             <div
-              className="absolute top-1/2 left-1/2 flex items-end will-change-transform"
+              className="absolute top-1/2 left-1/2 flex items-center"
               style={{
                 transform: `translate3d(calc(-${AVATAR / 2}px - ${wheelX}px), -50%, 0)`,
                 gap: GAP,
+                willChange: "transform",
               }}
             >
-              {stripBets.map((b, i) => {
+              {strip.map((b, i) => {
                 const isWin =
-                  (status === "finished" || status === "spinning") &&
-                  Number(b.telegramId) === Number(round?.winnerTelegramId);
-                const isMe = Number(b.telegramId) === Number(telegramId);
+                  status === "finished" &&
+                  Number(b.telegramId) === Number(round?.winnerTelegramId) &&
+                  Math.abs(i * STRIDE - wheelX) < STRIDE * 1.5;
                 return (
                   <div
                     key={`${b.id}-${i}`}
-                    className="flex flex-col items-center flex-shrink-0"
-                    style={{ width: AVATAR }}
+                    className="shrink-0 flex items-center justify-center"
+                    style={{ width: AVATAR, height: AVATAR }}
                   >
                     <Avatar
                       url={b.avatarUrl}
                       name={b.username}
                       size={AVATAR}
-                      ring={
-                        isWin && status === "finished"
-                          ? "win"
-                          : isMe
-                            ? "cyan"
-                            : "default"
-                      }
-                      glow={isWin && status === "finished"}
-                      dim={status === "finished" && !isWin}
+                      highlight={isWin}
+                      me={Number(b.telegramId) === Number(telegramId)}
                     />
-                    <div
-                      className={cn(
-                        "mt-1.5 text-[9px] font-semibold tabular-nums leading-none",
-                        isWin && status === "finished"
-                          ? "text-amber-300"
-                          : "text-white/45"
-                      )}
-                    >
-                      {formatGram(b.amount)}
-                    </div>
                   </div>
                 );
               })}
             </div>
           )}
         </div>
-      </div>
 
-      {bets.length > 0 && (
-        <div className="mt-3 px-3">
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-            {[...bets]
-              .sort((a, b) => b.amount - a.amount)
-              .map((b) => {
-                const isWin =
-                  status === "finished" &&
-                  Number(b.telegramId) === Number(round?.winnerTelegramId);
-                const isMe = Number(b.telegramId) === Number(telegramId);
-                return (
-                  <div
-                    key={b.id}
-                    className={cn(
-                      "flex-shrink-0 flex items-center gap-2 rounded-2xl px-2.5 py-2 border min-w-[132px]",
-                      isWin
-                        ? "bg-amber-500/10 border-amber-400/35"
-                        : isMe
-                          ? "bg-cyan-500/10 border-cyan-400/25"
-                          : "bg-white/[0.03] border-white/[0.07]"
-                    )}
-                  >
-                    <Avatar
-                      url={b.avatarUrl}
-                      name={b.username}
-                      size={32}
-                      ring={isWin ? "win" : isMe ? "cyan" : "default"}
-                      glow={isWin}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[11px] font-medium text-white/85 truncate leading-tight">
-                        {b.username}
-                        {isMe && (
-                          <span className="ml-1 text-[9px] text-cyan-300/80">
-                            you
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-baseline gap-1.5 mt-0.5">
-                        <span className="text-[12px] font-bold tabular-nums text-white">
-                          {formatGram(b.amount)}
-                        </span>
-                        <span className="text-[10px] text-white/35 tabular-nums">
-                          {b.pct}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-      )}
-
-      {state?.history && state.history.length > 0 && (
-        <div className="mt-4 px-4 flex-1 min-h-0">
-          <div className="text-[10px] text-white/35 uppercase tracking-[0.12em] font-semibold mb-2">
-            {tr("Recent winners", "Недавние победители")}
-          </div>
-          <div className="flex flex-col gap-1">
-            {state.history.slice(0, 6).map((h) => (
-              <div
-                key={h.id}
-                className="flex items-center justify-between rounded-xl px-3 py-2 bg-white/[0.02] border border-white/[0.04]"
-              >
-                <span className="text-[12px] text-white/55 truncate max-w-[55%]">
-                  {h.winnerUsername || "—"}
-                </span>
-                <span className="text-[12px] font-semibold tabular-nums text-amber-200/80">
-                  +{formatGram(h.winnerAmount || 0)}
-                </span>
+        {/* Overlay: countdown / result — same as color roulette */}
+        <div className="absolute inset-0 flex items-center justify-center z-[25] pointer-events-none">
+          {status === "betting" && (
+            <div className="px-5 py-2.5 rounded-2xl bg-black/80 border border-white/15 backdrop-blur-md text-center min-w-[108px]">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-white/45">
+                {tr("Start", "Старт")}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="fixed bottom-16 left-0 right-0 z-30 px-3 pt-3 pb-2 bg-gradient-to-t from-[#06060a] via-[#06060a]/95 to-transparent">
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar mb-2.5">
-          {CHIPS.map((c) => {
-            const active = amount === c;
-            return (
-              <button
-                key={c}
-                type="button"
-                onClick={() => {
-                  setAmt(c);
-                  playClickSound();
-                  haptic("light");
-                }}
-                className={cn(
-                  "flex-shrink-0 min-w-[48px] px-3 py-2 rounded-full text-[13px] font-bold border transition-all active:scale-95",
-                  active
-                    ? "bg-gradient-to-b from-amber-400/25 to-amber-500/10 border-amber-400/50 text-amber-200 shadow-[0_0_16px_rgba(251,191,36,0.2)]"
-                    : "bg-white/[0.04] border-white/[0.08] text-white/65 hover:border-white/15"
+              <div className="text-[30px] font-bold tabular-nums text-white leading-none mt-0.5">
+                {remainSec.toFixed(1)}
+                <span className="text-[15px] text-white/40 font-semibold ml-0.5">s</span>
+              </div>
+            </div>
+          )}
+          {status === "waiting" && (
+            <div className="px-5 py-2.5 rounded-2xl bg-black/80 border border-white/15 backdrop-blur-md text-center">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-white/45">
+                {tr("Waiting", "Ожидание")}
+              </div>
+              <div className="text-[14px] font-semibold text-white/80 mt-0.5">
+                {tr(
+                  `${PVP_ROULETTE_MIN_PLAYERS}+ players`,
+                  `${PVP_ROULETTE_MIN_PLAYERS}+ игрока`
                 )}
-              >
-                {c}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex gap-2 items-stretch">
-          <div className="relative w-[88px] shrink-0">
-            <input
-              type="text"
-              inputMode="decimal"
-              value={amountStr}
-              onChange={(e) => setAmountStr(e.target.value)}
-              placeholder="0"
-              className="w-full h-full rounded-2xl bg-white/[0.05] border border-white/[0.1] px-3 text-[15px] font-semibold text-white tabular-nums outline-none focus:border-cyan-400/40 placeholder:text-white/25"
-            />
-          </div>
-          <button
-            type="button"
-            disabled={!canBet}
-            onClick={() => void placeBet()}
-            className={cn(
-              "flex-1 rounded-2xl text-[15px] font-black tracking-tight transition-all active:scale-[0.98]",
-              canBet
-                ? "bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 text-[#1a1000] shadow-[0_8px_28px_rgba(245,158,11,0.4)]"
-                : "bg-white/[0.07] text-white/30 cursor-not-allowed border border-white/[0.06]"
-            )}
-          >
-            {myBet > 0
-              ? tr(`Raise +${formatGram(amount || 0)}`, `+${formatGram(amount || 0)}`)
-              : tr(`Bet ${formatGram(amount || 0)}`, `Ставка ${formatGram(amount || 0)}`)}
-          </button>
+              </div>
+            </div>
+          )}
+          {status === "finished" && winnerBet && (
+            <div className="px-5 py-2.5 rounded-2xl bg-black/85 border border-white/20 backdrop-blur-md text-center">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">
+                {tr("Result", "Результат")}
+              </div>
+              <div className="text-lg font-black tracking-wide mt-0.5 text-amber-300">
+                {winnerBet.username}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* History */}
+      <div className="mx-4 mt-3 flex items-center gap-2">
+        <span className="text-[10px] text-white/30 uppercase tracking-wider shrink-0">
+          {tr("Last", "История")}
+        </span>
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar flex-1 py-1 items-center">
+          {(state?.history ?? []).slice(0, 16).map((h) => (
+            <div
+              key={h.id}
+              className="shrink-0 flex items-center gap-1 rounded-full bg-white/[0.04] border border-white/[0.08] pl-0.5 pr-2 py-0.5"
+              title={h.winnerUsername || ""}
+            >
+              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-violet-600 to-cyan-600 flex items-center justify-center text-[9px] font-bold text-white">
+                {(h.winnerUsername || "?").charAt(0).toUpperCase()}
+              </div>
+              <span className="text-[10px] text-white/50 tabular-nums">
+                {formatGram(h.winnerAmount || 0)}
+              </span>
+            </div>
+          ))}
+          {(state?.history ?? []).length === 0 && (
+            <span className="text-[11px] text-white/25">—</span>
+          )}
+        </div>
+      </div>
+
+      {/* Amount — same pattern as color roulette */}
+      <div className="mx-4 mt-3">
+        <input
+          value={amountStr}
+          onChange={(e) => setAmountStr(e.target.value)}
+          inputMode="decimal"
+          placeholder={tr("Amount", "Сумма")}
+          disabled={!canBet && status !== "waiting"}
+          className="w-full h-11 rounded-2xl bg-white/[0.05] border border-white/10 px-4 text-[15px] font-semibold text-white tabular-nums outline-none focus:border-cyan-400/40 placeholder:text-white/30 disabled:opacity-40"
+        />
+        <div className="mt-2 grid grid-cols-4 gap-2">
+          {(
+            [
+              [tr("Clear", "Сброс"), () => setAmt(0)],
+              [tr("Last", "Прошлая"), () => setAmt(lastAmount)],
+              ["+0.25", () => setAmt((amount || 0) + 0.25)],
+              ["+1", () => setAmt((amount || 0) + 1)],
+              ["+5", () => setAmt((amount || 0) + 5)],
+              ["½", () => setAmt(amount / 2)],
+              [
+                "×2",
+                () => setAmt(Math.min(PVP_ROULETTE_MAX_BET, (amount || 1) * 2)),
+              ],
+              [
+                "Max",
+                () =>
+                  setAmt(
+                    Math.min(PVP_ROULETTE_MAX_BET, balanceRef.current)
+                  ),
+              ],
+            ] as const
+          ).map(([label, fn]) => (
+            <button
+              key={String(label)}
+              type="button"
+              onClick={() => {
+                haptic("light");
+                fn();
+              }}
+              disabled={!canBet && status !== "waiting"}
+              className="h-9 rounded-xl bg-white/[0.05] border border-white/10 text-[12px] font-medium text-white/70 active:scale-95 disabled:opacity-40"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Bet button */}
+      <div className="mx-4 mt-3 mb-2">
+        <button
+          type="button"
+          disabled={!canBet}
+          onClick={() => void placeBet()}
+          className={cn(
+            "w-full h-12 rounded-2xl text-[15px] font-bold tracking-tight transition active:scale-[0.98] disabled:opacity-40",
+            canBet
+              ? "bg-gradient-to-r from-cyan-500 to-violet-500 text-white shadow-[0_8px_28px_rgba(34,211,238,0.25)]"
+              : "bg-white/[0.08] text-white/40 border border-white/10"
+          )}
+        >
+          {myBet > 0
+            ? tr(
+                `Raise +${formatGram(amount || lastAmount || 0)}`,
+                `Увеличить +${formatGram(amount || lastAmount || 0)}`
+              )
+            : tr(
+                `Bet ${formatGram(amount || lastAmount || PVP_ROULETTE_MIN_BET)}`,
+                `Ставка ${formatGram(amount || lastAmount || PVP_ROULETTE_MIN_BET)}`
+              )}
+        </button>
+      </div>
+
+      {/* Players list */}
+      <div className="mx-4 mt-4 mb-2">
+        <div className="text-[10px] text-white/30 uppercase tracking-wider mb-2">
+          {tr("Players", "Игроки")} · {bets.length}
+        </div>
+        <div className="space-y-1.5 max-h-[140px] overflow-y-auto no-scrollbar">
+          {bets.length === 0 && (
+            <div className="text-[12px] text-white/25 py-3 text-center">
+              {tr("No bets yet", "Ставок пока нет")}
+            </div>
+          )}
+          {[...bets]
+            .sort((a, b) => b.amount - a.amount)
+            .map((b) => {
+              const isWin =
+                status === "finished" &&
+                Number(b.telegramId) === Number(round?.winnerTelegramId);
+              const isMe = Number(b.telegramId) === Number(telegramId);
+              return (
+                <div
+                  key={b.id}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-xl px-2.5 py-2 border",
+                    isWin
+                      ? "bg-amber-500/10 border-amber-400/30"
+                      : isMe
+                        ? "bg-cyan-500/10 border-cyan-400/20"
+                        : "bg-white/[0.03] border-white/[0.06]"
+                  )}
+                >
+                  <Avatar
+                    url={b.avatarUrl}
+                    name={b.username}
+                    size={32}
+                    highlight={isWin}
+                    me={isMe}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[12px] text-white/80 truncate">
+                      {b.username}
+                      {isMe && (
+                        <span className="ml-1 text-[10px] text-cyan-300/80">
+                          you
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-white/35">{b.pct}%</div>
+                  </div>
+                  <div className="text-[13px] font-semibold tabular-nums text-white">
+                    {formatGram(b.amount)}
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      </div>
+
+      {/* spacer under BottomNav */}
+      <div className="h-6 shrink-0" aria-hidden />
+
+      {/* Winner modal */}
       {showWinner && status === "finished" && winnerBet && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-md px-4 pb-8 sm:pb-0"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-5"
           onClick={() => setShowWinner(false)}
         >
           <div
-            className="w-full max-w-sm relative overflow-hidden rounded-[28px] border border-white/12 bg-[#0e1018] shadow-[0_32px_80px_rgba(0,0,0,0.65)] p-6 text-center"
+            className="w-full max-w-sm rounded-[24px] border border-white/12 bg-[#0c0e16] p-6 text-center shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(251,191,36,0.18),transparent_55%)] pointer-events-none" />
-            <div className="relative">
-              <div className="text-[11px] text-white/40 uppercase tracking-[0.16em] font-semibold mb-4">
-                {iWon
-                  ? tr("You won!", "Вы победили!")
-                  : tr("Winner", "Победитель")}
-              </div>
-              <div className="flex justify-center mb-4">
-                <div className="relative">
-                  <div className="absolute inset-0 rounded-full bg-amber-400/30 blur-xl scale-150" />
-                  <Avatar
-                    url={winnerBet.avatarUrl}
-                    name={winnerBet.username}
-                    size={88}
-                    ring="win"
-                    glow
-                  />
-                </div>
-              </div>
-              <div className="text-[20px] font-black text-white mb-1">
-                {winnerBet.username}
-              </div>
-              <div className="text-[32px] font-black text-amber-300 tabular-nums tracking-tight">
-                +{formatGram(round?.winnerAmount || 0)}
-              </div>
-              <div className="text-[12px] text-white/40 mt-1.5">
-                {tr("Bank", "Банк")} {formatGram(totalBank)} ·{" "}
-                {tr("house 5%", "комиссия 5%")}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowWinner(false);
-                  playClickSound();
-                  haptic("light");
-                }}
-                className="mt-6 w-full rounded-2xl py-3.5 font-bold text-[15px] bg-gradient-to-r from-cyan-500 to-violet-500 text-white shadow-[0_8px_28px_rgba(34,211,238,0.25)] active:scale-[0.98]"
-              >
-                {tr("Play again", "Играть снова")}
-              </button>
+            <div className="text-[11px] text-white/40 uppercase tracking-[0.16em] mb-3">
+              {iWon ? tr("You won!", "Вы победили!") : tr("Winner", "Победитель")}
             </div>
-          </div>
-        </div>
-      )}
-
-      {loading && !state && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 pointer-events-none">
-          <div className="text-white/50 text-sm animate-pulse">
-            {tr("Loading…", "Загрузка…")}
+            <div className="flex justify-center mb-3">
+              <Avatar
+                url={winnerBet.avatarUrl}
+                name={winnerBet.username}
+                size={72}
+                highlight
+              />
+            </div>
+            <div className="text-[18px] font-bold text-white">{winnerBet.username}</div>
+            <div className="text-[28px] font-black text-amber-300 tabular-nums mt-1">
+              +{formatGram(round?.winnerAmount || 0)}
+            </div>
+            <div className="text-[12px] text-white/35 mt-1">
+              {tr("Bank", "Банк")} {formatGram(totalBank)}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowWinner(false);
+                playClickSound();
+              }}
+              className="mt-5 w-full h-11 rounded-2xl font-bold bg-gradient-to-r from-cyan-500 to-violet-500 text-white active:scale-[0.98]"
+            >
+              {tr("OK", "OK")}
+            </button>
           </div>
         </div>
       )}
