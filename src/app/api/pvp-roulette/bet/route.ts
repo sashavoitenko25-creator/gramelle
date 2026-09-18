@@ -46,7 +46,6 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({
-      ok: true,
       ...result,
       balance: result.balance,
     });

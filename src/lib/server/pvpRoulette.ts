@@ -490,7 +490,7 @@ async function settlePvpRound(round: PvpRoundRow): Promise<PvpRoundRow> {
   if (bets.length < PVP_ROULETTE_MIN_PLAYERS) {
     await refundAllBets(round, bets);
     const resultEnds = new Date(Date.now() + 2000).toISOString();
-    const { data } = await db
+    const cancelSettle = await db
       .from("pvp_roulette_rounds")
       .update({
         status: "cancelled",
@@ -502,7 +502,7 @@ async function settlePvpRound(round: PvpRoundRow): Promise<PvpRoundRow> {
       .in("status", ["betting", "spinning"])
       .select("*")
       .maybeSingle();
-    return (data as PvpRoundRow) || round;
+    return (cancelSettle.data as PvpRoundRow | null) || round;
   }
 
   const seed = round.server_seed || randomSeed();
@@ -605,7 +605,7 @@ export async function advancePvpRoulette(): Promise<PvpRoundRow> {
       const bets = await loadBets(round.id);
       if (bets.length < PVP_ROULETTE_MIN_PLAYERS) {
         await refundAllBets(round, bets);
-        const { data } = await db
+        const cancelRes = await db
           .from("pvp_roulette_rounds")
           .update({
             status: "cancelled",
@@ -616,7 +616,8 @@ export async function advancePvpRoulette(): Promise<PvpRoundRow> {
           .eq("status", "betting")
           .select("*")
           .maybeSingle();
-        round = (data as PvpRoundRow) || round;
+        const cancelData = cancelRes.data as PvpRoundRow | null;
+        round = cancelData || round;
         continue;
       }
 
@@ -634,19 +635,19 @@ export async function advancePvpRoulette(): Promise<PvpRoundRow> {
       const spinEnds = new Date(
         now + PVP_ROULETTE_PREP_MS + PVP_ROULETTE_SPIN_MS
       ).toISOString();
-      const { data } = await db
+      const spinRes = await db
         .from("pvp_roulette_rounds")
         .update({
           status: "spinning",
           spin_ends_at: spinEnds,
           result_index: idx,
-          // keep server_seed in DB but publicRound hides it until finished
         })
         .eq("id", round.id)
         .eq("status", "betting")
         .select("*")
         .maybeSingle();
-      if (data) round = data as PvpRoundRow;
+      const spinData = spinRes.data as PvpRoundRow | null;
+      if (spinData) round = spinData;
       else round = (await getActiveRound()) || round;
       continue;
     }
