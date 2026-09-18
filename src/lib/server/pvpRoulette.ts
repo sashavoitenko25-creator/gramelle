@@ -102,9 +102,11 @@ export function pickWinnerIndex(
     if (point < acc) {
       // Map back to original order index by telegram_id + amount match
       const tid = sorted[i].telegram_id;
-      const amt = Number(sorted[i].amount);
+      const amtKey = Number(sorted[i].amount).toFixed(6);
       const orig = bets.findIndex(
-        (b) => b.telegram_id === tid && Number(b.amount) === amt
+        (b) =>
+          Number(b.telegram_id) === Number(tid) &&
+          Number(b.amount).toFixed(6) === amtKey
       );
       return orig >= 0 ? orig : i;
     }
@@ -512,6 +514,7 @@ async function refundAllBets(round: PvpRoundRow, bets: PvpBetRow[]) {
       await creditBalance(Number(bet.telegram_id), amt, "refund", {
         kind: "pvp_roulette_cancel",
         round_id: round.id,
+        bet_id: bet.id,
       });
     } catch (e) {
       console.error("[pvp-roulette] refund failed", bet.telegram_id, e);
@@ -519,45 +522,110 @@ async function refundAllBets(round: PvpRoundRow, bets: PvpBetRow[]) {
   }
 }
 
+/**
+ * Cancel round atomically then refund once.
+ * Only the worker that wins the status transition performs refunds.
+ */
+async function cancelRoundAndRefund(
+  round: PvpRoundRow,
+  fromStatuses: PvpRouletteStatus[],
+  resultEndsMs = 2000
+): Promise<PvpRoundRow> {
+  const db = getAdminClient();
+  const bets = await loadBets(round.id);
+  const resultEnds = new Date(Date.now() + resultEndsMs).toISOString();
+  const { data } = await db
+    .from("pvp_roulette_rounds")
+    .update({
+      status: "cancelled",
+      server_seed: round.server_seed,
+      result_ends_at: resultEnds,
+      total_bank: Number(round.total_bank) || 0,
+    })
+    .eq("id", round.id)
+    .in("status", fromStatuses)
+    .select("*")
+    .maybeSingle();
+
+  const cancelled = data as PvpRoundRow | null;
+  if (!cancelled) {
+    // Another worker already moved the round — do not refund again
+    const { data: cur } = await db
+      .from("pvp_roulette_rounds")
+      .select("*")
+      .eq("id", round.id)
+      .maybeSingle();
+    return (cur as PvpRoundRow) || round;
+  }
+
+  await refundAllBets(cancelled, bets);
+  return cancelled;
+}
+
 async function settlePvpRound(round: PvpRoundRow): Promise<PvpRoundRow> {
   const db = getAdminClient();
   const bets = await loadBets(round.id);
 
   if (bets.length < PVP_ROULETTE_MIN_PLAYERS) {
-    await refundAllBets(round, bets);
-    const resultEnds = new Date(Date.now() + 2000).toISOString();
-    const cancelSettle = await db
-      .from("pvp_roulette_rounds")
-      .update({
-        status: "cancelled",
-        server_seed: round.server_seed,
-        result_ends_at: resultEnds,
-        total_bank: 0,
-      })
-      .eq("id", round.id)
-      .in("status", ["betting", "spinning"])
-      .select("*")
-      .maybeSingle();
-    return (cancelSettle.data as PvpRoundRow | null) || round;
+    return cancelRoundAndRefund(round, ["betting", "spinning"], 2000);
   }
 
   const seed = round.server_seed || randomSeed();
-  // Use bets in creation order for visual strip index
   const ordered = [...bets];
-  const idx = pickWinnerIndex(
-    seed,
-    round.id,
-    ordered.map((b) => ({
-      telegram_id: Number(b.telegram_id),
-      amount: Number(b.amount),
-    }))
-  );
+
+  // Prefer precomputed index from spin start (commit); fallback recompute
+  let idx =
+    typeof round.result_index === "number" &&
+    round.result_index >= 0 &&
+    round.result_index < ordered.length
+      ? round.result_index
+      : pickWinnerIndex(
+          seed,
+          round.id,
+          ordered.map((b) => ({
+            telegram_id: Number(b.telegram_id),
+            amount: Number(b.amount),
+          }))
+        );
+
+  if (idx < 0 || idx >= ordered.length) idx = 0;
   const winner = ordered[idx];
   const totalBank = ordered.reduce((s, b) => s + Number(b.amount), 0);
   const houseFee = +(totalBank * PVP_ROULETTE_HOUSE_EDGE).toFixed(6);
   const winnerAmount = +(totalBank - houseFee).toFixed(6);
+  const resultEnds = new Date(Date.now() + PVP_ROULETTE_RESULT_MS).toISOString();
 
-  // Credit winner
+  // 1) Atomic claim: only one worker settles this spin
+  const { data: done } = await db
+    .from("pvp_roulette_rounds")
+    .update({
+      status: "finished",
+      server_seed: seed,
+      server_seed_hash: round.server_seed_hash || hashSeed(seed),
+      result_index: idx,
+      winner_telegram_id: Number(winner.telegram_id),
+      winner_amount: winnerAmount,
+      house_fee: houseFee,
+      total_bank: totalBank,
+      result_ends_at: resultEnds,
+    })
+    .eq("id", round.id)
+    .eq("status", "spinning")
+    .select("*")
+    .maybeSingle();
+
+  const finished = done as PvpRoundRow | null;
+  if (!finished) {
+    // Already settled by another worker — no second payout
+    const { data: cur } = await db
+      .from("pvp_roulette_rounds")
+      .select("*")
+      .eq("id", round.id)
+      .maybeSingle();
+    return (cur as PvpRoundRow) || round;
+  }
+
+  // 2) Payout only after we own the finished row
   try {
     await creditBalance(Number(winner.telegram_id), winnerAmount, "win", {
       kind: "pvp_roulette_win",
@@ -569,7 +637,6 @@ async function settlePvpRound(round: PvpRoundRow): Promise<PvpRoundRow> {
     console.error("[pvp-roulette] win credit failed", winner.telegram_id, e);
   }
 
-  // House fee
   if (houseFee > 0) {
     try {
       await creditHouse(houseFee, "profit", "house_fee", {
@@ -579,7 +646,6 @@ async function settlePvpRound(round: PvpRoundRow): Promise<PvpRoundRow> {
     } catch (e) {
       console.error("[pvp-roulette] house failed", e);
     }
-    // Referral share proportional to each stake
     for (const bet of ordered) {
       const stake = Number(bet.amount) || 0;
       if (stake <= 0 || totalBank <= 0) continue;
@@ -593,31 +659,9 @@ async function settlePvpRound(round: PvpRoundRow): Promise<PvpRoundRow> {
     }
   }
 
-  const resultEnds = new Date(Date.now() + PVP_ROULETTE_RESULT_MS).toISOString();
-  const { data: done } = await db
-    .from("pvp_roulette_rounds")
-    .update({
-      status: "finished",
-      server_seed: seed,
-      result_index: idx,
-      winner_telegram_id: Number(winner.telegram_id),
-      winner_amount: winnerAmount,
-      house_fee: houseFee,
-      total_bank: totalBank,
-      result_ends_at: resultEnds,
-    })
-    .eq("id", round.id)
-    .eq("status", "spinning")
-    .select("*")
-    .maybeSingle();
-
-  return (done as PvpRoundRow) || (await getLatestRound()) || round;
+  return finished;
 }
 
-/**
- * Advance global LIVE PvP roulette clock.
- * Safe to call from cron and from GET /state.
- */
 export async function advancePvpRoulette(): Promise<PvpRoundRow> {
   let round = (await getActiveRound()) || (await getLatestRound());
   if (!round) return createWaitingRound();
@@ -640,20 +684,7 @@ export async function advancePvpRoulette(): Promise<PvpRoundRow> {
       }
       const bets = await loadBets(round.id);
       if (bets.length < PVP_ROULETTE_MIN_PLAYERS) {
-        await refundAllBets(round, bets);
-        const cancelRes = await db
-          .from("pvp_roulette_rounds")
-          .update({
-            status: "cancelled",
-            server_seed: round.server_seed,
-            result_ends_at: new Date(now + 2000).toISOString(),
-          })
-          .eq("id", round.id)
-          .eq("status", "betting")
-          .select("*")
-          .maybeSingle();
-        const cancelData = cancelRes.data as PvpRoundRow | null;
-        round = cancelData || round;
+        round = await cancelRoundAndRefund(round, ["betting"], 2000);
         continue;
       }
 
@@ -677,6 +708,9 @@ export async function advancePvpRoulette(): Promise<PvpRoundRow> {
           status: "spinning",
           spin_ends_at: spinEnds,
           result_index: idx,
+          // ensure seed stays committed for settle
+          server_seed: seed,
+          server_seed_hash: hashSeed(seed),
         })
         .eq("id", round.id)
         .eq("status", "betting")
