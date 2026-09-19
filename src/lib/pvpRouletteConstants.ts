@@ -12,8 +12,8 @@ export const PVP_ROULETTE_HOUSE_EDGE = HOUSE_EDGE; // 0.05
 export const PVP_ROULETTE_COUNTDOWN_SEC = 18;
 /** Spin animation duration (ms) — 5s shorter */
 export const PVP_ROULETTE_SPIN_MS = 20000;
-/** Hold finished on server before next waiting round (match client result 5s) */
-export const PVP_ROULETTE_RESULT_MS = 5500;
+/** Hold finished before next waiting (client also recovers via history) */
+export const PVP_ROULETTE_RESULT_MS = 8000;
 /** Reject bets this many ms before bet_ends_at */
 export const PVP_ROULETTE_BET_LOCK_MS = 500;
 /** Brief pause after lock before spin starts (ms) */
