@@ -2,7 +2,8 @@ import crypto from "crypto";
 import { getAdminClient } from "./supabase";
 import { creditBalance, getBalance } from "./ledger";
 import { creditHouse } from "./house";
-import { payReferralFromHouseFee } from "./referral";
+// LIVE/SOLO: no referral
+// import { payReferralFromHouseFee } from "./referral";
 import {
   ROULETTE_COUNTDOWN_SEC,
   ROULETTE_SPIN_MS,
@@ -225,17 +226,7 @@ async function settleRound(round: RouletteRoundRow): Promise<RouletteRoundRow> {
     } catch (e) {
       console.error("[roulette] house failed", e);
     }
-    for (const bet of list) {
-      const stake = Number(bet.amount) || 0;
-      if (stake <= 0 || totalStakes <= 0) continue;
-      const slice = +((houseNet * stake) / totalStakes).toFixed(6);
-      if (slice < 0.0001) continue;
-      try {
-        await payReferralFromHouseFee(bet.telegram_id, stake, slice);
-      } catch {
-        /* */
-      }
-    }
+    // LIVE Roulette: no referral (LIVE/SOLO do not participate)
   }
 
   const resultEnds = new Date(Date.now() + ROULETTE_RESULT_MS).toISOString();

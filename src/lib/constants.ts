@@ -74,13 +74,14 @@ export const SUPPORT_LABEL =
 export const REFERRAL_JOIN_BONUS = 0;
 export const REFERRAL_MIN_WITHDRAW = 0.25;
 
-export type ReferralTierId =
-  | "none"
-  | "bronze"
-  | "silver"
-  | "gold"
-  | "platinum"
-  | "individual";
+/**
+ * Referral = fixed share of house fee from games that charge commission.
+ * Like @rollsgame_bot: up to 10% of the platform commission of the referral.
+ * LIVE / SOLO do not participate (no referral from those modes).
+ */
+export const REFERRAL_SHARE_OF_HOUSE_FEE = 0.1; // 10%
+
+export type ReferralTierId = "none" | "standard";
 
 export interface ReferralTier {
   id: ReferralTierId;
@@ -92,68 +93,29 @@ export interface ReferralTier {
   shareOfHouseFee: number;
   color: string;
   emoji: string;
-  /** Optional: only these Telegram IDs see / use this tier */
-  restrictedToTelegramIds?: readonly number[];
 }
 
-/** Owner + partner — only they see Individual tier */
-export const INDIVIDUAL_REF_TELEGRAM_IDS = [6859689857, 8960001633, 7032398299] as const;
-
-export function isIndividualRefViewer(telegramId: number | null | undefined): boolean {
-  if (telegramId == null) return false;
-  return (INDIVIDUAL_REF_TELEGRAM_IDS as readonly number[]).includes(Number(telegramId));
-}
-
-/**
- * Special partner tier.
- * App house edge = 5% of stake. Partner gets 4% of stake → 4/5 = 80% of house fee.
- * App keeps 1% of stake (20% of house fee).
- */
-/**
- * Special partner tier (visible only to allow-listed Telegram IDs).
- * House edge = 5% of bet. Partner gets 4% of bet → shareOfHouseFee = 4/5 = 0.8 (80%).
- * App keeps 1% of bet (20% of house fee).
- * Unlocks (pays) from 1 invite; card is always visible to allow-list.
- */
-export const INDIVIDUAL_TIER: ReferralTier = {
-  id: "individual",
-  name: "Individual",
-  minActive: 1,
-  maxActive: null,
-  minTurnover: 0,
-  shareOfHouseFee: 0.8,
-  color: "#f0abfc",
-  emoji: "✦",
-  restrictedToTelegramIds: INDIVIDUAL_REF_TELEGRAM_IDS,
-};
-
+/** Single tier — 10% of house fee (RPS / DICE / XO / Race). No special/individual. */
 export const REFERRAL_TIERS: ReferralTier[] = [
-  { id: "bronze", name: "Bronze", minActive: 0, maxActive: 4, minTurnover: 0, shareOfHouseFee: 0.1, color: "#cd7f32", emoji: "🥉" },
-  { id: "silver", name: "Silver", minActive: 5, maxActive: 14, minTurnover: 300, shareOfHouseFee: 0.15, color: "#c0c0c0", emoji: "🥈" },
-  { id: "gold", name: "Gold", minActive: 15, maxActive: 44, minTurnover: 1500, shareOfHouseFee: 0.2, color: "#f5c542", emoji: "🥇" },
-  { id: "platinum", name: "Platinum", minActive: 45, maxActive: null, minTurnover: 4000, shareOfHouseFee: 0.3, color: "#a78bfa", emoji: "💎" },
+  {
+    id: "standard",
+    name: "Standard",
+    minActive: 1,
+    maxActive: null,
+    minTurnover: 0,
+    shareOfHouseFee: REFERRAL_SHARE_OF_HOUSE_FEE,
+    color: "#22d3ee",
+    emoji: "🔗",
+  },
 ];
 
 export function getReferralTier(
   activeRefs: number,
-  turnover: number,
-  telegramId?: number | null
+  _turnover?: number,
+  _telegramId?: number | null
 ): ReferralTier | null {
   if (activeRefs < 1) return null;
-
-  // Individual: fixed 4% of house fee for allow-listed partners (from 1 invite)
-  if (
-    telegramId != null &&
-    isIndividualRefViewer(telegramId) &&
-    activeRefs >= INDIVIDUAL_TIER.minActive
-  ) {
-    return INDIVIDUAL_TIER;
-  }
-
-  for (const t of [...REFERRAL_TIERS].reverse()) {
-    if (activeRefs >= t.minActive && turnover >= t.minTurnover) return t;
-  }
-  return null;
+  return REFERRAL_TIERS[0];
 }
 
 export type TonPackage = { ton: number; gram: number; label: string; popular?: boolean; bonus?: string };

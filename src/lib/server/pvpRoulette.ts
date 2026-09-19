@@ -2,7 +2,8 @@ import crypto from "crypto";
 import { getAdminClient } from "./supabase";
 import { creditBalance, getBalance } from "./ledger";
 import { creditHouse } from "./house";
-import { payReferralFromHouseFee } from "./referral";
+// LIVE PvP Roulette: no referral
+// import { payReferralFromHouseFee } from "./referral";
 import {
   PVP_ROULETTE_COUNTDOWN_SEC,
   PVP_ROULETTE_SPIN_MS,
@@ -659,17 +660,7 @@ async function ensurePvpHouseAndRefs(
   } catch (e) {
     console.error("[pvp-roulette] house failed", e);
   }
-  for (const bet of bets) {
-    const stake = Number(bet.amount) || 0;
-    if (stake <= 0) continue;
-    const slice = +((houseFee * stake) / totalBank).toFixed(6);
-    if (slice < 0.0001) continue;
-    try {
-      await payReferralFromHouseFee(Number(bet.telegram_id), stake, slice);
-    } catch {
-      /* */
-    }
-  }
+  // LIVE PvP Roulette: no referral (LIVE/SOLO do not participate)
 }
 
 async function settlePvpRound(round: PvpRoundRow): Promise<PvpRoundRow> {

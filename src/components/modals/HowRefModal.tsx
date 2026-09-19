@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/context";
-import { REFERRAL_TIERS, REFERRAL_MIN_WITHDRAW } from "@/lib/constants";
+import { REFERRAL_MIN_WITHDRAW, REFERRAL_SHARE_OF_HOUSE_FEE } from "@/lib/constants";
 
 interface HowRefModalProps {
   open: boolean;
@@ -14,23 +14,25 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
 
   if (!open) return null;
 
+  const pct = Math.round(REFERRAL_SHARE_OF_HOUSE_FEE * 100);
+
   const body =
     lang === "ru"
       ? {
           title: "Реферальная программа",
-          p1: "Приглашайте друзей по своей ссылке. Когда они играют, вы получаете долю дохода платформы с их ставок — не с депозитов.",
+          p1: "Приглашайте друзей по своей ссылке. Когда они играют в RPS, Dice, XO или Race, вы получаете 10% от комиссии платформы с их ставок.",
           p2a: "Начисления идут на ",
           p2b: "реферальные накопления",
           p2c: `. Вывод на основной баланс в любой момент (мин. ${REFERRAL_MIN_WITHDRAW} GRAM).`,
-          note: "С Silver+ нужен реферальный оборот (сумма ставок друзей). Активные = друзья с ≥1 игрой. Бонуса за регистрацию нет.",
+          note: "LIVE и SOLO не участвуют в рефералке. Бонуса за регистрацию нет.",
         }
       : {
           title: "Referral program",
-          p1: "Invite friends with your link. When they play, you earn a share of platform revenue from their bets — not from deposits.",
+          p1: "Invite friends with your link. When they play RPS, Dice, XO or Race, you earn 10% of the platform commission from their bets.",
           p2a: "Earnings go to your ",
           p2b: "referral savings",
           p2c: `. Withdraw to main balance anytime (min ${REFERRAL_MIN_WITHDRAW} GRAM).`,
-          note: "Silver+ also need referral turnover (sum of friends' bets). Active = friends with ≥1 game. No signup bonus.",
+          note: "LIVE and SOLO do not count toward referral. No signup bonus.",
         };
 
   return (
@@ -47,17 +49,11 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
             <span className="text-cyan-300 font-medium">{body.p2b}</span>
             {body.p2c}
           </p>
-          <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-3 space-y-2">
-            {REFERRAL_TIERS.map((tier) => (
-              <div key={tier.id} className="flex justify-between text-xs">
-                <span>
-                  {tier.emoji} {tier.name}
-                </span>
-                <span className="text-cyan-300/90">
-                  {Math.round(tier.shareOfHouseFee * 100)}%
-                </span>
-              </div>
-            ))}
+          <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-3">
+            <div className="flex justify-between text-xs">
+              <span>🔗 Share of house fee</span>
+              <span className="text-cyan-300/90">{pct}%</span>
+            </div>
           </div>
           <p className="text-xs text-white/40">{body.note}</p>
         </div>

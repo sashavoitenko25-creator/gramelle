@@ -1,6 +1,10 @@
 import { getAdminClient } from "./supabase";
 import { creditBalance } from "./ledger";
-import { getReferralTier, REFERRAL_MIN_WITHDRAW } from "@/lib/constants";
+import {
+  getReferralTier,
+  REFERRAL_MIN_WITHDRAW,
+  REFERRAL_SHARE_OF_HOUSE_FEE,
+} from "@/lib/constants";
 import { getOrCreateProfile } from "./ledger";
 
 /** Normalize codes: "ref_foo", "REF_FOO", "foo" → try match */
@@ -137,11 +141,7 @@ export async function payReferralFromHouseFee(
     .eq("referred_by", referrer.id)
     .gte("games", 1);
 
-  // Total invites (so bronze unlocks even before first game of invitee)
-  const totalInvites = Math.max(
-    Number(referrer.ref_count) || 0,
-    played || 0
-  );
+  const totalInvites = Math.max(Number(referrer.ref_count) || 0, played || 0);
   const activeCount = Math.max(played || 0, totalInvites > 0 ? 1 : 0);
 
   await db
@@ -149,10 +149,12 @@ export async function payReferralFromHouseFee(
     .update({ ref_active: activeCount })
     .eq("id", referrer.id);
 
-  const tier = getReferralTier(activeCount, newTurnover, Number(referrer.telegram_id));
+  // Flat 10% of house fee (only from games that call this — not LIVE/SOLO)
+  const tier = getReferralTier(activeCount);
   if (!tier) return;
 
-  const bonus = +(houseFeeFromThisBet * tier.shareOfHouseFee).toFixed(6);
+  const share = tier.shareOfHouseFee ?? REFERRAL_SHARE_OF_HOUSE_FEE;
+  const bonus = +(houseFeeFromThisBet * share).toFixed(6);
   if (bonus < 0.0001) return;
 
   await db
