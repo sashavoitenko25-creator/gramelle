@@ -945,7 +945,10 @@ export function PvpRouletteScreen({
                 type="button"
                 onClick={() => void openHistory()}
                 className="shrink-0 flex items-center gap-1.5 rounded-full bg-white/[0.05] border border-white/[0.1] pl-1 pr-2.5 py-1 active:scale-[0.97] transition"
-                title={h.winnerUsername || ""}
+                title={
+                  (typeof h.roundNumber === "number" ? `#${h.roundNumber} ` : "") +
+                  (h.winnerUsername || "")
+                }
               >
                 <Avatar
                   url={h.winnerAvatarUrl ?? null}
@@ -953,8 +956,15 @@ export function PvpRouletteScreen({
                   size={22}
                   highlight
                 />
-                <span className="text-[11px] text-amber-200/80 tabular-nums font-semibold">
-                  +{formatGram(h.winnerAmount || 0)}
+                <span className="flex flex-col items-start leading-none gap-0.5">
+                  {typeof h.roundNumber === "number" && (
+                    <span className="text-[9px] font-bold tabular-nums text-white/40">
+                      #{h.roundNumber}
+                    </span>
+                  )}
+                  <span className="text-[11px] text-amber-200/80 tabular-nums font-semibold">
+                    +{formatGram(h.winnerAmount || 0)}
+                  </span>
                 </span>
               </button>
             ))
@@ -1166,7 +1176,7 @@ export function PvpRouletteScreen({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           {typeof h.roundNumber === "number" && (
-                            <span className="text-[10px] font-bold tabular-nums text-white/40 shrink-0">
+                            <span className="text-[10px] font-bold tabular-nums text-amber-300/90 bg-amber-400/10 border border-amber-400/25 rounded-md px-1.5 py-0.5 shrink-0">
                               #{h.roundNumber}
                             </span>
                           )}

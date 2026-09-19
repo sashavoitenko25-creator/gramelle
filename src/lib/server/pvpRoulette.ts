@@ -303,7 +303,7 @@ export async function getPvpRouletteState(opts?: {
   };
 }
 
-async function getRecentHistory(limit: number) {
+export async function getRecentHistory(limit: number) {
   const db = getAdminClient();
   const { data: rounds } = await db
     .from("pvp_roulette_rounds")
