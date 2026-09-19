@@ -196,7 +196,7 @@ function publicBets(bets: PvpBetRow[], totalBank: number) {
 
 /** Sequential game number: 1, 2, 3… by creation order */
 async function getRoundNumber(createdAt: string): Promise<number> {
-  const db = getSupabaseAdmin();
+  const db = getAdminClient();
   const { count } = await db
     .from("pvp_roulette_rounds")
     .select("id", { count: "exact", head: true })
