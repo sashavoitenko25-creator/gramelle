@@ -478,13 +478,13 @@ export function PvpRouletteScreen({
         bank: Number(round.totalBank) || 0,
         won,
       });
-      // Result panel for everyone — only closes on button
+      // Result for everyone — auto-hide after 5s
       setShowWinner(true);
-      winnerHoldUntil.current = 0;
-      // Seed next to Hash until user dismisses result (or 30s max)
+      winnerHoldUntil.current = Date.now() + 5000;
+      // Seed next to Hash for 5s with the result
       if (round.serverSeed) {
         setSeedSnap(round.serverSeed);
-        seedHoldUntil.current = Date.now() + 30_000;
+        seedHoldUntil.current = Date.now() + 5000;
       }
       if (won) {
         playWinSound();
@@ -509,14 +509,25 @@ export function PvpRouletteScreen({
     hapticError,
   ]);
 
-  // Seed stays while result panel open; otherwise clear after hold
+  // Auto-hide result after 5s
+  useEffect(() => {
+    if (!showWinner || winnerHoldUntil.current <= 0) return;
+    const left = Math.max(50, winnerHoldUntil.current - Date.now());
+    const id = setTimeout(() => {
+      setShowWinner(false);
+      setWinnerSnap(null);
+      winnerHoldUntil.current = 0;
+    }, left);
+    return () => clearTimeout(id);
+  }, [showWinner, winnerSnap]);
+
+  // Clear seed after hold
   useEffect(() => {
     if (!seedSnap) return;
-    if (showWinner) return;
     const left = Math.max(50, seedHoldUntil.current - Date.now());
     const id = setTimeout(() => setSeedSnap(""), left);
     return () => clearTimeout(id);
-  }, [seedSnap, showWinner]);
+  }, [seedSnap]);
 
   const isSpinPhase = status === "spinning" || status === "finished";
   const stripSeed = `${round?.id || "x"}:${round?.serverSeedHash || ""}`;
@@ -791,52 +802,54 @@ export function PvpRouletteScreen({
           )}
         </div>
 
-        {/* Overlay: countdown / waiting / result (in-wheel, not a modal) */}
-        <div
-          className={cn(
-            "absolute inset-0 flex items-center justify-center z-[25]",
-            showWinner && winnerSnap ? "pointer-events-auto" : "pointer-events-none"
-          )}
-        >
+        {/* Overlay: countdown / waiting / result */}
+        <div className="absolute inset-0 flex items-center justify-center z-[25] pointer-events-none">
           {showWinner && winnerSnap ? (
-            <div className="px-4 py-3 rounded-2xl bg-black/55 border border-amber-400/30 backdrop-blur-[3px] text-center min-w-[140px] max-w-[90%] shadow-[0_8px_28px_rgba(0,0,0,0.45)]">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-amber-200/70 font-semibold">
-                {winnerSnap.won
-                  ? tr("You won!", "Вы победили!")
-                  : tr("Winner", "Победитель")}
-              </div>
-              <div className="flex justify-center mt-2 mb-1.5">
+            <div
+              className="flex items-center gap-3 pl-2 pr-4 py-2 rounded-full border border-amber-400/35 shadow-[0_8px_32px_rgba(251,191,36,0.18),0_4px_16px_rgba(0,0,0,0.5)]"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(20,16,8,0.82) 0%, rgba(12,12,18,0.88) 100%)",
+                backdropFilter: "blur(8px)",
+              }}
+            >
+              <div className="relative shrink-0">
                 <Avatar
                   url={winnerSnap.avatarUrl}
                   name={winnerSnap.username}
-                  size={44}
+                  size={48}
                   highlight
                 />
+                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center shadow-[0_0_8px_rgba(251,191,36,0.8)]">
+                  <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                    <path
+                      d="M2.5 6.5L5 9l4.5-5.5"
+                      stroke="#1a1208"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
               </div>
-              <div className="text-[14px] font-bold text-white truncate max-w-[180px] mx-auto">
-                {winnerSnap.username}
+              <div className="min-w-0 text-left py-0.5">
+                <div className="text-[9px] uppercase tracking-[0.14em] text-amber-200/55 font-semibold leading-none">
+                  {winnerSnap.won
+                    ? tr("You won", "Победа")
+                    : tr("Winner", "Победитель")}
+                </div>
+                <div className="text-[13px] font-semibold text-white/95 truncate max-w-[120px] mt-0.5 leading-tight">
+                  {winnerSnap.username}
+                </div>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-[17px] font-black tabular-nums text-amber-300 leading-none">
+                    +{formatGram(winnerSnap.amount)}
+                  </span>
+                  <span className="text-[10px] text-white/35 font-medium">
+                    / {formatGram(winnerSnap.bank)}
+                  </span>
+                </div>
               </div>
-              <div className="text-[20px] font-black tabular-nums text-amber-300 mt-0.5">
-                +{formatGram(winnerSnap.amount)}
-              </div>
-              <div className="text-[11px] text-white/45 mt-0.5">
-                {tr("Bank", "Банк")} {formatGram(winnerSnap.bank)}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowWinner(false);
-                  setWinnerSnap(null);
-                  winnerHoldUntil.current = 0;
-                  setSeedSnap("");
-                  seedHoldUntil.current = 0;
-                  playClickSound();
-                  haptic("light");
-                }}
-                className="mt-2.5 w-full h-9 rounded-xl font-bold text-[13px] bg-gradient-to-r from-amber-500 to-amber-600 text-white active:scale-[0.98] shadow-[0_4px_16px_rgba(251,191,36,0.3)]"
-              >
-                {winnerSnap.won ? tr("Collect", "Забрать") : tr("OK", "OK")}
-              </button>
             </div>
           ) : status === "betting" ? (
             <div className="px-4 py-2 rounded-2xl bg-black/25 border border-white/10 backdrop-blur-[2px] text-center min-w-[96px] shadow-[0_4px_20px_rgba(0,0,0,0.35)]">
