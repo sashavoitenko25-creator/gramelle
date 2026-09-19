@@ -155,7 +155,12 @@ export default function Home() {
         let pvpN = 0;
         try {
           const pvp = await fetchPvpRouletteState();
-          pvpN = Number(pvp?.online) || 0;
+          // online = players with bets; fallback to playerCount
+          pvpN =
+            Number(pvp?.online) ||
+            Number(pvp?.playerCount) ||
+            (Array.isArray(pvp?.bets) ? pvp.bets.length : 0) ||
+            0;
           setPvpRouletteOnline(pvpN);
         } catch {
           /* keep */
@@ -332,6 +337,7 @@ export default function Home() {
           rpsOnline={rpsOnline}
           diceOnline={diceOnline}
           xoOnline={xoOnline}
+          pvpOnline={rpsOnline + diceOnline + xoOnline + pvpRouletteOnline}
           onSelectPvp={() => {
             haptic("light");
             setScreen("pvp");
