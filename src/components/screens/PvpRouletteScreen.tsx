@@ -347,7 +347,7 @@ export function PvpRouletteScreen({
       : 0;
   const remainSec = endsAt ? Math.max(0, (endsAt - displayMs) / 1000) : 0;
 
-  /* spin */
+  /* spin — API hides resultIndex until finished; land on hash decoy, then snap */
   useEffect(() => {
     if (!round || status !== "spinning" || !bets.length) {
       if (status !== "spinning") {
@@ -362,22 +362,13 @@ export function PvpRouletteScreen({
     if (spunForRound.current === round.id) return;
     spunForRound.current = round.id;
 
-    const winnerId =
-      round.winnerTelegramId != null
-        ? Number(round.winnerTelegramId)
-        : typeof round.resultIndex === "number" && bets[round.resultIndex]
-          ? Number(bets[round.resultIndex].telegramId)
-          : Number(bets[0]?.telegramId);
-
     const seedKey = `${round.id}:${round.serverSeedHash || ""}`;
     const cycle = buildWeightedCycle(bets, seedKey);
     const period = STRIDE * Math.max(1, cycle.length);
-
-    // Target a winner slot in a far loop for long spin
-    let winnerSlot = cycle.findIndex((b) => Number(b.telegramId) === winnerId);
-    if (winnerSlot < 0) winnerSlot = 0;
+    const decoySlot =
+      cycle.length > 0 ? hashSeed(seedKey + ":spin") % cycle.length : 0;
     const loops = SPIN_MIN_LOOPS + 2;
-    let dest = winnerSlot * STRIDE + loops * period;
+    let dest = decoySlot * STRIDE + loops * period;
     const startX = wheelXRef.current;
     while (dest - startX < period * 4) dest += period;
 
@@ -385,7 +376,6 @@ export function PvpRouletteScreen({
     if (round.spinEndsAt) {
       const left =
         new Date(round.spinEndsAt).getTime() - (Date.now() + offsetRef.current);
-      // Prefer server window; floor 12s so it never feels instant
       dur = Math.max(12000, Math.min(PVP_ROULETTE_SPIN_MS, left - 80));
     }
 
@@ -412,7 +402,58 @@ export function PvpRouletteScreen({
       stopWheelSound();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, roundId, round?.spinEndsAt, round?.resultIndex, bets.length]);
+  }, [status, roundId, round?.spinEndsAt, bets.length]);
+
+  /* Reveal: snap to real winner when finished (resultIndex now public) */
+  useEffect(() => {
+    if (status !== "finished" || !round || !bets.length) return;
+    const winnerId =
+      round.winnerTelegramId != null
+        ? Number(round.winnerTelegramId)
+        : typeof round.resultIndex === "number" && bets[round.resultIndex]
+          ? Number(bets[round.resultIndex].telegramId)
+          : null;
+    if (winnerId == null) return;
+
+    const seedKey = `${round.id}:${round.serverSeedHash || ""}`;
+    const cycle = buildWeightedCycle(bets, seedKey);
+    if (!cycle.length) return;
+    const period = STRIDE * cycle.length;
+    let winnerSlot = cycle.findIndex((b) => Number(b.telegramId) === winnerId);
+    if (winnerSlot < 0) winnerSlot = 0;
+
+    const startX = wheelXRef.current;
+    let dest = winnerSlot * STRIDE;
+    while (dest < startX - period / 2) dest += period;
+    while (dest - startX > period) dest -= period;
+    if (dest < startX) dest += period;
+
+    if (spinRaf.current) {
+      cancelAnimationFrame(spinRaf.current);
+      spinRaf.current = null;
+    }
+    stopWheelSound();
+
+    const snapDur = 480;
+    const t0 = performance.now();
+    const step = (now: number) => {
+      const p = Math.min(1, (now - t0) / snapDur);
+      writeX(startX + (dest - startX) * easeOutSpin(p));
+      if (p < 1) spinRaf.current = requestAnimationFrame(step);
+      else {
+        writeX(dest);
+        spinRaf.current = null;
+      }
+    };
+    spinRaf.current = requestAnimationFrame(step);
+    return () => {
+      if (spinRaf.current) {
+        cancelAnimationFrame(spinRaf.current);
+        spinRaf.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, roundId, round?.winnerTelegramId, round?.resultIndex, bets.length]);
 
   useEffect(() => {
     if (status === "betting" || status === "waiting") {

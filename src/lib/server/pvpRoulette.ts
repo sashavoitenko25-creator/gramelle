@@ -195,6 +195,7 @@ function publicBets(bets: PvpBetRow[], totalBank: number) {
 }
 
 function publicRound(r: PvpRoundRow) {
+  const revealed = r.status === "finished" || r.status === "cancelled";
   return {
     id: r.id,
     status: r.status,
@@ -202,13 +203,17 @@ function publicRound(r: PvpRoundRow) {
     spinEndsAt: r.spin_ends_at,
     resultEndsAt: r.result_ends_at,
     totalBank: Number(r.total_bank) || 0,
-    winnerTelegramId: r.winner_telegram_id != null ? Number(r.winner_telegram_id) : null,
-    winnerAmount: r.winner_amount != null ? Number(r.winner_amount) : null,
-    houseFee: r.house_fee != null ? Number(r.house_fee) : null,
-    resultIndex: r.result_index,
+    // Winner fields only after settle — never leak during spinning
+    winnerTelegramId: revealed && r.winner_telegram_id != null
+      ? Number(r.winner_telegram_id)
+      : null,
+    winnerAmount: revealed && r.winner_amount != null
+      ? Number(r.winner_amount)
+      : null,
+    houseFee: revealed && r.house_fee != null ? Number(r.house_fee) : null,
+    resultIndex: revealed ? r.result_index : null,
     serverSeedHash: r.server_seed_hash,
-    serverSeed:
-      r.status === "finished" || r.status === "cancelled" ? r.server_seed : null,
+    serverSeed: revealed ? r.server_seed : null,
     createdAt: r.created_at,
   };
 }
@@ -255,6 +260,15 @@ export async function getPvpRouletteState(opts?: {
   }
 
   const history = await getRecentHistory(12);
+
+  // Recovery: if settle marked finished but credit previously failed, retry (idempotent)
+  if (
+    round.status === "finished" &&
+    round.winner_telegram_id != null &&
+    Number(round.winner_amount) > 0
+  ) {
+    await ensurePvpWinPayout(round);
+  }
 
   // Online = only players who placed a bet in the current open/active round
   // (not pure spectators watching the screen)
@@ -569,6 +583,78 @@ async function cancelRoundAndRefund(
   return cancelled;
 }
 
+/** True if ledger already has a pvp_roulette win for this round (idempotent payout). */
+async function hasPvpRouletteWinPaid(
+  roundId: string,
+  telegramId: number
+): Promise<boolean> {
+  const db = getAdminClient();
+  const { data } = await db
+    .from("ledger")
+    .select("id, meta")
+    .eq("telegram_id", telegramId)
+    .eq("reason", "win")
+    .order("created_at", { ascending: false })
+    .limit(40);
+  if (!data?.length) return false;
+  return data.some((row) => {
+    const m = (row as { meta?: Record<string, unknown> | null }).meta;
+    return (
+      m &&
+      m.kind === "pvp_roulette_win" &&
+      String(m.round_id) === String(roundId)
+    );
+  });
+}
+
+/** Credit winner once; safe to call again after failed attempt. */
+async function ensurePvpWinPayout(round: PvpRoundRow): Promise<void> {
+  const tid = round.winner_telegram_id;
+  const amount = Number(round.winner_amount) || 0;
+  if (tid == null || amount <= 0) return;
+
+  try {
+    if (await hasPvpRouletteWinPaid(round.id, Number(tid))) return;
+    await creditBalance(Number(tid), amount, "win", {
+      kind: "pvp_roulette_win",
+      round_id: round.id,
+      amount,
+      bank: Number(round.total_bank) || 0,
+    });
+  } catch (e) {
+    console.error("[pvp-roulette] win credit failed", tid, e);
+  }
+}
+
+async function ensurePvpHouseAndRefs(
+  round: PvpRoundRow,
+  bets: PvpBetRow[]
+): Promise<void> {
+  const houseFee = Number(round.house_fee) || 0;
+  const totalBank = Number(round.total_bank) || 0;
+  if (houseFee <= 0 || totalBank <= 0) return;
+
+  try {
+    await creditHouse(houseFee, "profit", "house_fee", {
+      kind: "pvp_roulette",
+      round_id: round.id,
+    });
+  } catch (e) {
+    console.error("[pvp-roulette] house failed", e);
+  }
+  for (const bet of bets) {
+    const stake = Number(bet.amount) || 0;
+    if (stake <= 0) continue;
+    const slice = +((houseFee * stake) / totalBank).toFixed(6);
+    if (slice < 0.0001) continue;
+    try {
+      await payReferralFromHouseFee(Number(bet.telegram_id), stake, slice);
+    } catch {
+      /* */
+    }
+  }
+}
+
 async function settlePvpRound(round: PvpRoundRow): Promise<PvpRoundRow> {
   const db = getAdminClient();
   const bets = await loadBets(round.id);
@@ -623,48 +709,22 @@ async function settlePvpRound(round: PvpRoundRow): Promise<PvpRoundRow> {
 
   const finished = done as PvpRoundRow | null;
   if (!finished) {
-    // Already settled by another worker — no second payout
+    // Already claimed — still try idempotent payout (recovery if credit failed)
     const { data: cur } = await db
       .from("pvp_roulette_rounds")
       .select("*")
       .eq("id", round.id)
       .maybeSingle();
-    return (cur as PvpRoundRow) || round;
+    const row = (cur as PvpRoundRow) || round;
+    if (row.status === "finished") {
+      await ensurePvpWinPayout(row);
+    }
+    return row;
   }
 
-  // 2) Payout only after we own the finished row
-  try {
-    await creditBalance(Number(winner.telegram_id), winnerAmount, "win", {
-      kind: "pvp_roulette_win",
-      round_id: round.id,
-      amount: winnerAmount,
-      bank: totalBank,
-    });
-  } catch (e) {
-    console.error("[pvp-roulette] win credit failed", winner.telegram_id, e);
-  }
-
-  if (houseFee > 0) {
-    try {
-      await creditHouse(houseFee, "profit", "house_fee", {
-        kind: "pvp_roulette",
-        round_id: round.id,
-      });
-    } catch (e) {
-      console.error("[pvp-roulette] house failed", e);
-    }
-    for (const bet of ordered) {
-      const stake = Number(bet.amount) || 0;
-      if (stake <= 0 || totalBank <= 0) continue;
-      const slice = +((houseFee * stake) / totalBank).toFixed(6);
-      if (slice < 0.0001) continue;
-      try {
-        await payReferralFromHouseFee(Number(bet.telegram_id), stake, slice);
-      } catch {
-        /* */
-      }
-    }
-  }
+  // 2) Idempotent payout after we own the finished row
+  await ensurePvpWinPayout(finished);
+  await ensurePvpHouseAndRefs(finished, ordered);
 
   return finished;
 }
