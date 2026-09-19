@@ -95,7 +95,7 @@ export interface ReferralTier {
   emoji: string;
 }
 
-/** Single tier — 10% of house fee (RPS / DICE / XO / Race). No special/individual. */
+/** Single tier — 10% of house fee (RPS / DICE / XO). No special/individual. */
 export const REFERRAL_TIERS: ReferralTier[] = [
   {
     id: "standard",

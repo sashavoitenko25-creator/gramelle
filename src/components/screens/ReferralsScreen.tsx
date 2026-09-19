@@ -144,8 +144,8 @@ export function ReferralsScreen({
         <div className="rounded-2xl border border-white/12 bg-white/[0.05] px-4 py-3">
           <div className="text-sm text-white/80 leading-relaxed">
             {tr(
-              "You get 10% of the platform commission from every bet of your referrals in RPS, Dice, XO and Race. LIVE and SOLO do not count.",
-              "Ты получаешь 10% от комиссии платформы с каждой ставки рефералов в RPS, Dice, XO и Race. LIVE и SOLO не участвуют."
+              "You get 10% of the platform commission from every bet of your referrals in RPS, Dice and XO. LIVE and SOLO do not count.",
+              "Ты получаешь 10% от комиссии платформы с каждой ставки рефералов в RPS, Dice и XO. LIVE и SOLO не участвуют."
             )}
           </div>
           <div className="mt-2 text-xs text-cyan-300/80">

@@ -20,7 +20,7 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
     lang === "ru"
       ? {
           title: "Реферальная программа",
-          p1: "Приглашайте друзей по своей ссылке. Когда они играют в RPS, Dice, XO или Race, вы получаете 10% от комиссии платформы с их ставок.",
+          p1: "Приглашайте друзей по своей ссылке. Когда они играют в RPS, Dice или XO, вы получаете 10% от комиссии платформы с их ставок.",
           p2a: "Начисления идут на ",
           p2b: "реферальные накопления",
           p2c: `. Вывод на основной баланс в любой момент (мин. ${REFERRAL_MIN_WITHDRAW} GRAM).`,
@@ -28,7 +28,7 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
         }
       : {
           title: "Referral program",
-          p1: "Invite friends with your link. When they play RPS, Dice, XO or Race, you earn 10% of the platform commission from their bets.",
+          p1: "Invite friends with your link. When they play RPS, Dice or XO, you earn 10% of the platform commission from their bets.",
           p2a: "Earnings go to your ",
           p2b: "referral savings",
           p2c: `. Withdraw to main balance anytime (min ${REFERRAL_MIN_WITHDRAW} GRAM).`,

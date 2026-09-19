@@ -1190,18 +1190,13 @@ export function PvpRouletteScreen({
                           )}
                         </div>
                         <div className="mt-0.5 text-[11px] text-white/35">
-                          {tr("Bank", "Банк")}{" "}
-                          <span className="tabular-nums text-white/50">
-                            {formatGram(h.totalBank)}
-                          </span>
-                          {h.players && h.players.length > 0 && (
-                            <>
-                              <span className="mx-1.5 text-white/20">·</span>
-                              <span>
-                                {h.players.length}{" "}
-                                {tr("players", "игроков")}
-                              </span>
-                            </>
+                          {h.players && h.players.length > 0 ? (
+                            <span>
+                              {h.players.length}{" "}
+                              {tr("players", "игроков")}
+                            </span>
+                          ) : (
+                            <span className="text-white/25">—</span>
                           )}
                         </div>
                       </div>
@@ -1266,9 +1261,12 @@ export function PvpRouletteScreen({
               <div className="mt-2 text-[28px] font-black tabular-nums text-amber-300 tracking-tight">
                 +{formatGram(histDetail.winnerAmount || 0)}
               </div>
-              <div className="text-[12px] text-white/40 mt-1">
-                {tr("Bank", "Банк")} {formatGram(histDetail.totalBank)} GRAM
-              </div>
+              {histDetail.players && histDetail.players.length > 0 && (
+                <div className="text-[12px] text-white/40 mt-1">
+                  {histDetail.players.length}{" "}
+                  {tr("players", "игроков")}
+                </div>
+              )}
             </div>
 
             {/* Players */}
