@@ -404,56 +404,16 @@ export function PvpRouletteScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, roundId, round?.spinEndsAt, bets.length]);
 
-  /* Reveal: snap to real winner when finished (resultIndex now public) */
+  /* On finish: stop any leftover animation, freeze wheel (no second scroll) */
   useEffect(() => {
-    if (status !== "finished" || !round || !bets.length) return;
-    const winnerId =
-      round.winnerTelegramId != null
-        ? Number(round.winnerTelegramId)
-        : typeof round.resultIndex === "number" && bets[round.resultIndex]
-          ? Number(bets[round.resultIndex].telegramId)
-          : null;
-    if (winnerId == null) return;
-
-    const seedKey = `${round.id}:${round.serverSeedHash || ""}`;
-    const cycle = buildWeightedCycle(bets, seedKey);
-    if (!cycle.length) return;
-    const period = STRIDE * cycle.length;
-    let winnerSlot = cycle.findIndex((b) => Number(b.telegramId) === winnerId);
-    if (winnerSlot < 0) winnerSlot = 0;
-
-    const startX = wheelXRef.current;
-    let dest = winnerSlot * STRIDE;
-    while (dest < startX - period / 2) dest += period;
-    while (dest - startX > period) dest -= period;
-    if (dest < startX) dest += period;
-
+    if (status !== "finished") return;
     if (spinRaf.current) {
       cancelAnimationFrame(spinRaf.current);
       spinRaf.current = null;
     }
     stopWheelSound();
-
-    const snapDur = 480;
-    const t0 = performance.now();
-    const step = (now: number) => {
-      const p = Math.min(1, (now - t0) / snapDur);
-      writeX(startX + (dest - startX) * easeOutSpin(p));
-      if (p < 1) spinRaf.current = requestAnimationFrame(step);
-      else {
-        writeX(dest);
-        spinRaf.current = null;
-      }
-    };
-    spinRaf.current = requestAnimationFrame(step);
-    return () => {
-      if (spinRaf.current) {
-        cancelAnimationFrame(spinRaf.current);
-        spinRaf.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, roundId, round?.winnerTelegramId, round?.resultIndex, bets.length]);
+    // keep current wheelX — no re-spin / snap
+  }, [status, roundId]);
 
   useEffect(() => {
     if (status === "betting" || status === "waiting") {
@@ -697,10 +657,10 @@ export function PvpRouletteScreen({
           <button
             type="button"
             onClick={() => void onCopy("Seed", seedFull)}
-            className="flex-1 min-w-0 flex items-center gap-1.5 rounded-xl bg-emerald-500/10 border border-emerald-400/25 px-2.5 py-1.5 text-left active:scale-[0.99]"
+            className="flex-1 min-w-0 flex items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] px-2.5 py-1.5 text-left active:scale-[0.99]"
           >
-            <span className="text-[9px] text-emerald-300/70 uppercase tracking-wider shrink-0">Seed</span>
-            <span className="text-[10px] font-mono text-emerald-200/80 truncate">
+            <span className="text-[9px] text-white/35 uppercase tracking-wider shrink-0">Seed</span>
+            <span className="text-[10px] font-mono text-white/55 truncate">
               {shortMiddle(seedFull)}
             </span>
           </button>
@@ -841,13 +801,8 @@ export function PvpRouletteScreen({
                 <div className="text-[13px] font-semibold text-white/95 truncate max-w-[120px] mt-0.5 leading-tight">
                   {winnerSnap.username}
                 </div>
-                <div className="flex items-baseline gap-1.5 mt-0.5">
-                  <span className="text-[17px] font-black tabular-nums text-amber-300 leading-none">
-                    +{formatGram(winnerSnap.amount)}
-                  </span>
-                  <span className="text-[10px] text-white/35 font-medium">
-                    / {formatGram(winnerSnap.bank)}
-                  </span>
+                <div className="text-[17px] font-black tabular-nums text-amber-300 leading-none mt-0.5">
+                  +{formatGram(winnerSnap.amount)}
                 </div>
               </div>
             </div>
