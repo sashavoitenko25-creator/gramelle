@@ -247,19 +247,24 @@ export function PvpRouletteScreen({
   const [betting, setBetting] = useState(false);
   const [displayMs, setDisplayMs] = useState(Date.now());
   const [wheelX, setWheelX] = useState(0);
+  /** Client timeline: play → spinning → result → play (ignores server jumps mid-flow) */
+  const [uiPhase, setUiPhase] = useState<"play" | "spinning" | "result">("play");
   const [showWinner, setShowWinner] = useState(false);
-  /** Snapshot so modal stays even after next round opens */
   const [winnerSnap, setWinnerSnap] = useState<{
     username: string;
     avatarUrl: string | null;
     amount: number;
     bank: number;
     won: boolean;
+    telegramId?: number | null;
   } | null>(null);
   const winnerHoldUntil = useRef(0);
-  /** Keep revealed seed visible 5s after finish (even when next round starts) */
   const [seedSnap, setSeedSnap] = useState("");
   const seedHoldUntil = useRef(0);
+  /** Frozen strip/bets for entire spin+result so poll cannot wipe UI */
+  const [frozenStrip, setFrozenStrip] = useState<PvpRouletteBetPublic[]>([]);
+  const [frozenBets, setFrozenBets] = useState<PvpRouletteBetPublic[]>([]);
+  const [frozenBank, setFrozenBank] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
   const [histLoading, setHistLoading] = useState(false);
   const [histItems, setHistItems] = useState<
@@ -273,7 +278,18 @@ export function PvpRouletteScreen({
   const wheelXRef = useRef(0);
   const spinRaf = useRef<number | null>(null);
   const spunForRound = useRef<string | null>(null);
+  const spinDoneRef = useRef(false);
   const lastResultId = useRef("");
+  const pendingResultRef = useRef<{
+    id: string;
+    username: string;
+    avatarUrl: string | null;
+    amount: number;
+    bank: number;
+    won: boolean;
+    seed: string;
+    telegramId: number | null;
+  } | null>(null);
   const balanceRef = useRef(balance);
   const betLock = useRef(false);
 
@@ -347,22 +363,55 @@ export function PvpRouletteScreen({
       : 0;
   const remainSec = endsAt ? Math.max(0, (endsAt - displayMs) / 1000) : 0;
 
-  /* spin — API hides resultIndex until finished; land on hash decoy, then snap */
-  useEffect(() => {
-    if (!round || status !== "spinning" || !bets.length) {
-      if (status !== "spinning") {
-        stopWheelSound();
-        if (spinRaf.current) {
-          cancelAnimationFrame(spinRaf.current);
-          spinRaf.current = null;
-        }
+  const revealPendingResult = useCallback(
+    (hadStake: boolean) => {
+      const p = pendingResultRef.current;
+      if (!p || lastResultId.current === p.id) return;
+      if (!spinDoneRef.current) return;
+      lastResultId.current = p.id;
+      pendingResultRef.current = null;
+      setWinnerSnap({
+        username: p.username,
+        avatarUrl: p.avatarUrl,
+        amount: p.amount,
+        bank: p.bank,
+        won: p.won,
+        telegramId: p.telegramId,
+      });
+      setShowWinner(true);
+      setUiPhase("result");
+      winnerHoldUntil.current = Date.now() + 5000;
+      if (p.seed) {
+        setSeedSnap(p.seed);
+        seedHoldUntil.current = Date.now() + 5000;
       }
-      return;
-    }
+      if (p.won) {
+        playWinSound();
+        hapticSuccess();
+      } else if (hadStake) {
+        playLoseSound();
+        hapticError();
+      }
+    },
+    [hapticSuccess, hapticError]
+  );
+
+  /* Start spin once per round — do NOT cancel RAF when server goes finished */
+  useEffect(() => {
+    if (!round || status !== "spinning" || !bets.length) return;
     if (spunForRound.current === round.id) return;
     spunForRound.current = round.id;
+    spinDoneRef.current = false;
+    setUiPhase("spinning");
 
     const seedKey = `${round.id}:${round.serverSeedHash || ""}`;
+    const stripBuilt = buildStrip(bets, seedKey, 10);
+    setFrozenStrip(stripBuilt);
+    setFrozenBets(bets);
+    setFrozenBank(
+      bets.reduce((s, b) => s + b.amount, 0) || Number(round.totalBank) || 0
+    );
+
     const cycle = buildWeightedCycle(bets, seedKey);
     const period = STRIDE * Math.max(1, cycle.length);
     const decoySlot =
@@ -384,76 +433,62 @@ export function PvpRouletteScreen({
     startWheelSound(dur);
     haptic("medium");
 
+    if (spinRaf.current) cancelAnimationFrame(spinRaf.current);
     const t0 = performance.now();
     const step = (now: number) => {
       const p = Math.min(1, (now - t0) / dur);
       writeX(startX + (dest - startX) * easeOutSpin(p));
-      if (p < 1) spinRaf.current = requestAnimationFrame(step);
-      else {
+      if (p < 1) {
+        spinRaf.current = requestAnimationFrame(step);
+      } else {
         writeX(dest);
         spinRaf.current = null;
         stopWheelSound();
+        spinDoneRef.current = true;
         hapticSuccess();
+        revealPendingResult(myBet > 0);
       }
     };
     spinRaf.current = requestAnimationFrame(step);
-    return () => {
-      if (spinRaf.current) cancelAnimationFrame(spinRaf.current);
-      stopWheelSound();
-    };
+    // no cleanup — must not kill spin when status becomes finished
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, roundId, round?.spinEndsAt, bets.length]);
+  }, [status, roundId, bets.length]);
 
-  /* On finish: stop any leftover animation, freeze wheel (no second scroll) */
+  /* Server finished → queue result until spin has stopped */
   useEffect(() => {
-    if (status !== "finished") return;
-    if (spinRaf.current) {
-      cancelAnimationFrame(spinRaf.current);
-      spinRaf.current = null;
-    }
-    stopWheelSound();
-    // keep current wheelX — no re-spin / snap
-  }, [status, roundId]);
+    if (status !== "finished" || !round?.id) return;
+    if (lastResultId.current === round.id) return;
 
-  useEffect(() => {
-    if (status === "betting" || status === "waiting") {
-      if (spunForRound.current && spunForRound.current !== roundId) {
-        spunForRound.current = null;
-      }
-      writeX(0);
-    }
-  }, [status, roundId, bets.length, writeX]);
+    const wBet =
+      (typeof round.resultIndex === "number"
+        ? (frozenBets.length ? frozenBets : bets)[round.resultIndex]
+        : undefined) ||
+      (frozenBets.length ? frozenBets : bets).find(
+        (b) => Number(b.telegramId) === Number(round.winnerTelegramId)
+      );
+    const won = Number(round.winnerTelegramId) === Number(telegramId);
+    pendingResultRef.current = {
+      id: round.id,
+      username: wBet?.username || "—",
+      avatarUrl: wBet?.avatarUrl ?? null,
+      amount: Number(round.winnerAmount) || 0,
+      bank: Number(round.totalBank) || frozenBank || 0,
+      won,
+      seed: round.serverSeed || "",
+      telegramId:
+        round.winnerTelegramId != null
+          ? Number(round.winnerTelegramId)
+          : wBet
+            ? Number(wBet.telegramId)
+            : null,
+    };
 
-  useEffect(() => {
-    if (status === "finished" && round?.id && round.id !== lastResultId.current) {
-      lastResultId.current = round.id;
-      const wBet =
-        (typeof round.resultIndex === "number" ? bets[round.resultIndex] : undefined) ||
-        bets.find((b) => Number(b.telegramId) === Number(round.winnerTelegramId));
-      const won = Number(round.winnerTelegramId) === Number(telegramId);
-      setWinnerSnap({
-        username: wBet?.username || "—",
-        avatarUrl: wBet?.avatarUrl ?? null,
-        amount: Number(round.winnerAmount) || 0,
-        bank: Number(round.totalBank) || 0,
-        won,
-      });
-      // Result for everyone — auto-hide after 5s
-      setShowWinner(true);
-      winnerHoldUntil.current = Date.now() + 5000;
-      // Seed next to Hash for 5s with the result
-      if (round.serverSeed) {
-        setSeedSnap(round.serverSeed);
-        seedHoldUntil.current = Date.now() + 5000;
-      }
-      if (won) {
-        playWinSound();
-        hapticSuccess();
-      } else if (myBet > 0) {
-        playLoseSound();
-        hapticError();
-      }
+    // Late join / spin already finished: reveal immediately
+    if (spinDoneRef.current || uiPhase !== "spinning") {
+      if (!spinDoneRef.current) spinDoneRef.current = true;
+      revealPendingResult(myBet > 0);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     status,
     round?.id,
@@ -462,26 +497,31 @@ export function PvpRouletteScreen({
     round?.winnerAmount,
     round?.totalBank,
     round?.serverSeed,
-    bets,
     telegramId,
     myBet,
-    hapticSuccess,
-    hapticError,
   ]);
 
-  // Auto-hide result after 5s
+  /* Auto-hide result after 5s → only then unlock new-round UI */
   useEffect(() => {
-    if (!showWinner || winnerHoldUntil.current <= 0) return;
+    if (!showWinner || uiPhase !== "result" || winnerHoldUntil.current <= 0)
+      return;
     const left = Math.max(50, winnerHoldUntil.current - Date.now());
     const id = setTimeout(() => {
       setShowWinner(false);
       setWinnerSnap(null);
       winnerHoldUntil.current = 0;
+      setUiPhase("play");
+      setFrozenStrip([]);
+      setFrozenBets([]);
+      setFrozenBank(0);
+      spinDoneRef.current = false;
+      // reset wheel only after result ends
+      writeX(0);
+      spunForRound.current = null;
     }, left);
     return () => clearTimeout(id);
-  }, [showWinner, winnerSnap]);
+  }, [showWinner, uiPhase, winnerSnap, writeX]);
 
-  // Clear seed after hold
   useEffect(() => {
     if (!seedSnap) return;
     const left = Math.max(50, seedHoldUntil.current - Date.now());
@@ -489,15 +529,42 @@ export function PvpRouletteScreen({
     return () => clearTimeout(id);
   }, [seedSnap]);
 
-  const isSpinPhase = status === "spinning" || status === "finished";
+  /* Never reset wheel while spinning/result — server may already be on next waiting */
+  useEffect(() => {
+    if (uiPhase === "spinning" || uiPhase === "result") return;
+    if (status === "betting" || status === "waiting") {
+      if (spunForRound.current && spunForRound.current !== roundId) {
+        spunForRound.current = null;
+      }
+    }
+  }, [status, roundId, uiPhase]);
+
   const stripSeed = `${round?.id || "x"}:${round?.serverSeedHash || ""}`;
   const strip = useMemo(() => {
+    if (uiPhase === "spinning" || uiPhase === "result") {
+      return frozenStrip.length
+        ? frozenStrip
+        : bets.length
+          ? buildStrip(bets, stripSeed, 10)
+          : [];
+    }
     if (!bets.length) return [] as PvpRouletteBetPublic[];
-    // Waiting/betting: one avatar per player
-    if (!isSpinPhase) return bets;
-    // Spin: weighted by chance, shuffled, many loops
-    return buildStrip(bets, stripSeed, 10);
-  }, [bets, isSpinPhase, stripSeed]);
+    return bets;
+  }, [uiPhase, frozenStrip, bets, stripSeed]);
+
+  const viewBets =
+    uiPhase === "spinning" || uiPhase === "result"
+      ? frozenBets.length
+        ? frozenBets
+        : bets
+      : bets;
+  const viewBank =
+    uiPhase === "result"
+      ? winnerSnap?.bank || frozenBank || totalBank
+      : uiPhase === "spinning"
+        ? frozenBank || totalBank
+        : totalBank;
+  const isSpinPhase = uiPhase === "spinning" || uiPhase === "result";
 
   const amount = (() => {
     if (!amountStr.trim()) return 0;
@@ -587,6 +654,7 @@ export function PvpRouletteScreen({
   };
 
   const canBet =
+    uiPhase === "play" &&
     (status === "waiting" || status === "betting") &&
     !betting &&
     (status !== "betting" || remainSec > 0.4);
@@ -682,7 +750,7 @@ export function PvpRouletteScreen({
             </div>
             <div className="mt-1 flex items-baseline justify-center gap-1.5">
               <span className="text-[26px] font-black tabular-nums tracking-tight text-white leading-none">
-                {formatGram(totalBank)}
+                {formatGram(viewBank)}
               </span>
               <span className="text-[12px] font-semibold text-amber-200/50">GRAM</span>
             </div>
@@ -690,7 +758,7 @@ export function PvpRouletteScreen({
           </div>
         </div>
       </div>
-      {status === "waiting" && bets.length > 0 && (
+      {uiPhase === "play" && status === "waiting" && bets.length > 0 && (
         <div className="mx-4 mt-2 flex justify-center">
           <div className="px-3 py-1 rounded-full bg-white/[0.05] border border-white/[0.1] text-[11px] font-medium text-white/55">
             {tr("Waiting for players", "Ждём игроков")}
@@ -819,7 +887,7 @@ export function PvpRouletteScreen({
                 <span className="text-[14px] text-white/60 font-semibold ml-0.5">s</span>
               </div>
             </div>
-          ) : status === "waiting" && bets.length === 0 ? (
+          ) : uiPhase === "play" && status === "waiting" && bets.length === 0 ? (
             <div className="px-5 py-3 rounded-2xl bg-black/75 border border-white/12 backdrop-blur-md text-center shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
               <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 font-semibold">
                 {tr("Waiting", "Ожидание")}
@@ -958,19 +1026,20 @@ export function PvpRouletteScreen({
         </button>
       </div>
 
-      {/* Players list — only when someone bet */}
-      {bets.length > 0 && (
+      {/* Players list — frozen during spin/result */}
+      {viewBets.length > 0 && (
       <div className="mx-4 mt-4 mb-2">
         <div className="text-[10px] text-white/30 uppercase tracking-wider mb-2">
-          {tr("Players", "Игроки")} · {bets.length}
+          {tr("Players", "Игроки")} · {viewBets.length}
         </div>
         <div className="space-y-1.5 max-h-[140px] overflow-y-auto no-scrollbar">
-          {[...bets]
+          {[...viewBets]
             .sort((a, b) => b.amount - a.amount)
             .map((b) => {
               const isWin =
-                status === "finished" &&
-                Number(b.telegramId) === Number(round?.winnerTelegramId);
+                uiPhase === "result" &&
+                winnerSnap?.telegramId != null &&
+                Number(b.telegramId) === Number(winnerSnap.telegramId);
               const isMe = Number(b.telegramId) === Number(telegramId);
               return (
                 <div
