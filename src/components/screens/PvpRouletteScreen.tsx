@@ -248,7 +248,7 @@ export function PvpRouletteScreen({
   const [displayMs, setDisplayMs] = useState(Date.now());
   const [wheelX, setWheelX] = useState(0);
   const [showWinner, setShowWinner] = useState(false);
-  /** Snapshot so modal stays 5s even after next round opens */
+  /** Snapshot so modal stays even after next round opens */
   const [winnerSnap, setWinnerSnap] = useState<{
     username: string;
     avatarUrl: string | null;
@@ -257,6 +257,9 @@ export function PvpRouletteScreen({
     won: boolean;
   } | null>(null);
   const winnerHoldUntil = useRef(0);
+  /** Keep revealed seed visible 5s after finish (even when next round starts) */
+  const [seedSnap, setSeedSnap] = useState("");
+  const seedHoldUntil = useRef(0);
   const [showHistory, setShowHistory] = useState(false);
   const [histLoading, setHistLoading] = useState(false);
   const [histItems, setHistItems] = useState<
@@ -434,7 +437,15 @@ export function PvpRouletteScreen({
         won,
       });
       setShowWinner(true);
-      winnerHoldUntil.current = Date.now() + PVP_ROULETTE_RESULT_MS;
+      // Winner: modal stays until OK. Losers: auto-close after RESULT_MS
+      winnerHoldUntil.current = won
+        ? 0
+        : Date.now() + PVP_ROULETTE_RESULT_MS;
+      // Seed visible 5 seconds after result
+      if (round.serverSeed) {
+        setSeedSnap(round.serverSeed);
+        seedHoldUntil.current = Date.now() + 5000;
+      }
       if (won) {
         playWinSound();
         hapticSuccess();
@@ -443,7 +454,6 @@ export function PvpRouletteScreen({
         hapticError();
       }
     }
-    // Do NOT clear showWinner on waiting — timer holds 5s
   }, [
     status,
     round?.id,
@@ -451,6 +461,7 @@ export function PvpRouletteScreen({
     round?.resultIndex,
     round?.winnerAmount,
     round?.totalBank,
+    round?.serverSeed,
     bets,
     telegramId,
     myBet,
@@ -458,16 +469,25 @@ export function PvpRouletteScreen({
     hapticError,
   ]);
 
-  // Hold winner modal for full RESULT_MS (5s), even if next round already started
+  // Auto-close only for non-winners (winner closes via OK button)
   useEffect(() => {
-    if (!showWinner) return;
+    if (!showWinner || !winnerSnap) return;
+    if (winnerSnap.won || winnerHoldUntil.current <= 0) return;
     const left = Math.max(50, winnerHoldUntil.current - Date.now());
     const id = setTimeout(() => {
       setShowWinner(false);
       setWinnerSnap(null);
     }, left);
     return () => clearTimeout(id);
-  }, [showWinner]);
+  }, [showWinner, winnerSnap]);
+
+  // Clear held seed after 5s
+  useEffect(() => {
+    if (!seedSnap) return;
+    const left = Math.max(50, seedHoldUntil.current - Date.now());
+    const id = setTimeout(() => setSeedSnap(""), left);
+    return () => clearTimeout(id);
+  }, [seedSnap]);
 
   const isSpinPhase = status === "spinning" || status === "finished";
   const stripSeed = `${round?.id || "x"}:${round?.serverSeedHash || ""}`;
@@ -582,9 +602,10 @@ export function PvpRouletteScreen({
 
   const hashFull = round?.serverSeedHash || "";
   const seedFull =
-    (status === "finished" || status === "cancelled") && round?.serverSeed
+    seedSnap ||
+    ((status === "finished" || status === "cancelled") && round?.serverSeed
       ? round.serverSeed
-      : "";
+      : "");
 
   return (
     <div className="flex flex-col min-h-[100dvh] pb-32 safe-top">
@@ -636,10 +657,10 @@ export function PvpRouletteScreen({
           <button
             type="button"
             onClick={() => void onCopy("Seed", seedFull)}
-            className="flex-1 min-w-0 flex items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] px-2.5 py-1.5 text-left active:scale-[0.99]"
+            className="flex-1 min-w-0 flex items-center gap-1.5 rounded-xl bg-emerald-500/10 border border-emerald-400/25 px-2.5 py-1.5 text-left active:scale-[0.99]"
           >
-            <span className="text-[9px] text-white/35 uppercase tracking-wider shrink-0">Seed</span>
-            <span className="text-[10px] font-mono text-white/55 truncate">
+            <span className="text-[9px] text-emerald-300/70 uppercase tracking-wider shrink-0">Seed</span>
+            <span className="text-[10px] font-mono text-emerald-200/80 truncate">
               {shortMiddle(seedFull)}
             </span>
           </button>
@@ -817,7 +838,7 @@ export function PvpRouletteScreen({
         </div>
       </div>
 
-      {/* Amount — same pattern as color roulette */}
+      {/* Amount */}
       <div className="mx-4 mt-3">
         <input
           value={amountStr}
@@ -827,18 +848,39 @@ export function PvpRouletteScreen({
           disabled={!canBet && status !== "waiting"}
           className="w-full h-11 rounded-2xl bg-white/[0.05] border border-white/10 px-4 text-[15px] font-semibold text-white tabular-nums outline-none focus:border-cyan-400/40 placeholder:text-white/30 disabled:opacity-40"
         />
+        {/* Quick amounts */}
+        <div className="mt-2 grid grid-cols-4 gap-2">
+          {([1, 5, 10, 25] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => {
+                haptic("light");
+                setAmt(v);
+              }}
+              disabled={!canBet && status !== "waiting"}
+              className={cn(
+                "h-10 rounded-xl border text-[14px] font-semibold tabular-nums active:scale-95 disabled:opacity-40 transition-colors",
+                amount === v
+                  ? "bg-amber-500/20 border-amber-400/40 text-amber-200"
+                  : "bg-white/[0.05] border-white/10 text-white/80"
+              )}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+        {/* Actions */}
         <div className="mt-2 grid grid-cols-4 gap-2">
           {(
             [
-              [tr("Clear", "Сброс"), () => setAmt(0)],
-              [tr("Last", "Прошлая"), () => setAmt(lastAmount)],
-              ["+0.25", () => setAmt((amount || 0) + 0.25)],
-              ["+1", () => setAmt((amount || 0) + 1)],
-              ["+5", () => setAmt((amount || 0) + 5)],
-              ["½", () => setAmt(amount / 2)],
+              [tr("Last", "Прошлая"), () => setAmt(lastAmount || 1)],
               [
                 "×2",
-                () => setAmt(Math.min(PVP_ROULETTE_MAX_BET, (amount || 1) * 2)),
+                () =>
+                  setAmt(
+                    Math.min(PVP_ROULETTE_MAX_BET, (amount || lastAmount || 1) * 2)
+                  ),
               ],
               [
                 "Max",
@@ -847,6 +889,7 @@ export function PvpRouletteScreen({
                     Math.min(PVP_ROULETTE_MAX_BET, balanceRef.current)
                   ),
               ],
+              [tr("Clear", "Сброс"), () => setAmt(0)],
             ] as const
           ).map(([label, fn]) => (
             <button
@@ -857,7 +900,7 @@ export function PvpRouletteScreen({
                 fn();
               }}
               disabled={!canBet && status !== "waiting"}
-              className="h-9 rounded-xl bg-white/[0.05] border border-white/10 text-[12px] font-medium text-white/70 active:scale-95 disabled:opacity-40"
+              className="h-10 rounded-xl bg-white/[0.05] border border-white/10 text-[12px] font-medium text-white/70 active:scale-95 disabled:opacity-40"
             >
               {label}
             </button>
@@ -1204,6 +1247,20 @@ export function PvpRouletteScreen({
             <div className="text-[12px] text-white/35 mt-1">
               {tr("Bank", "Банк")} {formatGram(winnerSnap.bank)}
             </div>
+            {seedFull ? (
+              <button
+                type="button"
+                onClick={() => void onCopy("Seed", seedFull)}
+                className="mt-3 w-full flex items-center gap-2 rounded-xl bg-white/[0.04] border border-emerald-400/20 px-3 py-2 text-left active:scale-[0.99]"
+              >
+                <span className="text-[10px] text-emerald-300/70 uppercase shrink-0">
+                  Seed
+                </span>
+                <span className="text-[11px] font-mono text-emerald-200/80 truncate flex-1">
+                  {shortMiddle(seedFull, 8, 6)}
+                </span>
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => {
@@ -1212,9 +1269,9 @@ export function PvpRouletteScreen({
                 winnerHoldUntil.current = 0;
                 playClickSound();
               }}
-              className="mt-5 w-full h-11 rounded-2xl font-bold bg-gradient-to-r from-cyan-500 to-violet-500 text-white active:scale-[0.98]"
+              className="mt-5 w-full h-11 rounded-2xl font-bold bg-gradient-to-r from-amber-500 to-amber-600 text-white active:scale-[0.98] shadow-[0_8px_24px_rgba(251,191,36,0.25)]"
             >
-              {tr("OK", "OK")}
+              {winnerSnap.won ? tr("Collect", "Забрать") : tr("OK", "OK")}
             </button>
           </div>
         </div>
