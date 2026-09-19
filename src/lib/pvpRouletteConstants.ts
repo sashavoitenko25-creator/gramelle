@@ -1,4 +1,4 @@
-import { MIN_BET, HOUSE_EDGE } from "@/lib/constants";
+import { MIN_BET } from "@/lib/constants";
 
 /** LIVE PvP Avatar Roulette — players' avatars form the wheel */
 
@@ -6,8 +6,12 @@ export const PVP_ROULETTE_MIN_BET = MIN_BET;
 export const PVP_ROULETTE_MAX_BET = 500;
 export const PVP_ROULETTE_MIN_PLAYERS = 2;
 export const PVP_ROULETTE_MAX_PLAYERS = 16;
-/** House fee from total bank */
-export const PVP_ROULETTE_HOUSE_EDGE = HOUSE_EDGE; // 0.05
+/**
+ * House fee only on opponents' stakes (not winner's own bet).
+ * winnerAmount = winnerBet + (bank - winnerBet) * (1 - edge)
+ * Matches typical PvP gift-roulette economics (~30%).
+ */
+export const PVP_ROULETTE_HOUSE_EDGE = 0.3;
 /** Seconds after 2nd player joins until bets close */
 export const PVP_ROULETTE_COUNTDOWN_SEC = 18;
 /** Spin animation duration (ms) — 5s shorter */

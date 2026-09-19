@@ -701,8 +701,11 @@ async function settlePvpRound(round: PvpRoundRow): Promise<PvpRoundRow> {
   if (idx < 0 || idx >= ordered.length) idx = 0;
   const winner = ordered[idx];
   const totalBank = ordered.reduce((s, b) => s + Number(b.amount), 0);
-  const houseFee = +(totalBank * PVP_ROULETTE_HOUSE_EDGE).toFixed(6);
-  const winnerAmount = +(totalBank - houseFee).toFixed(6);
+  // Rake only from opponents: winner keeps own stake + (1-edge) of the rest
+  const winnerBet = Number(winner.amount) || 0;
+  const others = Math.max(0, totalBank - winnerBet);
+  const houseFee = +(others * PVP_ROULETTE_HOUSE_EDGE).toFixed(6);
+  const winnerAmount = +(winnerBet + others - houseFee).toFixed(6);
   const resultEnds = new Date(Date.now() + PVP_ROULETTE_RESULT_MS).toISOString();
 
   // 1) Atomic claim: only one worker settles this spin
