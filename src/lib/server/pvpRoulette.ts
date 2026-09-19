@@ -194,8 +194,19 @@ function publicBets(bets: PvpBetRow[], totalBank: number) {
   });
 }
 
-function publicRound(r: PvpRoundRow) {
+/** Sequential game number: 1, 2, 3… by creation order */
+async function getRoundNumber(createdAt: string): Promise<number> {
+  const db = getSupabaseAdmin();
+  const { count } = await db
+    .from("pvp_roulette_rounds")
+    .select("id", { count: "exact", head: true })
+    .lte("created_at", createdAt);
+  return Math.max(1, count || 1);
+}
+
+async function publicRound(r: PvpRoundRow) {
   const revealed = r.status === "finished" || r.status === "cancelled";
+  const roundNumber = await getRoundNumber(r.created_at);
   return {
     id: r.id,
     status: r.status,
@@ -203,6 +214,7 @@ function publicRound(r: PvpRoundRow) {
     spinEndsAt: r.spin_ends_at,
     resultEndsAt: r.result_ends_at,
     totalBank: Number(r.total_bank) || 0,
+    roundNumber,
     // Winner fields only after settle — never leak during spinning
     winnerTelegramId: revealed && r.winner_telegram_id != null
       ? Number(r.winner_telegram_id)
@@ -279,7 +291,7 @@ export async function getPvpRouletteState(opts?: {
 
   return {
     ok: true as const,
-    round: publicRound(round),
+    round: await publicRound(round),
     bets: publicBets(bets, totalBank),
     myBet,
     playerCount: bets.length,
@@ -347,7 +359,11 @@ async function getRecentHistory(limit: number) {
     }
   }
 
-  return rounds.map((r) => {
+  const numbers = await Promise.all(
+    rounds.map((r) => getRoundNumber(r.created_at))
+  );
+
+  return rounds.map((r, i) => {
     const tid =
       r.winner_telegram_id != null ? Number(r.winner_telegram_id) : null;
     const players = (betsByRound.get(r.id) || []).sort(
@@ -355,6 +371,7 @@ async function getRecentHistory(limit: number) {
     );
     return {
       id: r.id,
+      roundNumber: numbers[i],
       winnerTelegramId: tid,
       winnerUsername: tid != null ? nameMap.get(tid) || "Player" : undefined,
       winnerAvatarUrl: tid != null ? photoMap.get(tid) ?? null : null,

@@ -17,6 +17,8 @@ export type PvpRouletteRoundPublic = {
   spinEndsAt: string | null;
   resultEndsAt: string | null;
   totalBank: number;
+  /** Sequential game number (#1, #2, …) */
+  roundNumber?: number;
   winnerTelegramId: number | null;
   winnerAmount: number | null;
   houseFee: number | null;
@@ -38,6 +40,7 @@ export type PvpRouletteStateResponse = {
   online?: number;
   history?: {
     id: string;
+    roundNumber?: number;
     winnerTelegramId: number | null;
     winnerUsername?: string;
     winnerAvatarUrl?: string | null;

@@ -703,6 +703,11 @@ export function PvpRouletteScreen({
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-semibold tracking-tight flex items-center gap-2">
             <span>{tr("PvP Roulette", "PvP Рулетка")}</span>
+            {typeof round?.roundNumber === "number" && (
+              <span className="text-[11px] font-bold tabular-nums text-amber-300/80 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5">
+                #{round.roundNumber}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center shrink-0">
@@ -1160,6 +1165,11 @@ export function PvpRouletteScreen({
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
+                          {typeof h.roundNumber === "number" && (
+                            <span className="text-[10px] font-bold tabular-nums text-white/40 shrink-0">
+                              #{h.roundNumber}
+                            </span>
+                          )}
                           <span className="text-[14px] font-semibold text-white truncate">
                             {h.winnerUsername || "—"}
                           </span>
@@ -1205,6 +1215,11 @@ export function PvpRouletteScreen({
           <div className="px-4 pt-3 pb-3 border-b border-white/[0.06]">
             <div className="text-[18px] font-bold text-white tracking-tight">
               {tr("Round details", "Детали раунда")}
+              {typeof histDetail.roundNumber === "number" && (
+                <span className="ml-2 text-[13px] font-bold tabular-nums text-amber-300/80">
+                  #{histDetail.roundNumber}
+                </span>
+              )}
             </div>
             <div className="text-[12px] text-white/35 mt-0.5">
               {histDetail.createdAt
