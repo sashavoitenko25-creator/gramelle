@@ -1,14 +1,18 @@
 /**
- * LIVE Roulette "Paravoz" — 10 correct color guesses in a row → 10 GRAM bonus.
- * Per-player streak. Skip a round or miss → reset.
+ * LIVE Roulette "Paravoz" — 10 correct guesses in a row → bonus.
+ * Exactly +1 cell per settled round per player. Skip/miss → reset.
+ * Showcase bots included in streak display (no real bonus credit).
  */
 import { getAdminClient } from "./supabase";
 import { creditBalance } from "./ledger";
 import type { RouletteColor } from "@/lib/rouletteConstants";
-import { isRouletteShowcaseBot } from "./rouletteBots";
+import {
+  isRouletteShowcaseBot,
+  botPhotoUrl,
+  ROULETTE_BOTS,
+} from "./rouletteBots";
 
 export const PARAVOZ_TARGET = 10;
-/** 10 TON ≡ 10 GRAM (1:1) */
 export const PARAVOZ_BONUS_GRAM = 10;
 
 export type ParavozState = {
@@ -28,6 +32,14 @@ export type ParavozWin = {
   at: string;
 };
 
+export type ParavozParticipant = {
+  telegramId: number;
+  username: string;
+  photoUrl: string | null;
+  streak: number;
+  colors: RouletteColor[];
+};
+
 type BetLite = {
   telegram_id: number;
   username?: string;
@@ -35,18 +47,27 @@ type BetLite = {
   amount: number;
 };
 
+/** In-memory guard (multi-instance still protected by DB last_round_id) */
+const appliedRounds = new Set<string>();
+
 /**
- * After a round settles:
- * - Win (stake on result color) → streak +1
- * - Loss (only wrong colors) → reset
- * - No bet this round → reset (skip breaks the train)
- * Bonus once when streak hits exactly TARGET.
+ * Apply streak updates once per roundId.
+ * Win → +1 only. Loss/skip → 0. Never +2 for one round.
  */
 export async function applyParavozAfterRound(opts: {
   resultColor: RouletteColor;
   bets: BetLite[];
+  roundId: string;
 }): Promise<void> {
-  const { resultColor, bets } = opts;
+  const { resultColor, bets, roundId } = opts;
+  if (!roundId) return;
+  if (appliedRounds.has(roundId)) return;
+  appliedRounds.add(roundId);
+  if (appliedRounds.size > 200) {
+    const first = appliedRounds.values().next().value;
+    if (first) appliedRounds.delete(first);
+  }
+
   const byUser = new Map<
     number,
     { username: string; onWin: number; onLose: number }
@@ -54,7 +75,7 @@ export async function applyParavozAfterRound(opts: {
 
   for (const b of bets) {
     const tid = Number(b.telegram_id);
-    if (!tid || isRouletteShowcaseBot(tid)) continue;
+    if (!tid) continue;
     const amt = Number(b.amount) || 0;
     if (amt <= 0) continue;
     const cur = byUser.get(tid) || {
@@ -70,46 +91,58 @@ export async function applyParavozAfterRound(opts: {
 
   const db = getAdminClient();
 
-  // Active streaks (anyone mid-train) — skippers must reset
+  // Anyone with active streak (skip → reset) + everyone who bet this round
   const { data: activeRows } = await db
     .from("roulette_paravoz")
-    .select("telegram_id, streak, colors, username")
+    .select("telegram_id, streak, colors, username, last_round_id")
     .gt("streak", 0);
 
   const toProcess = new Set<number>();
   for (const tid of byUser.keys()) toProcess.add(tid);
   for (const r of activeRows || []) {
     const tid = Number(r.telegram_id);
-    if (tid && !isRouletteShowcaseBot(tid)) toProcess.add(tid);
+    if (tid) toProcess.add(tid);
   }
-
   if (toProcess.size === 0) return;
 
   for (const tid of toProcess) {
     const u = byUser.get(tid);
     const played = !!u;
     const guessed = !!(u && u.onWin > 0);
+    const isBot = isRouletteShowcaseBot(tid);
 
     try {
       const { data: row } = await db
         .from("roulette_paravoz")
-        .select("streak, colors, username")
+        .select("streak, colors, username, last_round_id")
         .eq("telegram_id", tid)
         .maybeSingle();
+
+      // Already applied for this round → never double-count
+      if (row?.last_round_id && String(row.last_round_id) === String(roundId)) {
+        continue;
+      }
 
       let streak = Number(row?.streak) || 0;
       let colors: RouletteColor[] = Array.isArray(row?.colors)
         ? (row!.colors as RouletteColor[])
         : [];
-      const username =
-        (u?.username || row?.username || "Player").toString().slice(0, 64);
+      const username = (
+        u?.username ||
+        row?.username ||
+        (isBot
+          ? ROULETTE_BOTS.find((b) => b.id === tid)?.username || "Player"
+          : "Player")
+      )
+        .toString()
+        .slice(0, 64);
 
       if (!played) {
-        // Skipped the round → train breaks
         if (streak === 0 && colors.length === 0) continue;
         streak = 0;
         colors = [];
       } else if (guessed) {
+        // Exactly +1 for this round
         streak += 1;
         colors = [...colors, resultColor].slice(-50);
       } else {
@@ -117,23 +150,38 @@ export async function applyParavozAfterRound(opts: {
         colors = [];
       }
 
-      await db.from("roulette_paravoz").upsert(
-        {
-          telegram_id: tid,
-          streak,
-          colors,
-          username,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "telegram_id" }
-      );
+      const payload: Record<string, unknown> = {
+        telegram_id: tid,
+        streak,
+        colors,
+        username,
+        last_round_id: roundId,
+        updated_at: new Date().toISOString(),
+      };
 
-      if (played && guessed && streak === PARAVOZ_TARGET) {
+      const { error: upErr } = await db
+        .from("roulette_paravoz")
+        .upsert(payload, { onConflict: "telegram_id" });
+      if (upErr) {
+        // Column last_round_id may be missing — retry without it
+        if (String(upErr.message || "").includes("last_round_id")) {
+          delete payload.last_round_id;
+          await db
+            .from("roulette_paravoz")
+            .upsert(payload, { onConflict: "telegram_id" });
+        } else {
+          console.error("[paravoz] upsert", tid, upErr.message);
+        }
+      }
+
+      // Bonus only for real users at exactly 10
+      if (played && guessed && streak === PARAVOZ_TARGET && !isBot) {
         try {
           await creditBalance(tid, PARAVOZ_BONUS_GRAM, "win", {
             kind: "paravoz_bonus",
             streak,
             bonus: PARAVOZ_BONUS_GRAM,
+            round_id: roundId,
           });
         } catch (e) {
           console.error("[paravoz] credit", tid, e);
@@ -165,9 +213,7 @@ export async function getParavozForUser(
     colors: [],
     bonusGram: PARAVOZ_BONUS_GRAM,
   };
-  if (!telegramId || telegramId <= 0 || isRouletteShowcaseBot(telegramId)) {
-    return empty;
-  }
+  if (!telegramId || telegramId <= 0) return empty;
   try {
     const db = getAdminClient();
     const { data } = await db
@@ -187,14 +233,6 @@ export async function getParavozForUser(
   }
 }
 
-export type ParavozParticipant = {
-  telegramId: number;
-  username: string;
-  photoUrl: string | null;
-  streak: number;
-  colors: RouletteColor[];
-};
-
 export async function getParavozParticipants(
   limit = 30
 ): Promise<ParavozParticipant[]> {
@@ -209,22 +247,31 @@ export async function getParavozParticipants(
     const rows = data || [];
     if (rows.length === 0) return [];
 
-    const ids = rows.map((r) => Number(r.telegram_id));
+    const realIds = rows
+      .map((r) => Number(r.telegram_id))
+      .filter((id) => !isRouletteShowcaseBot(id));
     const photoMap = new Map<number, string | null>();
-    const { data: profiles } = await db
-      .from("profiles")
-      .select("telegram_id, photo_url, username")
-      .in("telegram_id", ids);
-    for (const pr of profiles || []) {
-      photoMap.set(Number(pr.telegram_id), (pr.photo_url as string) || null);
+    if (realIds.length > 0) {
+      const { data: profiles } = await db
+        .from("profiles")
+        .select("telegram_id, photo_url")
+        .in("telegram_id", realIds);
+      for (const pr of profiles || []) {
+        photoMap.set(Number(pr.telegram_id), (pr.photo_url as string) || null);
+      }
     }
 
     return rows.map((r) => {
       const tid = Number(r.telegram_id);
+      const bot = isRouletteShowcaseBot(tid);
       return {
         telegramId: tid,
-        username: String(r.username || "Player"),
-        photoUrl: photoMap.get(tid) ?? null,
+        username:
+          String(r.username || "") ||
+          (bot
+            ? ROULETTE_BOTS.find((b) => b.id === tid)?.username || "Player"
+            : "Player"),
+        photoUrl: bot ? botPhotoUrl(tid) : photoMap.get(tid) ?? null,
         streak: Number(r.streak) || 0,
         colors: Array.isArray(r.colors) ? (r.colors as RouletteColor[]) : [],
       };

@@ -159,23 +159,23 @@ async function createBettingRound(): Promise<RouletteRoundRow> {
 async function settleRound(round: RouletteRoundRow): Promise<RouletteRoundRow> {
   const db = getAdminClient();
 
-  // Lock: claim settlement (spinning → settling via status settled only after work)
-  // Use result_slot already set during spin transition.
   const seed = round.server_seed || randomSeed();
   const slot =
     round.result_slot != null
       ? Number(round.result_slot)
       : slotFromSeed(seed, round.id);
   const color = rouletteColorAt(slot);
+  const resultEnds = new Date(Date.now() + ROULETTE_RESULT_MS).toISOString();
 
-  // Mark in-progress settlement with result fields first while still spinning
-  // then pay, then set settled+result_ends_at together.
+  // Atomic claim: spinning → settled. Exactly one worker pays + paravoz.
   const { data: claimed } = await db
     .from("roulette_rounds")
     .update({
+      status: "settled",
       server_seed: seed,
       result_slot: slot,
       result_color: color,
+      result_ends_at: resultEnds,
     })
     .eq("id", round.id)
     .eq("status", "spinning")
@@ -183,7 +183,6 @@ async function settleRound(round: RouletteRoundRow): Promise<RouletteRoundRow> {
     .maybeSingle();
 
   if (!claimed) {
-    // already moved on
     return (await getLatestRound()) || round;
   }
 
@@ -237,6 +236,7 @@ async function settleRound(round: RouletteRoundRow): Promise<RouletteRoundRow> {
   try {
     await applyParavozAfterRound({
       resultColor: color,
+      roundId: round.id,
       bets: list.map((b) => ({
         telegram_id: Number(b.telegram_id),
         username: String((b as { username?: string }).username || ""),
@@ -261,23 +261,9 @@ async function settleRound(round: RouletteRoundRow): Promise<RouletteRoundRow> {
     // LIVE Roulette: no referral (LIVE/SOLO do not participate)
   }
 
-  const resultEnds = new Date(Date.now() + ROULETTE_RESULT_MS).toISOString();
-  const { data: done } = await db
-    .from("roulette_rounds")
-    .update({
-      status: "settled",
-      server_seed: seed,
-      result_slot: slot,
-      result_color: color,
-      result_ends_at: resultEnds,
-    })
-    .eq("id", round.id)
-    .eq("status", "spinning")
-    .select("*")
-    .maybeSingle();
-
-  return (done as RouletteRoundRow) || (await getLatestRound()) || round;
+  return (claimed as RouletteRoundRow) || (await getLatestRound()) || round;
 }
+
 
 /**
  * Advance the global LIVE clock.

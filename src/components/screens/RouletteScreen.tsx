@@ -184,6 +184,9 @@ export function RouletteScreen({
   const spinRaf = useRef<number | null>(null);
   const idleRaf = useRef<number | null>(null);
   const spunForRound = useRef<string | null>(null);
+  const spinLockRef = useRef<string | null>(null);
+  /** All round ids that already animated — never spin twice */
+  const spunHistoryRef = useRef<Set<string>>(new Set());
   const statusRef = useRef<string>("betting");
 
   const writeX = (x: number) => {
@@ -381,14 +384,27 @@ export function RouletteScreen({
     };
   }, [status, roundId]);
 
-  // Spin once per round — do not cancel mid-animation on re-render/poll
+  // Spin EXACTLY once per round id — never twice
   useEffect(() => {
     if (!state) return;
     const r = state.round;
     if (r.status !== "spinning" || r.resultSlot == null) return;
-    if (spunForRound.current === r.id) return;
+    if (
+      spinLockRef.current === r.id ||
+      spunForRound.current === r.id ||
+      spunHistoryRef.current.has(r.id)
+    ) {
+      return;
+    }
 
+    spinLockRef.current = r.id;
     spunForRound.current = r.id;
+    spunHistoryRef.current.add(r.id);
+    if (spunHistoryRef.current.size > 40) {
+      const arr = Array.from(spunHistoryRef.current);
+      spunHistoryRef.current = new Set(arr.slice(-20));
+    }
+
     if (idleRaf.current) {
       cancelAnimationFrame(idleRaf.current);
       idleRaf.current = null;
@@ -408,20 +424,16 @@ export function RouletteScreen({
     if (r.spinEndsAt) {
       const left =
         new Date(r.spinEndsAt).getTime() - (Date.now() + offsetRef.current);
-      if (left > 0 && left < ROULETTE_SPIN_MS) {
-        dur = Math.max(1800, left - 50);
+      if (left > 500 && left < ROULETTE_SPIN_MS) {
+        dur = Math.max(2800, left - 40);
       }
     }
 
     const t0 = performance.now();
-    const roundIdAtStart = r.id;
+    const lockedId = r.id;
     haptic("medium");
 
     const step = (now: number) => {
-      if (spunForRound.current !== roundIdAtStart) {
-        spinRaf.current = null;
-        return;
-      }
       const p = Math.min(1, (now - t0) / dur);
       const e = easeOutExpo(p);
       writeX(startX + (dest - startX) * e);
@@ -456,7 +468,12 @@ export function RouletteScreen({
 
   useEffect(() => {
     if (status === "betting" && roundId) {
-      if (spunForRound.current && spunForRound.current !== roundId) {
+      if (spinLockRef.current && spinLockRef.current !== roundId) {
+        if (spinRaf.current) {
+          cancelAnimationFrame(spinRaf.current);
+          spinRaf.current = null;
+        }
+        spinLockRef.current = null;
         spunForRound.current = null;
       }
       pendingBetsRef.current = {};
@@ -1001,9 +1018,9 @@ export function RouletteScreen({
                   haptic("light");
                   setParavozWinsOpen(true);
                 }}
-                className="h-8 px-2.5 rounded-xl bg-amber-400/15 border border-amber-300/25 text-[11px] font-bold text-amber-100 btn-press shrink-0"
+                className="h-8 px-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-[11px] font-semibold text-white/70 btn-press shrink-0 hover:bg-white/10"
               >
-                {tr("Winners", "Победители")}
+                🏆 {tr("Winners", "Победители")}
               </button>
             </div>
             <p className="text-[13px] text-white/55 leading-relaxed mb-3">
