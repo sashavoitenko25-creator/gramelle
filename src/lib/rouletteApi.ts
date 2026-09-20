@@ -31,6 +31,21 @@ export type RouletteStateResponse = {
   history: { id: string; color: RouletteColor; slot: number }[];
   wheel: RouletteColor[];
   mult: Record<RouletteColor, number>;
+  paravoz?: {
+    streak: number;
+    target: number;
+    colors: RouletteColor[];
+    bonusGram: number;
+  };
+  paravozWinners?: Array<{
+    id: string;
+    telegramId: number;
+    username: string;
+    streak: number;
+    bonusGram: number;
+    colors: RouletteColor[];
+    at: string;
+  }>;
   serverNow: string;
   serverMs?: number;
   balance?: number;

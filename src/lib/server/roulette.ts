@@ -23,6 +23,11 @@ import {
   isRouletteShowcaseBot,
   botPhotoUrl,
 } from "./rouletteBots";
+import {
+  applyParavozAfterRound,
+  getParavozForUser,
+  getParavozWinners,
+} from "./rouletteParavoz";
 
 export type RoundStatus = "betting" | "spinning" | "settled";
 
@@ -226,6 +231,20 @@ async function settleRound(round: RouletteRoundRow): Promise<RouletteRoundRow> {
         console.error("[roulette] win credit failed", bet.telegram_id, e);
       }
     }
+  }
+
+  try {
+    await applyParavozAfterRound({
+      resultColor: color,
+      bets: list.map((b) => ({
+        telegram_id: Number(b.telegram_id),
+        username: String((b as { username?: string }).username || ""),
+        color: b.color as RouletteColor,
+        amount: Number(b.amount) || 0,
+      })),
+    });
+  } catch (e) {
+    console.error("[roulette] paravoz", e);
   }
 
   const houseNet = +(totalStakes - totalPayouts).toFixed(6);
@@ -507,6 +526,8 @@ export async function getRouletteState(
     })),
     wheel: ROULETTE_WHEEL,
     mult: ROULETTE_MULT,
+    paravoz: await getParavozForUser(telegramId),
+    paravozWinners: await getParavozWinners(15),
     serverNow: new Date().toISOString(),
     serverMs: Date.now(),
     balance:

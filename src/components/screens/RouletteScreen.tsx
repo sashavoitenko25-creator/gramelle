@@ -157,6 +157,7 @@ export function RouletteScreen({
   }, [balance]);
   const pendingBetsRef = useRef<Partial<Record<RouletteColor, number>>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [paravozOpen, setParavozOpen] = useState(false);
 
   const [displayMs, setDisplayMs] = useState(() => Date.now());
   const offsetRef = useRef(0);
@@ -702,6 +703,70 @@ export function RouletteScreen({
         </div>
       </div>
 
+
+      {/* Paravoz — 10-in-a-row streak */}
+      {(() => {
+        const pz = state?.paravoz;
+        const streak = pz?.streak ?? 0;
+        const target = pz?.target ?? 10;
+        const colors = pz?.colors ?? [];
+        const bonus = pz?.bonusGram ?? 10;
+        const cells = Array.from({ length: target }, (_, i) => colors[i] ?? null);
+        return (
+          <button
+            type="button"
+            onClick={() => {
+              haptic("light");
+              setParavozOpen(true);
+            }}
+            className="mx-4 mt-2 mb-1 w-[calc(100%-2rem)] text-left rounded-2xl overflow-hidden border border-amber-400/25 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-violet-500/15 btn-press shadow-[0_0_24px_rgba(251,191,36,0.12)]"
+          >
+            <div className="px-3.5 py-2.5 flex items-center gap-3">
+              <div className="shrink-0 w-9 h-9 rounded-xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-lg">
+                🚂
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[13px] font-bold text-amber-100 tracking-tight">
+                    {tr("Paravoz", "Паравоз")}
+                  </span>
+                  <span className="text-[12px] font-black tabular-nums text-amber-200">
+                    {streak}/{target}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex gap-1">
+                  {cells.map((c, i) => (
+                    <div
+                      key={i}
+                      className="h-2.5 flex-1 rounded-full border border-white/10"
+                      style={{
+                        background: c
+                          ? c === "red"
+                            ? "#e11d48"
+                            : c === "black"
+                              ? "#334155"
+                              : "#10b981"
+                          : "rgba(255,255,255,0.06)",
+                        boxShadow: c ? "0 0 6px rgba(251,191,36,0.25)" : undefined,
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="mt-1 text-[10px] text-white/40">
+                  {tr(
+                    `${target} in a row → ${bonus} GRAM`,
+                    `${target} подряд → ${bonus} GRAM`
+                  )}
+                </div>
+              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/30 shrink-0">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </div>
+          </button>
+        );
+      })()}
+
       {/* Hash + Seed (seed after reveal) — tap to copy, no copy label */}
       <div className="mx-4 flex items-center gap-2">
         <button
@@ -845,6 +910,88 @@ export function RouletteScreen({
           )}
         </div>
       </div>
+
+
+      {paravozOpen && (
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center modal-backdrop"
+          onClick={(e) => e.target === e.currentTarget && setParavozOpen(false)}
+        >
+          <div className="w-full max-w-md glass-strong rounded-t-3xl p-5 slide-up border-t border-white/10 safe-bottom max-h-[85vh] overflow-y-auto">
+            <div className="w-10 h-1 rounded-full bg-white/15 mx-auto mb-4" />
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-2xl">🚂</span>
+              <h3 className="text-lg font-bold">{tr("Paravoz", "Паравоз")}</h3>
+            </div>
+            <p className="text-[13px] text-white/55 leading-relaxed mb-4">
+              {tr(
+                "Guess the color correctly several times in a row. Fill the train — at 10 wins you get a bonus. A miss resets the streak. Going past 10 keeps counting (12/10, 15/10…) but the bonus is awarded at 10.",
+                "Угадывай цвет подряд. Заполни «паравоз» — на 10 победах подряд бонус. Ошибка сбрасывает серию. Больше 10 тоже считается (12/10, 15/10…), бонус начисляется при достижении 10."
+              )}
+            </p>
+            <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3.5 py-3 mb-4 flex items-center justify-between">
+              <span className="text-xs text-white/50">{tr("Bonus", "Бонус")}</span>
+              <span className="text-base font-black text-amber-200 tabular-nums">
+                {state?.paravoz?.bonusGram ?? 10} GRAM
+              </span>
+            </div>
+            <div className="text-[11px] uppercase tracking-wider text-white/35 mb-2">
+              {tr("Winners", "Победители")}
+            </div>
+            <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+              {(state?.paravozWinners?.length
+                ? state.paravozWinners
+                : []
+              ).map((w) => (
+                <div
+                  key={w.id}
+                  className="flex items-center gap-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-semibold text-white/90 truncate">
+                      {w.username.startsWith("@") ? w.username : `@${w.username}`}
+                    </div>
+                    <div className="flex gap-0.5 mt-1">
+                      {(w.colors || []).slice(0, 10).map((c, i) => (
+                        <div
+                          key={i}
+                          className="w-2 h-2 rounded-full"
+                          style={{
+                            background:
+                              c === "red"
+                                ? "#e11d48"
+                                : c === "black"
+                                  ? "#64748b"
+                                  : "#10b981",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-[12px] font-bold text-amber-300 tabular-nums">
+                      +{w.bonusGram} GRAM
+                    </div>
+                    <div className="text-[10px] text-white/30">{w.streak}/10</div>
+                  </div>
+                </div>
+              ))}
+              {!(state?.paravozWinners?.length) && (
+                <div className="text-[12px] text-white/35 text-center py-4">
+                  {tr("No winners yet — be the first", "Пока никого — стань первым")}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setParavozOpen(false)}
+              className="mt-4 w-full h-11 rounded-xl btn-primary text-sm font-semibold btn-press"
+            >
+              {tr("Got it", "Понятно")}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* History colors only — no numbers */}
       <div className="mx-4 mt-3 flex items-center gap-2">
