@@ -24,28 +24,32 @@ export const ROULETTE_BOTS = [
   {
     id: 9_100_000_001,
     username: "🔥 Alex",
-    // fixed realistic face (pravatar seed)
-    photoUrl: "https://i.pravatar.cc/150?u=gramelle-alex-01",
+    photoUrl:
+      "https://i.pravatar.cc/150?u=gramelle-alex-01",
   },
   {
     id: 9_100_000_002,
     username: "katya.m",
-    photoUrl: "https://i.pravatar.cc/150?u=gramelle-katya-02",
+    photoUrl:
+      "https://i.pravatar.cc/150?u=gramelle-katya-02",
   },
   {
     id: 9_100_000_003,
     username: "Денчик",
-    photoUrl: "https://i.pravatar.cc/150?u=gramelle-denchik-03",
+    photoUrl:
+      "https://i.pravatar.cc/150?u=gramelle-denchik-03",
   },
   {
     id: 9_100_000_004,
     username: "max_ton",
-    photoUrl: "https://i.pravatar.cc/150?u=gramelle-max-04",
+    photoUrl:
+      "https://i.pravatar.cc/150?u=gramelle-max-04",
   },
   {
     id: 9_100_000_005,
     username: "• Sofia",
-    photoUrl: "https://i.pravatar.cc/150?u=gramelle-sofia-05",
+    photoUrl:
+      "https://i.pravatar.cc/150?u=gramelle-sofia-05",
   },
 ] as const;
 
@@ -112,8 +116,8 @@ type RoundLite = {
 };
 
 /**
- * During betting: online bots may place one staggered bet each.
- * Away bots skip the round. Always at least one bot can play.
+ * During betting: online bots may place one staggered bet.
+ * Natural rhythm — often skip whole rounds; usually 0–2 bets, rarely more.
  */
 export async function ensureRouletteShowcaseBots(
   round: RoundLite
@@ -131,22 +135,20 @@ export async function ensureRouletteShowcaseBots(
   const present = getOnlineBotIndices(now);
   if (present.length === 0) return;
 
-  const h = hashBytes(`${round.id}:bots-v3`);
+  const h = hashBytes(`${round.id}:bots-v4`);
 
-  // Of those online, how many bet this round: 1 .. all present (bias mid)
-  const maxN = present.length;
-  const roll = h[0] % 10;
-  let activeCount =
-    maxN === 1
-      ? 1
-      : roll < 2
-        ? 1
-        : roll < 5
-          ? Math.min(2, maxN)
-          : roll < 8
-            ? Math.min(3, maxN)
-            : maxN;
-  activeCount = Math.max(1, Math.min(activeCount, maxN));
+  // Round activity: often empty, sometimes 1–2, rarely 3+
+  // 0: 40% | 1: 30% | 2: 20% | 3: 8% | 4–5: 2%
+  const roll = h[0] % 100;
+  let activeCount = 0;
+  if (roll < 40) activeCount = 0;
+  else if (roll < 70) activeCount = 1;
+  else if (roll < 90) activeCount = 2;
+  else if (roll < 98) activeCount = 3;
+  else activeCount = Math.min(4, present.length);
+
+  activeCount = Math.min(activeCount, present.length);
+  if (activeCount <= 0) return;
 
   // Shuffle present order by hash, take activeCount
   const shuffled = [...present].sort(
