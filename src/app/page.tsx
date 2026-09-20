@@ -674,7 +674,7 @@ export default function Home() {
                       n: "2",
                       emoji: "🎮",
                       title: "Игры",
-                      body: "RPS · Dice · XO · PvP-рулетка · LIVE-рулетка",
+                      body: "RPS · Dice · XO · PvP-рулетка · Дабл",
                     },
                     {
                       n: "3",
@@ -706,7 +706,7 @@ export default function Home() {
                       n: "2",
                       emoji: "🎮",
                       title: "Games",
-                      body: "RPS · Dice · XO · PvP Roulette · LIVE Roulette",
+                      body: "RPS · Dice · XO · PvP Roulette · Double",
                     },
                     {
                       n: "3",

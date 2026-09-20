@@ -140,7 +140,7 @@ export function LiveHubScreen({
             </div>
             <div>
               <div className="text-[22px] font-black tracking-tight text-white">
-                {tr("Roulette", "Рулетка")}
+                {tr("Double", "Дабл")}
               </div>
               <p className="mt-1 text-[13px] text-white/70 leading-snug max-w-[95%]">
                 {tr("Red · Black · Green", "Красное · Чёрное · Зелёное")}

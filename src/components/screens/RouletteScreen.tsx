@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Gramelle LIVE Roulette
+ * Gramelle Double
  */
 
 import {
@@ -317,7 +317,7 @@ export function RouletteScreen({
 
   const load = useCallback(async () => {
     try {
-      // presence=1 — count this client as online in LIVE Roulette
+      // presence=1 — count this client as online in Double
       const data = await fetchRouletteState({ presence: true });
       mergeState(data);
       return data;
@@ -745,7 +745,7 @@ export function RouletteScreen({
       <div className="px-4 pt-3 pb-2 flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-semibold tracking-tight flex items-center gap-2">
-            <span>LIVE Roulette</span>
+            <span>{tr("Double", "Дабл")}</span>
             {state?.round?.gameNo != null && (
               <span className="text-[12px] font-mono text-white/35 font-normal">
                 #{state.round.gameNo}
@@ -834,7 +834,7 @@ export function RouletteScreen({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[14px] font-black tracking-tight text-white">
-                    {tr("Paravoz", "Паравоз")}
+                    {tr("Train", "Паравоз")}
                   </div>
                   <div className="text-[11px] text-white/45">
                     {tr(
@@ -1051,7 +1051,7 @@ export function RouletteScreen({
             <div className="w-10 h-1 rounded-full bg-white/15 mx-auto mb-4" />
             <div className="flex items-center gap-2 mb-1">
               <span className="text-2xl">🚂</span>
-              <h3 className="text-lg font-bold flex-1">{tr("Paravoz", "Паравоз")}</h3>
+              <h3 className="text-lg font-bold flex-1">{tr("Train", "Паравоз")}</h3>
               <button
                 type="button"
                 onClick={() => {
@@ -1155,7 +1155,7 @@ export function RouletteScreen({
           <div className="w-full max-w-md glass-strong rounded-t-3xl p-5 slide-up border-t border-white/10 safe-bottom max-h-[85vh] overflow-y-auto">
             <div className="w-10 h-1 rounded-full bg-white/15 mx-auto mb-4" />
             <h3 className="text-lg font-bold mb-3">
-              {tr("Paravoz winners", "Победители Паравоза")}
+              {tr("Train winners", "Победители Паравоза")}
             </h3>
             <div className="space-y-2 max-h-[55vh] overflow-y-auto">
               {(state?.paravozWinners?.length ? state.paravozWinners : []).map((w) => (

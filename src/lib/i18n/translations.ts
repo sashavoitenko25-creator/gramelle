@@ -285,7 +285,7 @@ export const translations = {
       "GAMES\n" +
       "• RPS, Dice, XO — play against other people, winner takes the pot.\n" +
       "• PvP Roulette — shared pot, one winner by chance.\n" +
-      "• LIVE Roulette — Red / Black / Green. Green pays 14x.\n" +
+      "• Double — Red / Black / Green. Green pays 14x.\n" +
       "• Min bet from 0.25 GRAM (see limits in the app).\n\n" +
       "BALANCE & MONEY\n" +
       "• Deposit via TON (and Stars where available).\n" +
@@ -590,7 +590,7 @@ export const translations = {
       "ИГРЫ\n" +
       "• RPS, Dice, XO — игра против людей, победитель забирает банк.\n" +
       "• PvP-рулетка — общий банк, один победитель по шансу.\n" +
-      "• LIVE-рулетка — Красное / Чёрное / Зелёное. Зелёное ×14.\n" +
+      "• Дабл — Красное / Чёрное / Зелёное. Зелёное ×14.\n" +
       "• Мин. ставка от 0.25 GRAM (актуальные лимиты — в приложении).\n\n" +
       "БАЛАНС И ДЕНЬГИ\n" +
       "• Депозит через TON (и Stars, где доступно).\n" +
