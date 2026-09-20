@@ -24,32 +24,27 @@ export const ROULETTE_BOTS = [
   {
     id: 9_100_000_001,
     username: "🔥 Alex",
-    photoUrl:
-      "https://i.pravatar.cc/150?u=gramelle-alex-01",
+    photoUrl: "https://picsum.photos/seed/g-alex-7k2/150",
   },
   {
     id: 9_100_000_002,
     username: "katya.m",
-    photoUrl:
-      "https://i.pravatar.cc/150?u=gramelle-katya-02",
+    photoUrl: "https://picsum.photos/seed/g-katya-9m1/150",
   },
   {
     id: 9_100_000_003,
     username: "Денчик",
-    photoUrl:
-      "https://i.pravatar.cc/150?u=gramelle-denchik-03",
+    photoUrl: "https://picsum.photos/seed/g-denis-3p8/150",
   },
   {
     id: 9_100_000_004,
     username: "max_ton",
-    photoUrl:
-      "https://i.pravatar.cc/150?u=gramelle-max-04",
+    photoUrl: "https://picsum.photos/seed/g-max-4w5/150",
   },
   {
     id: 9_100_000_005,
     username: "• Sofia",
-    photoUrl:
-      "https://i.pravatar.cc/150?u=gramelle-sofia-05",
+    photoUrl: "https://picsum.photos/seed/g-sofia-2q6/150",
   },
 ] as const;
 
