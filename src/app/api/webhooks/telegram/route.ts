@@ -2,24 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { getBotToken } from "@/lib/server/telegram";
 import { creditBalance } from "@/lib/server/ledger";
 import { notifyUser, fmtAmount } from "@/lib/server/notify";
-import { BOT_USERNAME, GRAM_PER_STAR } from "@/lib/constants";
+import { BOT_USERNAME, GRAM_PER_STAR, SUPPORT_URL } from "@/lib/constants";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 
-const START_TEXT = `🎮 <b>Gramelle</b> — PvP-игры на GRAM
+const START_TEXT = `✨ <b>Gramelle</b>
+PvP-игры и LIVE-рулетка на <b>GRAM</b>
 
-Как играть:
-1. Пополни баланс (TON) → получи GRAM
-2. Выбери игру: Камень-Ножницы-Бумага, Dice или Крестики-нолики
-3. Создай стол / комнату или присоединись — победитель забирает банк
+━━━━━━━━━━━━━━━━
+🎯 <b>Игры</b>
+• ✊ Камень · Ножницы · Бумага
+• 🎲 Dice
+• ⭕ Крестики-нолики
+• 🎡 LIVE Roulette
 
-Честная игра: у каждой партии есть <b>Hash</b> и <b>Seed</b> — можно проверить самому.
+━━━━━━━━━━━━━━━━
+⚡ <b>Как начать</b>
+1️⃣ Пополни баланс через <b>TON</b>
+2️⃣ Выбери режим и сделай ставку
+3️⃣ Победи — забери банк
 
-Правила:
-• Мин. ставка от 0.25 GRAM
-• Вывод — до 1 часа
-• Только 18+ · Играйте ответственно
+🔐 Честный рандом: у каждой партии есть <b>Hash</b> и <b>Seed</b>
 
-Нажми <b>Играть</b>, чтобы открыть приложение.`;
+━━━━━━━━━━━━━━━━
+💎 <b>Рефералка</b>
+Приглашай друзей — получай <b>10%</b> от комиссии с их игр (RPS · Dice · XO)
+
+📌 Мин. ставка <b>0.25 GRAM</b>
+⏱ Вывод обычно до часа
+🔞 Только 18+ · Играй ответственно
+
+Нажми <b>Играть</b> ↓`;
 
 async function tgApi(method: string, body: Record<string, unknown>) {
   const token = getBotToken();
@@ -89,7 +101,7 @@ export async function POST(req: NextRequest) {
             inline_keyboard: [
               [
                 {
-                  text: "🎮 Играть",
+                  text: "🎮  Играть",
                   web_app: { url: webAppUrl },
                 },
               ],
@@ -97,6 +109,10 @@ export async function POST(req: NextRequest) {
                 {
                   text: "📢 Канал",
                   url: "https://t.me/GramellePlay",
+                },
+                {
+                  text: "💬 Поддержка",
+                  url: SUPPORT_URL,
                 },
               ],
             ],

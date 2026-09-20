@@ -63,15 +63,54 @@ export function ReferralsScreen({
     (tier?.shareOfHouseFee ?? REFERRAL_SHARE_OF_HOUSE_FEE) * 100
   );
 
+  const steps = [
+    {
+      n: "1",
+      title: tr("Share link", "Поделись ссылкой"),
+      desc: tr("Send your invite to friends", "Отправь инвайт друзьям"),
+      emoji: "🔗",
+    },
+    {
+      n: "2",
+      title: tr("They play", "Они играют"),
+      desc: tr("RPS, Dice or XO", "RPS, Dice или XO"),
+      emoji: "🎮",
+    },
+    {
+      n: "3",
+      title: tr(`You earn ${sharePct}%`, `Ты получаешь ${sharePct}%`),
+      desc: tr("Of platform commission", "От комиссии платформы"),
+      emoji: "💎",
+    },
+  ];
+
   return (
-    <div className="flex flex-col min-h-[100dvh] pb-28 safe-top">
-      <div className="flex items-center justify-center px-4 pt-3 pb-3 relative">
+    <div className="flex flex-col min-h-[100dvh] pb-28 safe-top relative overflow-hidden">
+      {/* ambient glow */}
+      <div
+        className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-[320px] h-[320px] rounded-full opacity-40"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(34,211,238,0.22) 0%, transparent 70%)",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute top-40 -right-20 w-[200px] h-[200px] rounded-full opacity-30"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(168,85,247,0.2) 0%, transparent 70%)",
+        }}
+      />
+
+      {/* Header */}
+      <div className="relative flex items-center justify-center px-4 pt-3 pb-2">
         <h2 className="text-base font-semibold tracking-tight">
           {t("referralsTitle")}
         </h2>
         <button
           onClick={onHowItWorks}
-          className="absolute right-4 w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/50 btn-press"
+          className="absolute right-4 w-9 h-9 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-white/55 btn-press hover:text-cyan-200/90 transition-colors"
+          aria-label={tr("How it works", "Как это работает")}
         >
           <svg
             width="16"
@@ -87,86 +126,147 @@ export function ReferralsScreen({
         </button>
       </div>
 
-      {/* Savings balance */}
-      <div className="mx-4 mb-3 rounded-3xl p-5 border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-transparent">
-        <div className="text-[11px] text-white/40 uppercase tracking-widest mb-1">
-          {t("refSavings")}
-        </div>
-        <div className="text-3xl font-semibold tabular-nums text-cyan-300">
-          {formatGram(earned)}{" "}
-          <span className="text-base text-white/40 font-normal">GRAM</span>
-        </div>
-        <button
-          type="button"
-          disabled={!canWithdraw || withdrawing}
-          onClick={() => void onWithdraw()}
-          className="mt-3 w-full h-11 rounded-xl btn-primary text-sm font-semibold btn-press disabled:opacity-40"
-        >
-          {withdrawing
-            ? tr("Withdrawing…", "Снятие…")
-            : canWithdraw
-              ? tr(
-                  `Withdraw (≥ ${REFERRAL_MIN_WITHDRAW} GRAM)`,
-                  `Снять (≥ ${REFERRAL_MIN_WITHDRAW} GRAM)`
-                )
-              : tr(
-                  `Min ${REFERRAL_MIN_WITHDRAW} GRAM`,
-                  `Мин. ${REFERRAL_MIN_WITHDRAW} GRAM`
-                )}
-        </button>
-        {tier && (
-          <div className="mt-2 text-xs text-cyan-300/80">
-            {tr(
-              `You earn ${sharePct}% of the platform commission from referral bets`,
-              `Ты получаешь ${sharePct}% от комиссии платформы со ставок рефералов`
-            )}
+      {/* Hero savings */}
+      <div className="relative mx-4 mt-2 mb-4 rounded-[28px] overflow-hidden border border-cyan-400/25 shadow-[0_0_40px_rgba(34,211,238,0.12)]">
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(145deg, rgba(8,145,178,0.35) 0%, rgba(15,23,42,0.9) 45%, rgba(88,28,135,0.25) 100%)",
+          }}
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_20%_0%,rgba(34,211,238,0.25),transparent_55%)]" />
+        <div className="relative p-5 pt-6">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-cyan-200/70 font-semibold">
+              {t("refSavings")}
+            </span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-400/15 text-cyan-300 border border-cyan-400/25">
+              {sharePct}%
+            </span>
           </div>
-        )}
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-[40px] font-black tabular-nums tracking-tight text-white leading-none">
+              {formatGram(earned)}
+            </span>
+            <span className="text-sm font-semibold text-cyan-200/50">GRAM</span>
+          </div>
+          <p className="mt-2 text-[12px] text-white/45 leading-relaxed max-w-[90%]">
+            {tr(
+              "Commission share from friends' bets in RPS, Dice & XO",
+              "Доля комиссии со ставок друзей в RPS, Dice и XO"
+            )}
+          </p>
+          <button
+            type="button"
+            disabled={!canWithdraw || withdrawing}
+            onClick={() => void onWithdraw()}
+            className="mt-4 w-full h-12 rounded-2xl btn-primary text-sm font-bold btn-press disabled:opacity-40 shadow-[0_8px_24px_rgba(34,211,238,0.2)]"
+          >
+            {withdrawing
+              ? tr("Withdrawing…", "Снятие…")
+              : canWithdraw
+                ? tr("Withdraw to balance", "Снять на баланс")
+                : tr(
+                    `Min ${REFERRAL_MIN_WITHDRAW} GRAM`,
+                    `Мин. ${REFERRAL_MIN_WITHDRAW} GRAM`
+                  )}
+          </button>
+        </div>
       </div>
 
-      <div className="mx-4 mt-1 rounded-2xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 flex justify-between text-xs">
-        <span className="text-white/35">{t("referralTurnover")}</span>
-        <span className="tabular-nums text-white/70">
-          {formatGram(turnover)} GRAM
-        </span>
+      {/* Stats row */}
+      <div className="mx-4 grid grid-cols-2 gap-2.5">
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3.5 backdrop-blur-sm">
+          <div className="text-[10px] uppercase tracking-wider text-white/35 mb-1">
+            {tr("Referrals", "Рефералы")}
+          </div>
+          <div className="text-2xl font-bold tabular-nums text-white">
+            {count}
+          </div>
+          <div className="text-[11px] text-white/30 mt-0.5">
+            {tr("invited", "приглашено")}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3.5 backdrop-blur-sm">
+          <div className="text-[10px] uppercase tracking-wider text-white/35 mb-1">
+            {t("referralTurnover")}
+          </div>
+          <div className="text-2xl font-bold tabular-nums text-white">
+            {formatGram(turnover)}
+          </div>
+          <div className="text-[11px] text-white/30 mt-0.5">GRAM</div>
+        </div>
       </div>
 
-      <div className="mx-4 mt-2 rounded-2xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 flex justify-between text-xs">
-        <span className="text-white/35">{tr("Referrals", "Рефералы")}</span>
-        <span className="tabular-nums text-white/70">{count}</span>
-      </div>
-
-      {/* How it works */}
-      <div className="mx-4 mt-5 space-y-2">
-        <div className="text-[11px] text-white/35 uppercase tracking-widest mb-1 px-1">
+      {/* Steps */}
+      <div className="mx-4 mt-5">
+        <div className="text-[11px] text-white/35 uppercase tracking-widest mb-2.5 px-1">
           {tr("How it works", "Как это работает")}
         </div>
-        <div className="rounded-2xl border border-white/12 bg-white/[0.05] px-4 py-3">
-          <div className="text-sm text-white/80 leading-relaxed">
-            {tr(
-              "You get 10% of the platform commission from every bet of your referrals in RPS, Dice and XO. LIVE and SOLO do not count.",
-              "Ты получаешь 10% от комиссии платформы с каждой ставки рефералов в RPS, Dice и XO. LIVE и SOLO не участвуют."
-            )}
-          </div>
-          <div className="mt-2 text-xs text-cyan-300/80">
-            {tr("Share of house fee", "Доля от комиссии")}: {sharePct}%
-          </div>
+        <div className="space-y-2">
+          {steps.map((s, i) => (
+            <div
+              key={s.n}
+              className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-3.5 py-3"
+            >
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-violet-500/15 border border-white/10 flex items-center justify-center text-lg shrink-0">
+                {s.emoji}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold text-white/90">
+                  {s.title}
+                </div>
+                <div className="text-[11px] text-white/40 mt-0.5">{s.desc}</div>
+              </div>
+              <div className="w-6 h-6 rounded-full bg-white/[0.06] text-[10px] font-bold text-white/40 flex items-center justify-center shrink-0">
+                {s.n}
+              </div>
+            </div>
+          ))}
         </div>
+        <p className="mt-2.5 px-1 text-[11px] text-white/30 leading-relaxed">
+          {tr(
+            "LIVE and SOLO do not count. No signup bonus.",
+            "LIVE и SOLO не участвуют. Бонуса за регистрацию нет."
+          )}
+        </p>
       </div>
 
-      <div className="mx-4 mt-5 rounded-2xl glass p-4 border border-white/[0.07]">
-        <div className="text-[11px] text-white/35 uppercase tracking-widest mb-2">
-          {t("yourLink")}
+      {/* Link card */}
+      <div className="mx-4 mt-5 rounded-[24px] border border-white/[0.1] overflow-hidden bg-gradient-to-b from-white/[0.06] to-white/[0.02]">
+        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+          <div className="text-[11px] text-white/40 uppercase tracking-widest">
+            {t("yourLink")}
+          </div>
+          <span className="text-[10px] text-cyan-300/70 font-mono">
+            {start}
+          </span>
         </div>
-        <div className="text-[11px] text-white/45 break-all font-mono bg-black/30 rounded-xl px-3 py-2.5 border border-white/[0.04]">
-          {refLink}
+        <div className="mx-4 mb-3 rounded-xl bg-black/40 border border-white/[0.06] px-3 py-2.5">
+          <div className="text-[11px] text-white/55 break-all font-mono leading-relaxed">
+            {refLink}
+          </div>
         </div>
-        <button
-          onClick={onCopy}
-          className="w-full mt-3 h-11 rounded-xl btn-primary text-sm btn-press"
-        >
-          {t("copyLink")}
-        </button>
+        <div className="px-4 pb-4">
+          <button
+            onClick={onCopy}
+            className="w-full h-12 rounded-2xl btn-primary text-sm font-bold btn-press flex items-center justify-center gap-2"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+            </svg>
+            {t("copyLink")}
+          </button>
+        </div>
       </div>
     </div>
   );

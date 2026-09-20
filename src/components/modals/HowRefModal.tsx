@@ -41,7 +41,11 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="w-full max-w-md glass-strong rounded-t-3xl p-5 slide-up border-t border-white/10 safe-bottom max-h-[85vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-3">{body.title}</h3>
+        <div className="w-10 h-1 rounded-full bg-white/15 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold mb-1">{body.title}</h3>
+        <p className="text-[12px] text-cyan-300/80 mb-4 font-medium">
+          {pct}% · RPS · Dice · XO
+        </p>
         <div className="space-y-3 text-sm text-white/65 leading-relaxed mb-4">
           <p>{body.p1}</p>
           <p>
@@ -49,18 +53,20 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
             <span className="text-cyan-300 font-medium">{body.p2b}</span>
             {body.p2c}
           </p>
-          <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-3">
-            <div className="flex justify-between text-xs">
-              <span>🔗 Share of house fee</span>
-              <span className="text-cyan-300/90">{pct}%</span>
-            </div>
+          <div className="rounded-2xl bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-cyan-400/20 p-3.5 flex items-center justify-between">
+            <span className="text-xs text-white/60">
+              {lang === "ru" ? "Твоя доля" : "Your share"}
+            </span>
+            <span className="text-lg font-black tabular-nums text-cyan-300">
+              {pct}%
+            </span>
           </div>
           <p className="text-xs text-white/40">{body.note}</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={onCopy}
-            className="flex-1 h-11 rounded-xl btn-primary text-sm btn-press"
+            className="flex-1 h-11 rounded-xl btn-primary text-sm font-semibold btn-press"
           >
             {t("copyLink")}
           </button>
