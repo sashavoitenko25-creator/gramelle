@@ -18,6 +18,10 @@ import {
   rouletteColorAt,
   type RouletteColor,
 } from "@/lib/rouletteConstants";
+import {
+  ensureRouletteShowcaseBots,
+  isRouletteShowcaseBot,
+} from "./rouletteBots";
 
 export type RoundStatus = "betting" | "spinning" | "settled";
 
@@ -186,20 +190,27 @@ async function settleRound(round: RouletteRoundRow): Promise<RouletteRoundRow> {
   let totalPayouts = 0;
 
   for (const bet of list) {
+    const bot = isRouletteShowcaseBot(Number(bet.telegram_id));
+
     // skip if already paid
     if (bet.payout != null) {
-      totalStakes += Number(bet.amount) || 0;
-      totalPayouts += Number(bet.payout) || 0;
+      if (!bot) {
+        totalStakes += Number(bet.amount) || 0;
+        totalPayouts += Number(bet.payout) || 0;
+      }
       continue;
     }
 
     const stake = Number(bet.amount) || 0;
-    totalStakes += stake;
     const won = bet.color === color;
     const payout = won ? +(stake * ROULETTE_MULT[bet.color]).toFixed(6) : 0;
 
     await db.from("roulette_bets").update({ payout }).eq("id", bet.id);
 
+    // Showcase bots: display-only, no ledger / house
+    if (bot) continue;
+
+    totalStakes += stake;
     if (payout > 0) {
       totalPayouts += payout;
       try {
@@ -264,6 +275,11 @@ export async function advanceRoulette(): Promise<RouletteRoundRow> {
 
     if (round.status === "betting") {
       if (now < new Date(round.bet_ends_at).getTime()) {
+        try {
+          await ensureRouletteShowcaseBots(round);
+        } catch {
+          /* */
+        }
         return round; // still accepting bets
       }
       const seed = round.server_seed || randomSeed();
@@ -359,6 +375,12 @@ export async function getRouletteState(
 ) {
   if (opts?.touchPresence && telegramId) touchRoulettePresence(telegramId);
   const round = await advanceRoulette();
+  // Showcase bots fill the board during betting (no real GRAM)
+  try {
+    await ensureRouletteShowcaseBots(round);
+  } catch (e) {
+    console.warn("[roulette] showcase bots", e);
+  }
   const db = getAdminClient();
 
   const { data: bets } = await db
