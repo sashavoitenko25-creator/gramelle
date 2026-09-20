@@ -187,6 +187,16 @@ export function RouletteScreen({
   const spinLockRef = useRef<string | null>(null);
   /** All round ids that already animated — never spin twice */
   const spunHistoryRef = useRef<Set<string>>(new Set());
+  /** True while wheel animation RAF is running */
+  const animatingRef = useRef(false);
+  /** Next spin waiting until current animation finishes */
+  const pendingSpinRef = useRef<{
+    id: string;
+    slot: number;
+    spinEndsAt: string | null;
+  } | null>(null);
+  /** Last round id for which result was shown on screen */
+  const resultShownRef = useRef<string | null>(null);
   const statusRef = useRef<string>("betting");
 
   const writeX = (x: number) => {
@@ -356,9 +366,9 @@ export function RouletteScreen({
     return idx * STRIDE;
   }, []);
 
-  // Idle crawl
+  // Idle crawl — only in betting, never during spin/result, never while animating
   useEffect(() => {
-    if (status !== "betting") {
+    if (status !== "betting" || animatingRef.current) {
       if (idleRaf.current) {
         cancelAnimationFrame(idleRaf.current);
         idleRaf.current = null;
@@ -371,8 +381,7 @@ export function RouletteScreen({
     const period = STRIDE * ROULETTE_SLOT_COUNT;
     const step = (t: number) => {
       if (!alive) return;
-      if (statusRef.current !== "betting") return;
-      // Keep wheelX within one period so strip never drifts into empty space
+      if (statusRef.current !== "betting" || animatingRef.current) return;
       const raw = origin + ((t - t0) / 1000) * 22;
       writeX(((raw % period) + period) % period);
       idleRaf.current = requestAnimationFrame(step);
@@ -384,103 +393,133 @@ export function RouletteScreen({
     };
   }, [status, roundId]);
 
-  // Spin EXACTLY once per round id — never twice
+  /**
+   * A+B: start spin for a round exactly once; if already animating, queue it.
+   * Never restarts the same round id (spunHistory).
+   */
+  const runSpinAnimation = useCallback(
+    (opts: { id: string; slot: number; spinEndsAt: string | null }) => {
+      const { id, slot, spinEndsAt } = opts;
+      if (spunHistoryRef.current.has(id)) return;
+      if (animatingRef.current) {
+        // Queue at most one pending (latest wins)
+        pendingSpinRef.current = { id, slot, spinEndsAt };
+        return;
+      }
+
+      spunHistoryRef.current.add(id);
+      if (spunHistoryRef.current.size > 50) {
+        spunHistoryRef.current = new Set(
+          Array.from(spunHistoryRef.current).slice(-25)
+        );
+      }
+      spinLockRef.current = id;
+      spunForRound.current = id;
+      animatingRef.current = true;
+
+      if (idleRaf.current) {
+        cancelAnimationFrame(idleRaf.current);
+        idleRaf.current = null;
+      }
+      if (spinRaf.current) {
+        cancelAnimationFrame(spinRaf.current);
+        spinRaf.current = null;
+      }
+
+      const startX = wheelXRef.current;
+      let dest = targetX(slot, SPIN_MIN_LOOPS);
+      const minTravel = STRIDE * ROULETTE_SLOT_COUNT * 4;
+      while (dest - startX < minTravel) dest += STRIDE * ROULETTE_SLOT_COUNT;
+
+      let dur = ROULETTE_SPIN_MS;
+      if (spinEndsAt) {
+        const left =
+          new Date(spinEndsAt).getTime() - (Date.now() + offsetRef.current);
+        if (left > 800 && left < ROULETTE_SPIN_MS) {
+          dur = Math.max(3000, left - 40);
+        }
+      }
+
+      const t0 = performance.now();
+      haptic("medium");
+
+      const step = (now: number) => {
+        const p = Math.min(1, (now - t0) / dur);
+        const e = easeOutExpo(p);
+        writeX(startX + (dest - startX) * e);
+        if (p < 1) {
+          spinRaf.current = requestAnimationFrame(step);
+        } else {
+          writeX(dest);
+          spinRaf.current = null;
+          animatingRef.current = false;
+          hapticSuccess();
+          // Drain queue — only if not already in history
+          const next = pendingSpinRef.current;
+          pendingSpinRef.current = null;
+          if (next && !spunHistoryRef.current.has(next.id)) {
+            runSpinAnimation(next);
+          }
+        }
+      };
+      spinRaf.current = requestAnimationFrame(step);
+    },
+    [haptic, hapticSuccess, targetX]
+  );
+
+  // Spin when server says spinning (A+B)
   useEffect(() => {
     if (!state) return;
     const r = state.round;
     if (r.status !== "spinning" || r.resultSlot == null) return;
-    if (
-      spinLockRef.current === r.id ||
-      spunForRound.current === r.id ||
-      spunHistoryRef.current.has(r.id)
-    ) {
-      return;
-    }
-
-    spinLockRef.current = r.id;
-    spunForRound.current = r.id;
-    spunHistoryRef.current.add(r.id);
-    if (spunHistoryRef.current.size > 40) {
-      const arr = Array.from(spunHistoryRef.current);
-      spunHistoryRef.current = new Set(arr.slice(-20));
-    }
-
-    if (idleRaf.current) {
-      cancelAnimationFrame(idleRaf.current);
-      idleRaf.current = null;
-    }
-    if (spinRaf.current) {
-      cancelAnimationFrame(spinRaf.current);
-      spinRaf.current = null;
-    }
-
-    const slot = r.resultSlot;
-    const startX = wheelXRef.current;
-    let dest = targetX(slot, SPIN_MIN_LOOPS);
-    const minTravel = STRIDE * ROULETTE_SLOT_COUNT * 4;
-    while (dest - startX < minTravel) dest += STRIDE * ROULETTE_SLOT_COUNT;
-
-    let dur = ROULETTE_SPIN_MS;
-    if (r.spinEndsAt) {
-      const left =
-        new Date(r.spinEndsAt).getTime() - (Date.now() + offsetRef.current);
-      if (left > 500 && left < ROULETTE_SPIN_MS) {
-        dur = Math.max(2800, left - 40);
-      }
-    }
-
-    const t0 = performance.now();
-    const lockedId = r.id;
-    haptic("medium");
-
-    const step = (now: number) => {
-      const p = Math.min(1, (now - t0) / dur);
-      const e = easeOutExpo(p);
-      writeX(startX + (dest - startX) * e);
-      if (p < 1) {
-        spinRaf.current = requestAnimationFrame(step);
-      } else {
-        writeX(dest);
-        spinRaf.current = null;
-        hapticSuccess();
-      }
-    };
-    spinRaf.current = requestAnimationFrame(step);
+    runSpinAnimation({
+      id: r.id,
+      slot: r.resultSlot,
+      spinEndsAt: r.spinEndsAt,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.round.id, state?.round.status, state?.round.resultSlot]);
 
-  // When result is shown: freeze on the winning slot (no extra spin)
+  // C: result phase — freeze on winning slot, no idle, mark result shown
   useEffect(() => {
     const slot = state?.round.resultSlot;
     if (status !== "settled" || slot == null || !roundId) return;
+
     if (idleRaf.current) {
       cancelAnimationFrame(idleRaf.current);
       idleRaf.current = null;
     }
-    if (spunForRound.current !== roundId) {
+
+    resultShownRef.current = roundId;
+    // If we never spun this round (late join / tab sleep) — snap once, no full spin
+    if (!spunHistoryRef.current.has(roundId) && !animatingRef.current) {
+      spunHistoryRef.current.add(roundId);
+      spinLockRef.current = roundId;
+      spunForRound.current = roundId;
       const slotPos =
         ((slot % ROULETTE_SLOT_COUNT) + ROULETTE_SLOT_COUNT) %
         ROULETTE_SLOT_COUNT;
-      writeX(slotPos * STRIDE);
-      spunForRound.current = roundId ?? null;
+      const period = STRIDE * ROULETTE_SLOT_COUNT;
+      const base = Math.floor(wheelXRef.current / period) * period;
+      writeX(base + slotPos * STRIDE);
     }
   }, [status, state?.round.resultSlot, roundId]);
 
+  // Betting: clear pending bets only — do NOT kill active spin animation (A)
   useEffect(() => {
     if (status === "betting" && roundId) {
-      if (spinLockRef.current && spinLockRef.current !== roundId) {
-        if (spinRaf.current) {
-          cancelAnimationFrame(spinRaf.current);
-          spinRaf.current = null;
-        }
-        spinLockRef.current = null;
-        spunForRound.current = null;
-      }
       pendingBetsRef.current = {};
-      const period = STRIDE * ROULETTE_SLOT_COUNT;
-      const x = wheelXRef.current;
-      const snapped = ((x % period) + period) % period;
-      if (Math.abs(x - snapped) > 1) writeX(snapped);
+      // Unlock spin markers for *other* rounds only after animation finished
+      if (!animatingRef.current) {
+        if (spinLockRef.current && spinLockRef.current !== roundId) {
+          spinLockRef.current = null;
+          spunForRound.current = null;
+        }
+        const period = STRIDE * ROULETTE_SLOT_COUNT;
+        const x = wheelXRef.current;
+        const snapped = ((x % period) + period) % period;
+        if (Math.abs(x - snapped) > 1) writeX(snapped);
+      }
     }
   }, [status, roundId]);
 
@@ -488,6 +527,7 @@ export function RouletteScreen({
     return () => {
       if (spinRaf.current) cancelAnimationFrame(spinRaf.current);
       if (idleRaf.current) cancelAnimationFrame(idleRaf.current);
+      animatingRef.current = false;
     };
   }, []);
 
