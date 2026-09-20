@@ -46,6 +46,13 @@ export type RouletteStateResponse = {
     colors: RouletteColor[];
     at: string;
   }>;
+  paravozParticipants?: Array<{
+    telegramId: number;
+    username: string;
+    photoUrl: string | null;
+    streak: number;
+    colors: RouletteColor[];
+  }>;
   serverNow: string;
   serverMs?: number;
   balance?: number;

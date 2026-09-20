@@ -27,6 +27,7 @@ import {
   applyParavozAfterRound,
   getParavozForUser,
   getParavozWinners,
+  getParavozParticipants,
 } from "./rouletteParavoz";
 
 export type RoundStatus = "betting" | "spinning" | "settled";
@@ -528,6 +529,7 @@ export async function getRouletteState(
     mult: ROULETTE_MULT,
     paravoz: await getParavozForUser(telegramId),
     paravozWinners: await getParavozWinners(15),
+    paravozParticipants: await getParavozParticipants(25),
     serverNow: new Date().toISOString(),
     serverMs: Date.now(),
     balance:

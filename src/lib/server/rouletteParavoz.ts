@@ -187,6 +187,53 @@ export async function getParavozForUser(
   }
 }
 
+export type ParavozParticipant = {
+  telegramId: number;
+  username: string;
+  photoUrl: string | null;
+  streak: number;
+  colors: RouletteColor[];
+};
+
+export async function getParavozParticipants(
+  limit = 30
+): Promise<ParavozParticipant[]> {
+  try {
+    const db = getAdminClient();
+    const { data } = await db
+      .from("roulette_paravoz")
+      .select("telegram_id, username, streak, colors")
+      .gt("streak", 0)
+      .order("streak", { ascending: false })
+      .limit(limit);
+    const rows = data || [];
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((r) => Number(r.telegram_id));
+    const photoMap = new Map<number, string | null>();
+    const { data: profiles } = await db
+      .from("profiles")
+      .select("telegram_id, photo_url, username")
+      .in("telegram_id", ids);
+    for (const pr of profiles || []) {
+      photoMap.set(Number(pr.telegram_id), (pr.photo_url as string) || null);
+    }
+
+    return rows.map((r) => {
+      const tid = Number(r.telegram_id);
+      return {
+        telegramId: tid,
+        username: String(r.username || "Player"),
+        photoUrl: photoMap.get(tid) ?? null,
+        streak: Number(r.streak) || 0,
+        colors: Array.isArray(r.colors) ? (r.colors as RouletteColor[]) : [],
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 export async function getParavozWinners(limit = 20): Promise<ParavozWin[]> {
   try {
     const db = getAdminClient();
