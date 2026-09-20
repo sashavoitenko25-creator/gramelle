@@ -641,53 +641,119 @@ export default function Home() {
 
       {!onboarded && (
         <div className="fixed inset-0 z-[70] flex items-end justify-center modal-backdrop">
-          <div className="w-full max-w-md glass-strong rounded-t-[28px] p-5 pt-4 slide-up border-t border-white/10 safe-bottom max-h-[92dvh] overflow-y-auto">
+          <div className="w-full max-w-md glass-strong rounded-t-[28px] p-5 pt-4 slide-up border-t border-white/10 safe-bottom max-h-[92dvh] overflow-y-auto relative overflow-x-hidden">
+            <div
+              className="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full opacity-50"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(34,211,238,0.2) 0%, transparent 70%)",
+              }}
+            />
             {/* drag handle */}
-            <div className="flex justify-center mb-3">
+            <div className="flex justify-center mb-3 relative">
               <div className="w-10 h-1 rounded-full bg-white/15" />
             </div>
-            <h3 className="text-[20px] font-semibold tracking-tight mb-4 text-center">
+            <h3 className="text-[22px] font-bold tracking-tight mb-1 text-center relative">
               {t("howItWorks")}
             </h3>
-            <div className="space-y-3 mb-4">
+            <p className="text-center text-[12px] text-white/40 mb-4 relative">
+              {lang === "ru"
+                ? "Коротко о Gramelle"
+                : "Gramelle in a nutshell"}
+            </p>
+            <div className="space-y-2.5 mb-4 relative">
               {(lang === "ru"
                 ? [
-                    { n: "1", title: "Баланс", body: "Пополните TON и получите GRAM" },
-                    { n: "2", title: "Игра", body: "Выберите режим, создайте стол или присоединитесь" },
-                    { n: "3", title: "PvP", body: "Играете против других игроков — победитель забирает банк" },
-                    { n: "4", title: "Честность", body: "У каждой партии есть Hash и Seed — можно проверить самому" },
+                    {
+                      n: "1",
+                      emoji: "💎",
+                      title: "Баланс",
+                      body: "Пополни через TON — получи GRAM на счёт",
+                    },
+                    {
+                      n: "2",
+                      emoji: "🎮",
+                      title: "Игры",
+                      body: "RPS · Dice · XO · PvP-рулетка · LIVE-рулетка",
+                    },
+                    {
+                      n: "3",
+                      emoji: "🏆",
+                      title: "PvP и LIVE",
+                      body: "Играй с людьми: банк, ставки на цвет, честный исход",
+                    },
+                    {
+                      n: "4",
+                      emoji: "🔐",
+                      title: "Честность",
+                      body: "Hash + Seed у каждой партии — проверь сам",
+                    },
+                    {
+                      n: "5",
+                      emoji: "🔗",
+                      title: "Рефералка",
+                      body: "10% от комиссии друзей (RPS, Dice, XO, PvP-рулетка)",
+                    },
                   ]
                 : [
-                    { n: "1", title: "Balance", body: "Deposit TON and receive GRAM" },
-                    { n: "2", title: "Play", body: "Pick a mode, create a table or join one" },
-                    { n: "3", title: "PvP", body: "Play against other players — winner takes the pot" },
-                    { n: "4", title: "Fairness", body: "Every round has Hash and Seed you can verify yourself" },
+                    {
+                      n: "1",
+                      emoji: "💎",
+                      title: "Balance",
+                      body: "Deposit TON — get GRAM on your balance",
+                    },
+                    {
+                      n: "2",
+                      emoji: "🎮",
+                      title: "Games",
+                      body: "RPS · Dice · XO · PvP Roulette · LIVE Roulette",
+                    },
+                    {
+                      n: "3",
+                      emoji: "🏆",
+                      title: "PvP & LIVE",
+                      body: "Play with people: pots, color bets, fair outcomes",
+                    },
+                    {
+                      n: "4",
+                      emoji: "🔐",
+                      title: "Fairness",
+                      body: "Hash + Seed every round — verify yourself",
+                    },
+                    {
+                      n: "5",
+                      emoji: "🔗",
+                      title: "Referrals",
+                      body: "10% of friends' commission (RPS, Dice, XO, PvP Roulette)",
+                    },
                   ]
               ).map((step) => (
                 <div
                   key={step.n}
-                  className="flex items-start gap-3 rounded-2xl bg-white/[0.04] border border-white/[0.07] px-3.5 py-3"
+                  className="flex items-center gap-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] px-3.5 py-3"
                 >
-                  <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400/30 to-violet-500/25 border border-cyan-400/25 flex items-center justify-center text-[13px] font-bold text-cyan-200 shadow-[0_0_12px_rgba(34,211,238,0.15)]">
-                    {step.n}
+                  <div className="shrink-0 w-11 h-11 rounded-2xl bg-gradient-to-br from-cyan-400/25 to-violet-500/20 border border-white/10 flex items-center justify-center text-[20px] shadow-[0_0_16px_rgba(34,211,238,0.12)]">
+                    {step.emoji}
                   </div>
-                  <div className="min-w-0 pt-0.5">
-                    <div className="text-[13px] font-semibold text-white/90 leading-tight">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-semibold text-white/95 leading-tight">
                       {step.title}
                     </div>
-                    <div className="text-[12px] text-white/50 leading-snug mt-0.5">
+                    <div className="text-[12px] text-white/45 leading-snug mt-0.5">
                       {step.body}
                     </div>
+                  </div>
+                  <div className="shrink-0 w-6 h-6 rounded-full bg-white/[0.06] text-[10px] font-bold text-white/35 flex items-center justify-center">
+                    {step.n}
                   </div>
                 </div>
               ))}
 
-
-              <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] px-3.5 py-3">
-                <div className="text-[11px] font-semibold text-white/45 uppercase tracking-wider mb-1.5">
+              <div className="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-violet-500/10 px-3.5 py-3">
+                <div className="text-[11px] font-semibold text-cyan-200/80 uppercase tracking-wider mb-1.5">
                   {t("rulesTitle")}
                 </div>
-                <div className="text-[11px] text-white/40 leading-relaxed whitespace-pre-line max-h-[40vh] overflow-y-auto">
+                <div className="text-[11px] text-white/45 leading-relaxed whitespace-pre-line max-h-[28vh] overflow-y-auto pr-1">
                   {t("rulesBody")}
                 </div>
               </div>

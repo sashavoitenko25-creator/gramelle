@@ -292,8 +292,8 @@ export const translations = {
       "• Withdrawals usually within 1 hour.\n" +
       "• Wager x1: play through the deposited amount before a successful withdrawal.\n\n" +
       "REFERRALS\n" +
-      "• 10% of platform commission from friends' bets in RPS, Dice, XO.\n" +
-      "• LIVE Roulette, PvP Roulette and SOLO do not count toward referral.\n\n" +
+      "• 10% of platform commission from friends' bets in RPS, Dice, XO, PvP Roulette.\n" +
+      "• LIVE Roulette and SOLO do not count toward referral.\n\n" +
       "FAIRNESS\n" +
       "• Each round has Hash and Seed — you can verify the result.\n\n" +
       "OTHER\n" +
@@ -597,8 +597,8 @@ export const translations = {
       "• Вывод обычно в течение 1 часа.\n" +
       "• Вейджер ×1: нужно отыграть сумму депозита для успешного вывода.\n\n" +
       "РЕФЕРАЛКА\n" +
-      "• 10% от комиссии платформы со ставок друзей в RPS, Dice, XO.\n" +
-      "• LIVE-рулетка, PvP-рулетка и SOLO в рефералке не участвуют.\n\n" +
+      "• 10% от комиссии платформы со ставок друзей в RPS, Dice, XO, PvP-рулетке.\n" +
+      "• LIVE-рулетка и SOLO в рефералке не участвуют.\n\n" +
       "ЧЕСТНОСТЬ\n" +
       "• У каждой партии есть Hash и Seed — результат можно проверить.\n\n" +
       "ПРОЧЕЕ\n" +

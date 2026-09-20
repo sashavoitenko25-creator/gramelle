@@ -153,8 +153,8 @@ export function ReferralsScreen({
           </div>
           <p className="mt-2 text-[12px] text-white/45 leading-relaxed max-w-[90%]">
             {tr(
-              "Commission share from friends' bets in RPS, Dice & XO",
-              "Доля комиссии со ставок друзей в RPS, Dice и XO"
+              "Commission share from friends' bets in RPS, Dice, XO & PvP Roulette",
+              "Доля комиссии со ставок друзей в RPS, Dice, XO и PvP-рулетке"
             )}
           </p>
           <button
@@ -227,8 +227,8 @@ export function ReferralsScreen({
         </div>
         <p className="mt-2.5 px-1 text-[11px] text-white/30 leading-relaxed">
           {tr(
-            "LIVE Roulette, PvP Roulette and SOLO do not count. No signup bonus.",
-            "LIVE-рулетка, PvP-рулетка и SOLO не участвуют. Бонуса за регистрацию нет."
+            "LIVE Roulette and SOLO do not count. No signup bonus.",
+            "LIVE-рулетка и SOLO не участвуют. Бонуса за регистрацию нет."
           )}
         </p>
       </div>
