@@ -21,6 +21,7 @@ import {
 import {
   ensureRouletteShowcaseBots,
   isRouletteShowcaseBot,
+  botPhotoUrl,
 } from "./rouletteBots";
 
 export type RoundStatus = "betting" | "spinning" | "settled";
@@ -427,16 +428,24 @@ export async function getRouletteState(
     }
   }
 
-  // Photos from profiles
+  // Photos from profiles + fixed showcase bot avatars
   const allIds = Array.from(seen);
   const photoMap = new Map<number, string | null>();
   if (allIds.length > 0) {
-    const { data: profiles } = await db
-      .from("profiles")
-      .select("telegram_id, photo_url")
-      .in("telegram_id", allIds);
-    for (const pr of profiles || []) {
-      photoMap.set(Number(pr.telegram_id), (pr.photo_url as string) || null);
+    const realIds = allIds.filter((id) => !isRouletteShowcaseBot(id));
+    if (realIds.length > 0) {
+      const { data: profiles } = await db
+        .from("profiles")
+        .select("telegram_id, photo_url")
+        .in("telegram_id", realIds);
+      for (const pr of profiles || []) {
+        photoMap.set(Number(pr.telegram_id), (pr.photo_url as string) || null);
+      }
+    }
+    for (const id of allIds) {
+      if (isRouletteShowcaseBot(id)) {
+        photoMap.set(id, botPhotoUrl(id));
+      }
     }
   }
 

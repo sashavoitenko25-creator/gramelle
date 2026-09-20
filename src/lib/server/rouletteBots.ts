@@ -1,8 +1,7 @@
 /**
- * Showcase-only roulette bots (no real GRAM).
- * Appear as normal players in pools / avatar strips — not labeled in the app.
- *
- * telegram_id range: 9100000001 … 9100000010
+ * Showcase-only LIVE roulette bots (no real GRAM).
+ * Five fixed people with stable names + avatars.
+ * Each can go AFK for 1–3 hours, then return — always ≥1 online.
  */
 import crypto from "crypto";
 import { getAdminClient } from "./supabase";
@@ -13,58 +12,101 @@ import {
 } from "@/lib/rouletteConstants";
 
 export const ROULETTE_BOT_ID_MIN = 9_100_000_001;
-export const ROULETTE_BOT_ID_MAX = 9_100_000_010;
+export const ROULETTE_BOT_ID_MAX = 9_100_000_005;
 
 export function isRouletteShowcaseBot(telegramId: number): boolean {
   const id = Number(telegramId);
   return id >= ROULETTE_BOT_ID_MIN && id <= ROULETTE_BOT_ID_MAX;
 }
 
-/** Human-looking nicknames (no "bot" in the name) */
-const BOT_NAMES = [
-  "Alex",
-  "Mira",
-  "Denis",
-  "Katya",
-  "Ivan",
-  "Sofia",
-  "Max",
-  "Lena",
-  "Artem",
-  "Nina",
-  "Oleg",
-  "Vera",
-  "Kirill",
-  "Anya",
-  "Roma",
-  "Dasha",
-  "Timur",
-  "Yulia",
-  "Pavel",
-  "Alina",
-  "Nikita",
-  "Polina",
-  "Sergey",
-  "Irina",
-  "Vlad",
-];
+/** Fixed cast — TG-style names, stable avatars */
+export const ROULETTE_BOTS = [
+  {
+    id: 9_100_000_001,
+    username: "🔥 Alex",
+    photoUrl:
+      "https://api.dicebear.com/7.x/avataaars/svg?seed=AlexGramelle&backgroundColor=b6e3f4",
+  },
+  {
+    id: 9_100_000_002,
+    username: "katya.m",
+    photoUrl:
+      "https://api.dicebear.com/7.x/avataaars/svg?seed=KatyaM&backgroundColor=ffd5dc",
+  },
+  {
+    id: 9_100_000_003,
+    username: "Денчик",
+    photoUrl:
+      "https://api.dicebear.com/7.x/avataaars/svg?seed=Denchik&backgroundColor=c0aede",
+  },
+  {
+    id: 9_100_000_004,
+    username: "max_ton",
+    photoUrl:
+      "https://api.dicebear.com/7.x/avataaars/svg?seed=MaxTon&backgroundColor=d1d4f9",
+  },
+  {
+    id: 9_100_000_005,
+    username: "• Sofia",
+    photoUrl:
+      "https://api.dicebear.com/7.x/avataaars/svg?seed=SofiaLive&backgroundColor=ffdfbf",
+  },
+] as const;
+
+export function botPhotoUrl(telegramId: number): string | null {
+  const b = ROULETTE_BOTS.find((x) => x.id === Number(telegramId));
+  return b?.photoUrl ?? null;
+}
 
 function hashBytes(seed: string): Buffer {
   return crypto.createHash("sha256").update(seed).digest();
 }
 
+function pickAmount(b: number): number {
+  const table = [
+    0.25, 0.25, 0.5, 0.5, 0.5, 0.5, 1, 1, 1, 1.5, 2, 2, 3, 5,
+  ];
+  return Math.max(ROULETTE_MIN_BET, table[b % table.length]);
+}
+
 function pickColor(b: number): RouletteColor {
-  // ~46% red, ~46% black, ~8% green — close to wheel without being obvious
   const x = b % 100;
-  if (x < 46) return "red";
-  if (x < 92) return "black";
+  if (x < 47) return "red";
+  if (x < 94) return "black";
   return "green";
 }
 
-function pickAmount(b: number): number {
-  // Mostly small stakes, occasional larger
-  const table = [0.25, 0.25, 0.5, 0.5, 0.5, 1, 1, 1.5, 2, 3, 5];
-  return table[b % table.length];
+/**
+ * Presence schedule per bot, in ~4h cycles (wall-clock based).
+ * Online for a stretch, then AFK 1h or 3h, then back.
+ * Always force at least one bot online.
+ */
+export function getOnlineBotIndices(nowMs: number = Date.now()): number[] {
+  const HOUR = 3_600_000;
+  const online: number[] = [];
+
+  for (let i = 0; i < ROULETTE_BOTS.length; i++) {
+    const bot = ROULETTE_BOTS[i];
+    // Independent phase per bot so they don't all leave together
+    const h = hashBytes(`presence:${bot.id}`);
+    const phaseMs = ((h[0] << 16) | (h[1] << 8) | h[2]) % (12 * HOUR);
+    const t = (nowMs + phaseMs) % (12 * HOUR);
+
+    // Pattern over 12h window (offset per bot):
+    // 0–3h online, 3–4h AFK (1h), 4–7h online, 7–10h AFK (3h), 10–12h online
+    const afk1h = t >= 3 * HOUR && t < 4 * HOUR;
+    const afk3h = t >= 7 * HOUR && t < 10 * HOUR;
+    if (!afk1h && !afk3h) online.push(i);
+  }
+
+  // Guarantee ≥1 bot online
+  if (online.length === 0) {
+    // Pick the one whose AFK ends soonest — deterministic: bot 0 rotated by hour
+    const fallback = Math.floor(nowMs / HOUR) % ROULETTE_BOTS.length;
+    online.push(fallback);
+  }
+
+  return online;
 }
 
 type RoundLite = {
@@ -74,9 +116,8 @@ type RoundLite = {
 };
 
 /**
- * Insert 1–5 showcase bets during the betting window.
- * Deterministic per round; staggered so they don't all appear at once.
- * No ledger debit / credit.
+ * During betting: online bots may place one staggered bet each.
+ * Away bots skip the round. Always at least one bot can play.
  */
 export async function ensureRouletteShowcaseBots(
   round: RoundLite
@@ -85,18 +126,52 @@ export async function ensureRouletteShowcaseBots(
 
   const now = Date.now();
   const betEnds = new Date(round.bet_ends_at).getTime();
-  if (!Number.isFinite(betEnds) || now >= betEnds - 400) return; // near lock
+  if (!Number.isFinite(betEnds) || now >= betEnds - 600) return;
 
   const betStart = betEnds - ROULETTE_COUNTDOWN_SEC * 1000;
   const elapsed = Math.max(0, now - betStart);
+  const windowMs = Math.max(1000, betEnds - betStart - 800);
 
-  const h = hashBytes(`${round.id}:showcase-bots`);
-  // 1..5 bots this round
-  const count = 1 + (h[0] % 5);
+  const present = getOnlineBotIndices(now);
+  if (present.length === 0) return;
+
+  const h = hashBytes(`${round.id}:bots-v3`);
+
+  // Of those online, how many bet this round: 1 .. all present (bias mid)
+  const maxN = present.length;
+  const roll = h[0] % 10;
+  let activeCount =
+    maxN === 1
+      ? 1
+      : roll < 2
+        ? 1
+        : roll < 5
+          ? Math.min(2, maxN)
+          : roll < 8
+            ? Math.min(3, maxN)
+            : maxN;
+  activeCount = Math.max(1, Math.min(activeCount, maxN));
+
+  // Shuffle present order by hash, take activeCount
+  const shuffled = [...present].sort(
+    (a, b) => (h[1 + a] || 0) - (h[1 + b] || 0) || a - b
+  );
+  const activeIdx = shuffled.slice(0, activeCount).sort((a, b) => a - b);
+
+  // Staggered join times — min 1.2s gap
+  const rawTimes = activeIdx.map((idx, i) => {
+    const base = 700 + i * 1400;
+    const jitter = (h[10 + idx] || 0) % 900;
+    return Math.min(windowMs - 200, base + jitter);
+  });
+  const joinMs: number[] = [];
+  for (let i = 0; i < rawTimes.length; i++) {
+    const minNext = i === 0 ? rawTimes[0] : joinMs[i - 1] + 1200;
+    joinMs.push(Math.max(rawTimes[i], minNext));
+  }
 
   const db = getAdminClient();
 
-  // Who already placed (bots only)
   const { data: existing } = await db
     .from("roulette_bets")
     .select("telegram_id")
@@ -117,34 +192,28 @@ export async function ensureRouletteShowcaseBots(
     payout: null;
   }> = [];
 
-  for (let i = 0; i < count; i++) {
-    const botId = ROULETTE_BOT_ID_MIN + i;
-    if (already.has(botId)) continue;
-
-    // Join after 0.8–9s into the countdown (staggered)
-    const joinMs = 800 + ((h[1 + i] || 0) % 8200);
-    if (elapsed < joinMs) continue;
-
-    const color = pickColor(h[8 + i] ?? 0);
-    const amount = Math.max(ROULETTE_MIN_BET, pickAmount(h[16 + i] ?? 0));
-    const name =
-      BOT_NAMES[(h[24 + i] + i * 7) % BOT_NAMES.length] || "Player";
+  for (let i = 0; i < activeIdx.length; i++) {
+    const idx = activeIdx[i];
+    const bot = ROULETTE_BOTS[idx];
+    if (already.has(bot.id)) continue;
+    if (elapsed < joinMs[i]) continue;
 
     rows.push({
       round_id: round.id,
-      telegram_id: botId,
-      username: name,
-      color,
-      amount,
+      telegram_id: bot.id,
+      username: bot.username,
+      color: pickColor(h[20 + idx] ?? 0),
+      amount: pickAmount(h[30 + idx] ?? 0),
       payout: null,
     });
   }
 
   if (rows.length === 0) return;
 
-  const { error } = await db.from("roulette_bets").insert(rows);
-  if (error) {
-    // ignore unique/race — next poll will retry remaining
-    console.warn("[roulette-bots] insert", error.message);
+  for (const row of rows) {
+    const { error } = await db.from("roulette_bets").insert(row);
+    if (error) {
+      console.warn("[roulette-bots] insert", row.username, error.message);
+    }
   }
 }
