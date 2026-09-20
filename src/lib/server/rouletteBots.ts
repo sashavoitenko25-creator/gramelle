@@ -24,32 +24,28 @@ export const ROULETTE_BOTS = [
   {
     id: 9_100_000_001,
     username: "🔥 Alex",
-    photoUrl:
-      "https://api.dicebear.com/7.x/avataaars/svg?seed=AlexGramelle&backgroundColor=b6e3f4",
+    // fixed realistic face (pravatar seed)
+    photoUrl: "https://i.pravatar.cc/150?u=gramelle-alex-01",
   },
   {
     id: 9_100_000_002,
     username: "katya.m",
-    photoUrl:
-      "https://api.dicebear.com/7.x/avataaars/svg?seed=KatyaM&backgroundColor=ffd5dc",
+    photoUrl: "https://i.pravatar.cc/150?u=gramelle-katya-02",
   },
   {
     id: 9_100_000_003,
     username: "Денчик",
-    photoUrl:
-      "https://api.dicebear.com/7.x/avataaars/svg?seed=Denchik&backgroundColor=c0aede",
+    photoUrl: "https://i.pravatar.cc/150?u=gramelle-denchik-03",
   },
   {
     id: 9_100_000_004,
     username: "max_ton",
-    photoUrl:
-      "https://api.dicebear.com/7.x/avataaars/svg?seed=MaxTon&backgroundColor=d1d4f9",
+    photoUrl: "https://i.pravatar.cc/150?u=gramelle-max-04",
   },
   {
     id: 9_100_000_005,
     username: "• Sofia",
-    photoUrl:
-      "https://api.dicebear.com/7.x/avataaars/svg?seed=SofiaLive&backgroundColor=ffdfbf",
+    photoUrl: "https://i.pravatar.cc/150?u=gramelle-sofia-05",
   },
 ] as const;
 
