@@ -402,7 +402,6 @@ export function RouletteScreen({
     const minTravel = STRIDE * ROULETTE_SLOT_COUNT * 4;
     while (dest - startX < minTravel) dest += STRIDE * ROULETTE_SLOT_COUNT;
 
-    // Prefer full spin length; only shorten if almost out of time
     let dur = ROULETTE_SPIN_MS;
     if (r.spinEndsAt) {
       const left =
@@ -417,7 +416,6 @@ export function RouletteScreen({
     haptic("medium");
 
     const step = (now: number) => {
-      // Abort only if a newer round already claimed the spin lock
       if (spunForRound.current !== roundIdAtStart) {
         spinRaf.current = null;
         return;
@@ -431,30 +429,26 @@ export function RouletteScreen({
         writeX(dest);
         spinRaf.current = null;
         hapticSuccess();
-        // let the 800ms poll advance status — avoid extra load() races
       }
     };
     spinRaf.current = requestAnimationFrame(step);
-
-    // No cleanup cancel — prevents "spin → stop → spin again" on poll/re-render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.round.id, state?.round.status, state?.round.resultSlot]);
 
   // When result is shown: freeze on the winning slot (no extra spin)
   useEffect(() => {
     const slot = state?.round.resultSlot;
-    if (status !== "settled" || slot == null) return;
+    if (status !== "settled" || slot == null || !roundId) return;
     if (idleRaf.current) {
       cancelAnimationFrame(idleRaf.current);
       idleRaf.current = null;
     }
-    // Keep finished spin frame; only snap if we never spun (late join)
     if (spunForRound.current !== roundId) {
       const slotPos =
         ((slot % ROULETTE_SLOT_COUNT) + ROULETTE_SLOT_COUNT) %
         ROULETTE_SLOT_COUNT;
       writeX(slotPos * STRIDE);
-      spunForRound.current = roundId;
+      spunForRound.current = roundId ?? null;
     }
   }, [status, state?.round.resultSlot, roundId]);
 
@@ -463,9 +457,7 @@ export function RouletteScreen({
       if (spunForRound.current && spunForRound.current !== roundId) {
         spunForRound.current = null;
       }
-      // New round → drop pending from previous game
       pendingBetsRef.current = {};
-      // Snap wheel into first period so tiles stay visible
       const period = STRIDE * ROULETTE_SLOT_COUNT;
       const x = wheelXRef.current;
       const snapped = ((x % period) + period) % period;
@@ -473,7 +465,6 @@ export function RouletteScreen({
     }
   }, [status, roundId]);
 
-  // Unmount only
   useEffect(() => {
     return () => {
       if (spinRaf.current) cancelAnimationFrame(spinRaf.current);
