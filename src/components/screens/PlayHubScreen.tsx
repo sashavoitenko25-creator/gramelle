@@ -348,8 +348,8 @@ export function PlayHubScreen({
               </div>
               <p className="mt-1 text-[13px] text-white/70 leading-snug max-w-[90%]">
                 {tr(
-                  "Play against people · RPS, Dice, XO",
-                  "Играй против людей · КНБ, Кости, XO"
+                  "Play against people",
+                  "Играй против людей"
                 )}
               </p>
             </div>

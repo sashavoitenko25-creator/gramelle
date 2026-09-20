@@ -20,19 +20,19 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
     lang === "ru"
       ? {
           title: "Реферальная программа",
-          p1: "Приглашайте друзей по своей ссылке. Когда они играют в RPS, Dice, XO или PvP-рулетку, вы получаете 10% от комиссии платформы с их ставок.",
+          p1: "Приглашайте друзей по своей ссылке. Когда они играют в PvP, вы получаете долю с их игр.",
           p2a: "Начисления идут на ",
           p2b: "реферальные накопления",
           p2c: `. Вывод на основной баланс в любой момент (мин. ${REFERRAL_MIN_WITHDRAW} GRAM).`,
-          note: "LIVE-рулетка и SOLO не участвуют в рефералке. Бонуса за регистрацию нет.",
+          note: "LIVE и SOLO не участвуют. Бонуса за регистрацию нет.",
         }
       : {
           title: "Referral program",
-          p1: "Invite friends with your link. When they play RPS, Dice, XO or PvP Roulette, you earn 10% of the platform commission from their bets.",
+          p1: "Invite friends with your link. When they play PvP games, you earn a share from their activity.",
           p2a: "Earnings go to your ",
           p2b: "referral savings",
           p2c: `. Withdraw to main balance anytime (min ${REFERRAL_MIN_WITHDRAW} GRAM).`,
-          note: "LIVE Roulette and SOLO do not count toward referral. No signup bonus.",
+          note: "LIVE and SOLO do not count. No signup bonus.",
         };
 
   return (
@@ -44,7 +44,7 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
         <div className="w-10 h-1 rounded-full bg-white/15 mx-auto mb-4" />
         <h3 className="text-lg font-semibold mb-1">{body.title}</h3>
         <p className="text-[12px] text-cyan-300/80 mb-4 font-medium">
-          {pct}% · RPS · Dice · XO · PvP
+          {lang === "ru" ? "Доля с PvP-игр друзей" : "Share from friends' PvP games"}
         </p>
         <div className="space-y-3 text-sm text-white/65 leading-relaxed mb-4">
           <p>{body.p1}</p>
@@ -53,12 +53,11 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
             <span className="text-cyan-300 font-medium">{body.p2b}</span>
             {body.p2c}
           </p>
-          <div className="rounded-2xl bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-cyan-400/20 p-3.5 flex items-center justify-between">
+          <div className="rounded-2xl bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-cyan-400/20 p-3.5">
             <span className="text-xs text-white/60">
-              {lang === "ru" ? "Твоя доля" : "Your share"}
-            </span>
-            <span className="text-lg font-black tabular-nums text-cyan-300">
-              {pct}%
+              {lang === "ru"
+                ? "Доля начисляется с PvP-игр приглашённых друзей."
+                : "Your share comes from invited friends' PvP games."}
             </span>
           </div>
           <p className="text-xs text-white/40">{body.note}</p>

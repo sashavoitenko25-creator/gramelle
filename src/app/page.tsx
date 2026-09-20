@@ -692,7 +692,7 @@ export default function Home() {
                       n: "5",
                       emoji: "🔗",
                       title: "Рефералка",
-                      body: "10% от комиссии друзей (RPS, Dice, XO, PvP-рулетка)",
+                      body: "Доля с PvP-игр друзей",
                     },
                   ]
                 : [
@@ -724,7 +724,7 @@ export default function Home() {
                       n: "5",
                       emoji: "🔗",
                       title: "Referrals",
-                      body: "10% of friends' commission (RPS, Dice, XO, PvP Roulette)",
+                      body: "Share from friends' PvP games",
                     },
                   ]
               ).map((step) => (

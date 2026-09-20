@@ -211,7 +211,7 @@ export const translations = {
     no: "no",
     copySeed: "Copy seed",
     checking: "Checking…",
-    shareOfFee: "Share of house fee from friends' bets",
+    shareOfFee: "Share from friends' PvP games",
     depositsWithdrawals: "Deposits & withdrawals status",
     amountPlaceholder: "Amount ({min}–{max})",
     requestsManual: "Withdrawals are processed within 1 hour. Status appears in Transactions.",
@@ -283,17 +283,17 @@ export const translations = {
     rulesBody:
       "Gramelle — entertainment platform. 18+ only.\n\n" +
       "GAMES\n" +
-      "• RPS, Dice, XO — PvP. Winner takes the pot minus 5% platform fee.\n" +
-      "• PvP Roulette — players bet into a shared pot; one winner by chance. House takes 30% of opponents' stakes.\n" +
-      "• LIVE Roulette — Red / Black / Green. Green pays 14x. No separate fee; house edge is in the odds.\n" +
+      "• RPS, Dice, XO — play against other people, winner takes the pot.\n" +
+      "• PvP Roulette — shared pot, one winner by chance.\n" +
+      "• LIVE Roulette — Red / Black / Green. Green pays 14x.\n" +
       "• Min bet from 0.25 GRAM (see limits in the app).\n\n" +
       "BALANCE & MONEY\n" +
       "• Deposit via TON (and Stars where available).\n" +
       "• Withdrawals usually within 1 hour.\n" +
       "• Wager x1: play through the deposited amount before a successful withdrawal.\n\n" +
       "REFERRALS\n" +
-      "• 10% of platform commission from friends' bets in RPS, Dice, XO, PvP Roulette.\n" +
-      "• LIVE Roulette and SOLO do not count toward referral.\n\n" +
+      "• Earn from friends' activity in PvP games.\n" +
+      "• LIVE and SOLO do not count toward referral.\n\n" +
       "FAIRNESS\n" +
       "• Each round has Hash and Seed — you can verify the result.\n\n" +
       "OTHER\n" +
@@ -515,7 +515,7 @@ export const translations = {
     no: "нет",
     copySeed: "Копировать seed",
     checking: "Проверка…",
-    shareOfFee: "Доля комиссии с ставок друзей",
+    shareOfFee: "Доля с PvP-игр друзей",
     depositsWithdrawals: "Статусы депозитов и выводов",
     amountPlaceholder: "Сумма ({min}–{max})",
     requestsManual: "Выводы в течение 1 часа. Статус — в «Транзакции».",
@@ -588,17 +588,17 @@ export const translations = {
     rulesBody:
       "Gramelle — развлекательная платформа. Только 18+.\n\n" +
       "ИГРЫ\n" +
-      "• RPS, Dice, XO — PvP. Победитель забирает банк минус 5% комиссии платформы.\n" +
-      "• PvP-рулетка — общий банк, один победитель по шансу. Дом берёт 30% со ставок соперников.\n" +
-      "• LIVE-рулетка — Красное / Чёрное / Зелёное. Зелёное ×14. Отдельной комиссии нет; преимущество дома в шансах.\n" +
+      "• RPS, Dice, XO — игра против людей, победитель забирает банк.\n" +
+      "• PvP-рулетка — общий банк, один победитель по шансу.\n" +
+      "• LIVE-рулетка — Красное / Чёрное / Зелёное. Зелёное ×14.\n" +
       "• Мин. ставка от 0.25 GRAM (актуальные лимиты — в приложении).\n\n" +
       "БАЛАНС И ДЕНЬГИ\n" +
       "• Депозит через TON (и Stars, где доступно).\n" +
       "• Вывод обычно в течение 1 часа.\n" +
       "• Вейджер ×1: нужно отыграть сумму депозита для успешного вывода.\n\n" +
       "РЕФЕРАЛКА\n" +
-      "• 10% от комиссии платформы со ставок друзей в RPS, Dice, XO, PvP-рулетке.\n" +
-      "• LIVE-рулетка и SOLO в рефералке не участвуют.\n\n" +
+      "• Доход с активности друзей в PvP-играх.\n" +
+      "• LIVE и SOLO в рефералке не участвуют.\n\n" +
       "ЧЕСТНОСТЬ\n" +
       "• У каждой партии есть Hash и Seed — результат можно проверить.\n\n" +
       "ПРОЧЕЕ\n" +

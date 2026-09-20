@@ -73,13 +73,13 @@ export function ReferralsScreen({
     {
       n: "2",
       title: tr("They play", "Они играют"),
-      desc: tr("RPS, Dice or XO", "RPS, Dice или XO"),
+      desc: tr("PvP games", "PvP-игры"),
       emoji: "🎮",
     },
     {
       n: "3",
-      title: tr(`You earn ${sharePct}%`, `Ты получаешь ${sharePct}%`),
-      desc: tr("Of platform commission", "От комиссии платформы"),
+      title: tr("You earn", "Ты получаешь"),
+      desc: tr("From friends' PvP games", "С PvP-игр друзей"),
       emoji: "💎",
     },
   ];
@@ -142,7 +142,7 @@ export function ReferralsScreen({
               {t("refSavings")}
             </span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-400/15 text-cyan-300 border border-cyan-400/25">
-              {sharePct}%
+              PvP
             </span>
           </div>
           <div className="flex items-baseline gap-2 mt-1">
@@ -153,8 +153,8 @@ export function ReferralsScreen({
           </div>
           <p className="mt-2 text-[12px] text-white/45 leading-relaxed max-w-[90%]">
             {tr(
-              "Commission share from friends' bets in RPS, Dice, XO & PvP Roulette",
-              "Доля комиссии со ставок друзей в RPS, Dice, XO и PvP-рулетке"
+              "Share from friends' PvP games",
+              "Доля с PvP-игр друзей"
             )}
           </p>
           <button
@@ -227,8 +227,8 @@ export function ReferralsScreen({
         </div>
         <p className="mt-2.5 px-1 text-[11px] text-white/30 leading-relaxed">
           {tr(
-            "LIVE Roulette and SOLO do not count. No signup bonus.",
-            "LIVE-рулетка и SOLO не участвуют. Бонуса за регистрацию нет."
+            "LIVE and SOLO do not count. No signup bonus.",
+            "LIVE и SOLO не участвуют. Бонуса за регистрацию нет."
           )}
         </p>
       </div>
