@@ -379,7 +379,7 @@ export function RouletteScreen({
     };
   }, [status, roundId]);
 
-  // Spin
+  // Spin once per round — do not cancel mid-animation on re-render/poll
   useEffect(() => {
     if (!state) return;
     const r = state.round;
@@ -391,7 +391,10 @@ export function RouletteScreen({
       cancelAnimationFrame(idleRaf.current);
       idleRaf.current = null;
     }
-    if (spinRaf.current) cancelAnimationFrame(spinRaf.current);
+    if (spinRaf.current) {
+      cancelAnimationFrame(spinRaf.current);
+      spinRaf.current = null;
+    }
 
     const slot = r.resultSlot;
     const startX = wheelXRef.current;
@@ -399,17 +402,26 @@ export function RouletteScreen({
     const minTravel = STRIDE * ROULETTE_SLOT_COUNT * 4;
     while (dest - startX < minTravel) dest += STRIDE * ROULETTE_SLOT_COUNT;
 
+    // Prefer full spin length; only shorten if almost out of time
     let dur = ROULETTE_SPIN_MS;
     if (r.spinEndsAt) {
       const left =
         new Date(r.spinEndsAt).getTime() - (Date.now() + offsetRef.current);
-      dur = Math.max(1200, Math.min(ROULETTE_SPIN_MS, left - 80));
+      if (left > 0 && left < ROULETTE_SPIN_MS) {
+        dur = Math.max(1800, left - 50);
+      }
     }
 
     const t0 = performance.now();
+    const roundIdAtStart = r.id;
     haptic("medium");
 
     const step = (now: number) => {
+      // Abort only if a newer round already claimed the spin lock
+      if (spunForRound.current !== roundIdAtStart) {
+        spinRaf.current = null;
+        return;
+      }
       const p = Math.min(1, (now - t0) / dur);
       const e = easeOutExpo(p);
       writeX(startX + (dest - startX) * e);
@@ -419,21 +431,32 @@ export function RouletteScreen({
         writeX(dest);
         spinRaf.current = null;
         hapticSuccess();
-        void load();
+        // let the 800ms poll advance status — avoid extra load() races
       }
     };
     spinRaf.current = requestAnimationFrame(step);
 
-    return () => {
-      if (spinRaf.current) cancelAnimationFrame(spinRaf.current);
-    };
+    // No cleanup cancel — prevents "spin → stop → spin again" on poll/re-render
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    state?.round.id,
-    state?.round.status,
-    state?.round.resultSlot,
-    state?.round.spinEndsAt,
-  ]);
+  }, [state?.round.id, state?.round.status, state?.round.resultSlot]);
+
+  // When result is shown: freeze on the winning slot (no extra spin)
+  useEffect(() => {
+    const slot = state?.round.resultSlot;
+    if (status !== "settled" || slot == null) return;
+    if (idleRaf.current) {
+      cancelAnimationFrame(idleRaf.current);
+      idleRaf.current = null;
+    }
+    // Keep finished spin frame; only snap if we never spun (late join)
+    if (spunForRound.current !== roundId) {
+      const slotPos =
+        ((slot % ROULETTE_SLOT_COUNT) + ROULETTE_SLOT_COUNT) %
+        ROULETTE_SLOT_COUNT;
+      writeX(slotPos * STRIDE);
+      spunForRound.current = roundId;
+    }
+  }, [status, state?.round.resultSlot, roundId]);
 
   useEffect(() => {
     if (status === "betting" && roundId) {
@@ -449,6 +472,14 @@ export function RouletteScreen({
       if (Math.abs(x - snapped) > 1) writeX(snapped);
     }
   }, [status, roundId]);
+
+  // Unmount only
+  useEffect(() => {
+    return () => {
+      if (spinRaf.current) cancelAnimationFrame(spinRaf.current);
+      if (idleRaf.current) cancelAnimationFrame(idleRaf.current);
+    };
+  }, []);
 
   const amount = (() => {
     if (!amountStr.trim()) return 0;
