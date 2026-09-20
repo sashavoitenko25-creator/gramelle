@@ -514,6 +514,27 @@ export function RouletteScreen({
         Number(pendingBetsRef.current[c] || 0),
         Number(state?.myBets?.[c] || 0)
       );
+    // Only red+green or black+green — not red and black together
+    if (color === "red" && abs("black") > 0) {
+      showToast(
+        tr(
+          "Cannot bet red and black together",
+          "Нельзя ставить на красное и чёрное сразу"
+        )
+      );
+      hapticError();
+      return;
+    }
+    if (color === "black" && abs("red") > 0) {
+      showToast(
+        tr(
+          "Cannot bet red and black together",
+          "Нельзя ставить на красное и чёрное сразу"
+        )
+      );
+      hapticError();
+      return;
+    }
     const nextColorTotal = abs(color) + amount;
     const projected =
       abs("red") +
@@ -925,8 +946,8 @@ export function RouletteScreen({
             </div>
             <p className="text-[13px] text-white/55 leading-relaxed mb-4">
               {tr(
-                "Guess the color correctly several times in a row. Fill the train — at 10 wins you get a bonus. A miss resets the streak. Going past 10 keeps counting (12/10, 15/10…) but the bonus is awarded at 10.",
-                "Угадывай цвет подряд. Заполни «паравоз» — на 10 победах подряд бонус. Ошибка сбрасывает серию. Больше 10 тоже считается (12/10, 15/10…), бонус начисляется при достижении 10."
+                "Guess the color correctly in a row. Fill all 10 cells — get a bonus. A miss or skipping a round resets the streak. Bet red+green or black+green only.",
+                "Угадывай цвет подряд. Заполни все 10 ячеек — получи бонус. Промах или пропуск раунда сбрасывает серию. Только красное+зелёное или чёрное+зелёное."
               )}
             </p>
             <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3.5 py-3 mb-4 flex items-center justify-between">

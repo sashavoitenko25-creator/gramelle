@@ -589,9 +589,19 @@ export async function placeRouletteBet(opts: {
     const db = getAdminClient();
     const { data: existing } = await db
       .from("roulette_bets")
-      .select("id, amount")
+      .select("id, amount, color")
       .eq("round_id", round.id)
       .eq("telegram_id", telegramId);
+
+    // Cannot cover both red and black — only red+green or black+green
+    const hasRed = (existing || []).some((r) => r.color === "red");
+    const hasBlack = (existing || []).some((r) => r.color === "black");
+    if (color === "red" && hasBlack) {
+      throw new Error("Cannot bet red and black in the same round");
+    }
+    if (color === "black" && hasRed) {
+      throw new Error("Cannot bet black and red in the same round");
+    }
 
     const already = (existing || []).reduce(
       (s, r) => s + (Number(r.amount) || 0),

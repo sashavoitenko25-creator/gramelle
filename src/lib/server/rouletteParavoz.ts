@@ -1,5 +1,6 @@
 /**
  * LIVE Roulette "Paravoz" — 10 correct color guesses in a row → 10 GRAM bonus.
+ * Per-player streak. Skip a round or miss → reset.
  */
 import { getAdminClient } from "./supabase";
 import { creditBalance } from "./ledger";
@@ -35,8 +36,10 @@ type BetLite = {
 };
 
 /**
- * After a round settles: update streaks for everyone who bet (real users only).
- * Win = had stake on the result color. Loss = only wrong colors. No bet = skip.
+ * After a round settles:
+ * - Win (stake on result color) → streak +1
+ * - Loss (only wrong colors) → reset
+ * - No bet this round → reset (skip breaks the train)
  * Bonus once when streak hits exactly TARGET.
  */
 export async function applyParavozAfterRound(opts: {
@@ -65,15 +68,32 @@ export async function applyParavozAfterRound(opts: {
     byUser.set(tid, cur);
   }
 
-  if (byUser.size === 0) return;
   const db = getAdminClient();
 
-  for (const [tid, u] of byUser) {
-    const guessed = u.onWin > 0;
+  // Active streaks (anyone mid-train) — skippers must reset
+  const { data: activeRows } = await db
+    .from("roulette_paravoz")
+    .select("telegram_id, streak, colors, username")
+    .gt("streak", 0);
+
+  const toProcess = new Set<number>();
+  for (const tid of byUser.keys()) toProcess.add(tid);
+  for (const r of activeRows || []) {
+    const tid = Number(r.telegram_id);
+    if (tid && !isRouletteShowcaseBot(tid)) toProcess.add(tid);
+  }
+
+  if (toProcess.size === 0) return;
+
+  for (const tid of toProcess) {
+    const u = byUser.get(tid);
+    const played = !!u;
+    const guessed = !!(u && u.onWin > 0);
+
     try {
       const { data: row } = await db
         .from("roulette_paravoz")
-        .select("streak, colors")
+        .select("streak, colors, username")
         .eq("telegram_id", tid)
         .maybeSingle();
 
@@ -81,8 +101,15 @@ export async function applyParavozAfterRound(opts: {
       let colors: RouletteColor[] = Array.isArray(row?.colors)
         ? (row!.colors as RouletteColor[])
         : [];
+      const username =
+        (u?.username || row?.username || "Player").toString().slice(0, 64);
 
-      if (guessed) {
+      if (!played) {
+        // Skipped the round → train breaks
+        if (streak === 0 && colors.length === 0) continue;
+        streak = 0;
+        colors = [];
+      } else if (guessed) {
         streak += 1;
         colors = [...colors, resultColor].slice(-50);
       } else {
@@ -95,14 +122,13 @@ export async function applyParavozAfterRound(opts: {
           telegram_id: tid,
           streak,
           colors,
-          username: u.username,
+          username,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "telegram_id" }
       );
 
-      // Bonus exactly at 10 consecutive (once per streak run)
-      if (guessed && streak === PARAVOZ_TARGET) {
+      if (played && guessed && streak === PARAVOZ_TARGET) {
         try {
           await creditBalance(tid, PARAVOZ_BONUS_GRAM, "win", {
             kind: "paravoz_bonus",
@@ -115,7 +141,7 @@ export async function applyParavozAfterRound(opts: {
         try {
           await db.from("roulette_paravoz_wins").insert({
             telegram_id: tid,
-            username: u.username,
+            username,
             streak,
             bonus_gram: PARAVOZ_BONUS_GRAM,
             colors: colors.slice(-PARAVOZ_TARGET),
