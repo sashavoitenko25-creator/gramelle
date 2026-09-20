@@ -731,7 +731,8 @@ export function RouletteScreen({
 
 
 
-      {/* Paravoz banner */}
+
+      {/* Paravoz — streak card (tap opens participants) */}
       {(() => {
         const pz = state?.paravoz;
         const streak = pz?.streak ?? 0;
@@ -741,8 +742,13 @@ export function RouletteScreen({
         const cells = Array.from({ length: target }, (_, i) => colors[i] ?? null);
         const pct = Math.min(100, (streak / target) * 100);
         return (
-          <div
-            className="mx-3 mt-2 mb-1 relative w-[calc(100%-1.5rem)] rounded-[20px] overflow-hidden border border-white/10"
+          <button
+            type="button"
+            onClick={() => {
+              haptic("light");
+              setParavozOpen(true);
+            }}
+            className="mx-3 mt-2 mb-1 relative w-[calc(100%-1.5rem)] text-left rounded-[20px] overflow-hidden border border-white/10 btn-press"
             style={{
               background:
                 "linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(88,28,135,0.35) 45%, rgba(180,83,9,0.25) 100%)",
@@ -758,109 +764,77 @@ export function RouletteScreen({
               }}
             />
             <div className="relative px-3.5 pt-3 pb-3">
-              <div className="flex items-center gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    haptic("light");
-                    setParavozOpen(true);
+              <div className="flex items-center gap-2.5 mb-2">
+                <div
+                  className="shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center text-[18px] border border-amber-300/25"
+                  style={{
+                    background:
+                      "linear-gradient(145deg, rgba(251,191,36,0.35), rgba(245,158,11,0.15))",
+                    boxShadow: "0 0 20px rgba(251,191,36,0.25)",
                   }}
-                  className="flex items-center gap-2.5 min-w-0 flex-1 text-left btn-press"
                 >
-                  <div
-                    className="shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center text-[18px] border border-amber-300/25"
-                    style={{
-                      background:
-                        "linear-gradient(145deg, rgba(251,191,36,0.35), rgba(245,158,11,0.15))",
-                      boxShadow: "0 0 20px rgba(251,191,36,0.25)",
-                    }}
-                  >
-                    🚂
+                  🚂
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[14px] font-black tracking-tight text-white">
+                    {tr("Paravoz", "Паравоз")}
                   </div>
-                  <div className="min-w-0">
-                    <div className="text-[14px] font-black tracking-tight text-white">
-                      {tr("Paravoz", "Паравоз")}
-                    </div>
-                    <div className="text-[11px] text-white/45">
-                      {tr(
-                        `${target} in a row → +${bonus} GRAM`,
-                        `${target} подряд → +${bonus} GRAM`
-                      )}
-                    </div>
+                  <div className="text-[11px] text-white/45">
+                    {tr(
+                      `${target} in a row → +${bonus} GRAM`,
+                      `${target} подряд → +${bonus} GRAM`
+                    )}
                   </div>
-                </button>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[16px] font-black tabular-nums text-amber-200">
-                    {streak}
-                    <span className="text-[11px] text-white/35 font-semibold">
-                      /{target}
-                    </span>
+                </div>
+                <span className="text-[18px] font-black tabular-nums text-amber-200 shrink-0">
+                  {streak}
+                  <span className="text-[12px] text-white/35 font-semibold">
+                    /{target}
                   </span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      haptic("light");
-                      setParavozWinsOpen(true);
-                    }}
-                    className="h-8 px-2.5 rounded-xl bg-amber-400/15 border border-amber-300/25 text-[11px] font-bold text-amber-100 btn-press"
-                  >
-                    {tr("Winners", "Победители")}
-                  </button>
-                </div>
+                </span>
               </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  haptic("light");
-                  setParavozOpen(true);
-                }}
-                className="w-full text-left"
-              >
-                <div className="relative h-1.5 rounded-full bg-black/40 overflow-hidden mb-2 border border-white/5">
+              <div className="relative h-1.5 rounded-full bg-black/40 overflow-hidden mb-2 border border-white/5">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+                  style={{
+                    width: `${pct}%`,
+                    background:
+                      "linear-gradient(90deg, #fbbf24, #f97316, #a78bfa)",
+                    boxShadow: "0 0 12px rgba(251,191,36,0.5)",
+                  }}
+                />
+              </div>
+              <div className="flex gap-1">
+                {cells.map((c, i) => (
                   <div
-                    className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+                    key={i}
+                    className="relative flex-1 aspect-square max-h-7 rounded-lg border overflow-hidden"
                     style={{
-                      width: `${pct}%`,
-                      background:
-                        "linear-gradient(90deg, #fbbf24, #f97316, #a78bfa)",
-                      boxShadow: "0 0 12px rgba(251,191,36,0.5)",
+                      borderColor: c
+                        ? "rgba(255,255,255,0.2)"
+                        : "rgba(255,255,255,0.08)",
+                      background: c
+                        ? c === "red"
+                          ? "linear-gradient(160deg,#9f1239,#e11d48)"
+                          : c === "black"
+                            ? "linear-gradient(160deg,#0f172a,#334155)"
+                            : "linear-gradient(160deg,#047857,#34d399)"
+                        : "rgba(255,255,255,0.04)",
+                      boxShadow: c
+                        ? "0 0 10px rgba(251,191,36,0.2)"
+                        : undefined,
                     }}
-                  />
-                </div>
-                <div className="flex gap-1">
-                  {cells.map((c, i) => (
-                    <div
-                      key={i}
-                      className="relative flex-1 aspect-square max-h-7 rounded-lg border overflow-hidden"
-                      style={{
-                        borderColor: c
-                          ? "rgba(255,255,255,0.2)"
-                          : "rgba(255,255,255,0.08)",
-                        background: c
-                          ? c === "red"
-                            ? "linear-gradient(160deg,#9f1239,#e11d48)"
-                            : c === "black"
-                              ? "linear-gradient(160deg,#0f172a,#334155)"
-                              : "linear-gradient(160deg,#047857,#34d399)"
-                          : "rgba(255,255,255,0.04)",
-                        boxShadow: c
-                          ? "0 0 10px rgba(251,191,36,0.2)"
-                          : undefined,
-                      }}
-                    >
-                      {!c && (
-                        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-white/20 tabular-nums">
-                          {i + 1}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </button>
+                  >
+                    {!c && (
+                      <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-white/20 tabular-nums">
+                        {i + 1}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          </button>
         );
       })()}
 
@@ -1020,7 +994,17 @@ export function RouletteScreen({
             <div className="w-10 h-1 rounded-full bg-white/15 mx-auto mb-4" />
             <div className="flex items-center gap-2 mb-1">
               <span className="text-2xl">🚂</span>
-              <h3 className="text-lg font-bold">{tr("Paravoz", "Паравоз")}</h3>
+              <h3 className="text-lg font-bold flex-1">{tr("Paravoz", "Паравоз")}</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  haptic("light");
+                  setParavozWinsOpen(true);
+                }}
+                className="h-8 px-2.5 rounded-xl bg-amber-400/15 border border-amber-300/25 text-[11px] font-bold text-amber-100 btn-press shrink-0"
+              >
+                {tr("Winners", "Победители")}
+              </button>
             </div>
             <p className="text-[13px] text-white/55 leading-relaxed mb-3">
               {tr(
