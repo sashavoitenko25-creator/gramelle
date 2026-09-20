@@ -24,7 +24,7 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
           p2a: "Начисления идут на ",
           p2b: "реферальные накопления",
           p2c: `. Вывод на основной баланс в любой момент (мин. ${REFERRAL_MIN_WITHDRAW} GRAM).`,
-          note: "LIVE и SOLO не участвуют в рефералке. Бонуса за регистрацию нет.",
+          note: "LIVE-рулетка, PvP-рулетка и SOLO не участвуют в рефералке. Бонуса за регистрацию нет.",
         }
       : {
           title: "Referral program",
@@ -32,7 +32,7 @@ export function HowRefModal({ open, onClose, onCopy }: HowRefModalProps) {
           p2a: "Earnings go to your ",
           p2b: "referral savings",
           p2c: `. Withdraw to main balance anytime (min ${REFERRAL_MIN_WITHDRAW} GRAM).`,
-          note: "LIVE and SOLO do not count toward referral. No signup bonus.",
+          note: "LIVE Roulette, PvP Roulette and SOLO do not count toward referral. No signup bonus.",
         };
 
   return (

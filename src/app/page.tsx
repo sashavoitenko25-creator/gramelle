@@ -687,9 +687,9 @@ export default function Home() {
                 <div className="text-[11px] font-semibold text-white/45 uppercase tracking-wider mb-1.5">
                   {t("rulesTitle")}
                 </div>
-                <p className="text-[11px] text-white/40 leading-relaxed">
+                <div className="text-[11px] text-white/40 leading-relaxed whitespace-pre-line max-h-[40vh] overflow-y-auto">
                   {t("rulesBody")}
-                </p>
+                </div>
               </div>
 
               <button

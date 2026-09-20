@@ -6,26 +6,28 @@ import { BOT_USERNAME, GRAM_PER_STAR, SUPPORT_URL } from "@/lib/constants";
 import { getAdminClient, isSupabaseConfigured } from "@/lib/server/supabase";
 
 const START_TEXT = `✨ <b>Gramelle</b>
-PvP-игры и LIVE-рулетка на <b>GRAM</b>
+PvP-игры и рулетка на <b>GRAM</b>
 
 ━━━━━━━━━━━━━━━━
 🎯 <b>Игры</b>
 • ✊ Камень · Ножницы · Бумага
 • 🎲 Dice
 • ⭕ Крестики-нолики
-• 🎡 LIVE Roulette
+• 🎰 PvP Roulette — общий банк, один победитель
+• 🎡 LIVE Roulette — красное / чёрное / зелёное
 
 ━━━━━━━━━━━━━━━━
 ⚡ <b>Как начать</b>
 1️⃣ Пополни баланс через <b>TON</b>
 2️⃣ Выбери режим и сделай ставку
-3️⃣ Победи — забери банк
+3️⃣ Победи — забери выигрыш
 
 🔐 Честный рандом: у каждой партии есть <b>Hash</b> и <b>Seed</b>
 
 ━━━━━━━━━━━━━━━━
 💎 <b>Рефералка</b>
-Приглашай друзей — получай <b>10%</b> от комиссии с их игр (RPS · Dice · XO)
+Приглашай друзей — <b>10%</b> от комиссии с их игр в RPS · Dice · XO
+(LIVE, PvP Roulette и SOLO не участвуют)
 
 📌 Мин. ставка <b>0.25 GRAM</b>
 ⏱ Вывод обычно до часа

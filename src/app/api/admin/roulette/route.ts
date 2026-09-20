@@ -16,6 +16,26 @@ function pct(n: number, total: number) {
   return +((n / total) * 100).toFixed(2);
 }
 
+/** Exact count via PostgREST head+count (not capped by row limit). */
+async function countColor(
+  db: ReturnType<typeof getAdminClient>,
+  color: Color,
+  sinceIso?: string
+): Promise<number> {
+  let q = db
+    .from("roulette_rounds")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "settled")
+    .eq("result_color", color);
+  if (sinceIso) q = q.gte("created_at", sinceIso);
+  const { count, error } = await q;
+  if (error) {
+    console.warn("[admin/roulette] count", color, error.message);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 export async function GET(req: NextRequest) {
   try {
     requireAdmin(req);
@@ -27,21 +47,51 @@ export async function GET(req: NextRequest) {
     const since24 = new Date(now - 24 * 60 * 60 * 1000).toISOString();
     const since7d = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Settled rounds with results
-    const { data: rounds } = await db
+    // Exact totals — not limited by max-rows (1000)
+    const colors: Color[] = ["red", "black", "green"];
+    const [allR, allB, allG, d7R, d7B, d7G, d24R, d24B, d24G] =
+      await Promise.all([
+        countColor(db, "red"),
+        countColor(db, "black"),
+        countColor(db, "green"),
+        countColor(db, "red", since7d),
+        countColor(db, "black", since7d),
+        countColor(db, "green", since7d),
+        countColor(db, "red", since24),
+        countColor(db, "black", since24),
+        countColor(db, "green", since24),
+      ]);
+
+    const all = { red: allR, black: allB, green: allG };
+    const d7 = { red: d7R, black: d7B, green: d7G };
+    const d24 = { red: d24R, black: d24B, green: d24G };
+
+    const totalAll = all.red + all.black + all.green;
+    const total24 = d24.red + d24.black + d24.green;
+    const total7 = d7.red + d7.black + d7.green;
+
+    const expected = {
+      red: +((7 / ROULETTE_SLOT_COUNT) * 100).toFixed(2),
+      black: +((7 / ROULETTE_SLOT_COUNT) * 100).toFixed(2),
+      green: +((1 / ROULETTE_SLOT_COUNT) * 100).toFixed(2),
+    };
+
+    // Recent strip + hourly (last 24h sample for charts — not the totals)
+    const { data: recentRows } = await db
       .from("roulette_rounds")
-      .select(
-        "id, result_color, result_slot, created_at, bet_ends_at, spin_ends_at, result_ends_at, status"
-      )
+      .select("id, result_color, result_slot, created_at")
       .eq("status", "settled")
       .not("result_color", "is", null)
       .order("created_at", { ascending: false })
-      .limit(2000);
+      .limit(120);
 
-    const list = rounds || [];
-    const all = emptyCounts();
-    const d24 = emptyCounts();
-    const d7 = emptyCounts();
+    const recent = (recentRows || []).map((r) => ({
+      id: r.id as string,
+      color: r.result_color as Color,
+      slot: r.result_slot as number | null,
+      at: r.created_at as string,
+    }));
+
     const byHour: number[] = Array.from({ length: 24 }, () => 0);
     const byHourColor: Record<Color, number[]> = {
       red: Array.from({ length: 24 }, () => 0),
@@ -49,72 +99,68 @@ export async function GET(req: NextRequest) {
       green: Array.from({ length: 24 }, () => 0),
     };
 
-    for (const r of list) {
-      const c = r.result_color as Color;
-      if (c !== "red" && c !== "black" && c !== "green") continue;
-      all[c] += 1;
-      const t = new Date(r.created_at as string).getTime();
-      if (t >= now - 7 * 24 * 60 * 60 * 1000) d7[c] += 1;
-      if (t >= now - 24 * 60 * 60 * 1000) {
-        d24[c] += 1;
+    // Hourly chart: fetch 24h rows in pages (up to ~5k)
+    let page = 0;
+    const pageSize = 1000;
+    let fetched24 = 0;
+    for (;;) {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+      const { data: chunk } = await db
+        .from("roulette_rounds")
+        .select("result_color, created_at")
+        .eq("status", "settled")
+        .not("result_color", "is", null)
+        .gte("created_at", since24)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+      const rows = chunk || [];
+      if (rows.length === 0) break;
+      for (const r of rows) {
+        const c = r.result_color as Color;
+        if (c !== "red" && c !== "black" && c !== "green") continue;
         const hour = new Date(r.created_at as string).getHours();
         byHour[hour] += 1;
         byHourColor[c][hour] += 1;
+        fetched24 += 1;
       }
+      if (rows.length < pageSize) break;
+      page += 1;
+      if (page > 20) break; // safety
     }
 
-    const totalAll = all.red + all.black + all.green;
-    const total24 = d24.red + d24.black + d24.green;
-    const total7 = d7.red + d7.black + d7.green;
-
-    // Expected theoretical: 7 red, 7 black, 1 green out of 15
-    const expected = {
-      red: +((7 / ROULETTE_SLOT_COUNT) * 100).toFixed(2),
-      black: +((7 / ROULETTE_SLOT_COUNT) * 100).toFixed(2),
-      green: +((1 / ROULETTE_SLOT_COUNT) * 100).toFixed(2),
-    };
-
-    // Recent strip
-    const recent = list.slice(0, 80).map((r) => ({
-      id: r.id as string,
-      color: r.result_color as Color,
-      slot: r.result_slot as number | null,
-      at: r.created_at as string,
-    }));
-
-    // Stakes / payouts from bets on settled rounds in 24h
-    const settledIds24 = list
-      .filter((r) => new Date(r.created_at as string).getTime() >= now - 24 * 60 * 60 * 1000)
-      .map((r) => r.id as string);
-
+    // Economy 24h from bets (paginated)
     let stake24 = 0;
     let payout24 = 0;
     let betsCount24 = 0;
-    let uniquePlayers24 = 0;
-
-    if (settledIds24.length > 0) {
-      // chunk in if needed
-      const chunk = settledIds24.slice(0, 500);
-      const { data: bets } = await db
-        .from("roulette_bets")
-        .select("telegram_id, amount, payout, color, round_id")
-        .in("round_id", chunk);
-
-      const players = new Set<number>();
-      for (const b of bets || []) {
-        const a = Number(b.amount) || 0;
-        const p = b.payout != null ? Number(b.payout) : 0;
-        stake24 += a;
-        payout24 += p;
-        betsCount24 += 1;
-        players.add(Number(b.telegram_id));
+    const players = new Set<number>();
+    {
+      let bp = 0;
+      for (;;) {
+        const from = bp * pageSize;
+        const to = from + pageSize - 1;
+        const { data: bets } = await db
+          .from("roulette_bets")
+          .select("telegram_id, amount, payout, created_at")
+          .gte("created_at", since24)
+          .order("created_at", { ascending: false })
+          .range(from, to);
+        const rows = bets || [];
+        if (rows.length === 0) break;
+        for (const b of rows) {
+          stake24 += Number(b.amount) || 0;
+          payout24 += b.payout != null ? Number(b.payout) : 0;
+          betsCount24 += 1;
+          players.add(Number(b.telegram_id));
+        }
+        if (rows.length < pageSize) break;
+        bp += 1;
+        if (bp > 30) break;
       }
-      uniquePlayers24 = players.size;
     }
-
     const house24 = +(stake24 - payout24).toFixed(4);
 
-    // Streaks on recent
+    // Streaks on recent strip
     let maxStreak = { color: "red" as Color, len: 0 };
     let cur: Color | null = null;
     let curLen = 0;
@@ -130,7 +176,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Active round
     const { data: active } = await db
       .from("roulette_rounds")
       .select("id, status, bet_ends_at, created_at")
@@ -143,21 +188,33 @@ export async function GET(req: NextRequest) {
       ok: true,
       expected,
       totals: {
-        all: { ...all, total: totalAll, pct: {
-          red: pct(all.red, totalAll),
-          black: pct(all.black, totalAll),
-          green: pct(all.green, totalAll),
-        }},
-        d24: { ...d24, total: total24, pct: {
-          red: pct(d24.red, total24),
-          black: pct(d24.black, total24),
-          green: pct(d24.green, total24),
-        }},
-        d7: { ...d7, total: total7, pct: {
-          red: pct(d7.red, total7),
-          black: pct(d7.black, total7),
-          green: pct(d7.green, total7),
-        }},
+        all: {
+          ...all,
+          total: totalAll,
+          pct: {
+            red: pct(all.red, totalAll),
+            black: pct(all.black, totalAll),
+            green: pct(all.green, totalAll),
+          },
+        },
+        d24: {
+          ...d24,
+          total: total24,
+          pct: {
+            red: pct(d24.red, total24),
+            black: pct(d24.black, total24),
+            green: pct(d24.green, total24),
+          },
+        },
+        d7: {
+          ...d7,
+          total: total7,
+          pct: {
+            red: pct(d7.red, total7),
+            black: pct(d7.black, total7),
+            green: pct(d7.green, total7),
+          },
+        },
       },
       recent,
       byHour,
@@ -167,11 +224,12 @@ export async function GET(req: NextRequest) {
         payout: +payout24.toFixed(4),
         house: house24,
         bets: betsCount24,
-        players: uniquePlayers24,
+        players: players.size,
       },
       maxStreak,
       active: active || null,
-      sampledRounds: list.length,
+      sampledRounds: totalAll,
+      hourlySampled: fetched24,
     });
   } catch (e) {
     if (e instanceof AdminError) {

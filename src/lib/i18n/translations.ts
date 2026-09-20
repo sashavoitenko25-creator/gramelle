@@ -281,7 +281,24 @@ export const translations = {
     pendingWdLabel: "Up to 3 pending withdrawals",
     rulesTitle: "Rules",
     rulesBody:
-      "18+ only. Entertainment, not financial advice. Play responsibly. House fee 5% on wins. Wager x1 from deposit (you must play through the deposit amount for a successful withdrawal). Withdrawals within 1 hour. Cheating / multi-accounting may result in a ban.",
+      "Gramelle — entertainment platform. 18+ only.\n\n" +
+      "GAMES\n" +
+      "• RPS, Dice, XO — PvP. Winner takes the pot minus 5% platform fee.\n" +
+      "• PvP Roulette — players bet into a shared pot; one winner by chance. House takes 30% of opponents' stakes.\n" +
+      "• LIVE Roulette — Red / Black / Green. Green pays 14x. No separate fee; house edge is in the odds.\n" +
+      "• Min bet from 0.25 GRAM (see limits in the app).\n\n" +
+      "BALANCE & MONEY\n" +
+      "• Deposit via TON (and Stars where available).\n" +
+      "• Withdrawals usually within 1 hour.\n" +
+      "• Wager x1: play through the deposited amount before a successful withdrawal.\n\n" +
+      "REFERRALS\n" +
+      "• 10% of platform commission from friends' bets in RPS, Dice, XO.\n" +
+      "• LIVE Roulette, PvP Roulette and SOLO do not count toward referral.\n\n" +
+      "FAIRNESS\n" +
+      "• Each round has Hash and Seed — you can verify the result.\n\n" +
+      "OTHER\n" +
+      "• Not financial advice. Play responsibly.\n" +
+      "• Multi-accounts, bots, and cheating may lead to a ban and balance freeze.",
     ageConfirm: "I am 18+ and accept the rules",
     fairness: "Fairness check",
     fairnessHint: "Verify any round",
@@ -569,7 +586,24 @@ export const translations = {
     pendingWdLabel: "Заявок на вывод до 3 одновременно",
     rulesTitle: "Правила",
     rulesBody:
-      "Только 18+. Развлечение, не финансовая рекомендация. Играйте ответственно. Комиссия 5% с банка при победе. Вейджер х1 с депозита (нужно отыграть сумму депозита для успешного вывода). Выводы в течение 1 часа. Мультиаккаунты и читы — бан.",
+      "Gramelle — развлекательная платформа. Только 18+.\n\n" +
+      "ИГРЫ\n" +
+      "• RPS, Dice, XO — PvP. Победитель забирает банк минус 5% комиссии платформы.\n" +
+      "• PvP-рулетка — общий банк, один победитель по шансу. Дом берёт 30% со ставок соперников.\n" +
+      "• LIVE-рулетка — Красное / Чёрное / Зелёное. Зелёное ×14. Отдельной комиссии нет; преимущество дома в шансах.\n" +
+      "• Мин. ставка от 0.25 GRAM (актуальные лимиты — в приложении).\n\n" +
+      "БАЛАНС И ДЕНЬГИ\n" +
+      "• Депозит через TON (и Stars, где доступно).\n" +
+      "• Вывод обычно в течение 1 часа.\n" +
+      "• Вейджер ×1: нужно отыграть сумму депозита для успешного вывода.\n\n" +
+      "РЕФЕРАЛКА\n" +
+      "• 10% от комиссии платформы со ставок друзей в RPS, Dice, XO.\n" +
+      "• LIVE-рулетка, PvP-рулетка и SOLO в рефералке не участвуют.\n\n" +
+      "ЧЕСТНОСТЬ\n" +
+      "• У каждой партии есть Hash и Seed — результат можно проверить.\n\n" +
+      "ПРОЧЕЕ\n" +
+      "• Не финансовая рекомендация. Играйте ответственно.\n" +
+      "• Мультиаккаунты, боты и читы — бан и возможная заморозка баланса.",
     ageConfirm: "Мне есть 18 лет, с правилами согласен",
     fairness: "Проверка честности",
     fairnessHint: "Проверить любой раунд",

@@ -274,9 +274,9 @@ export function ProfileScreen({
                 ✕
               </button>
             </div>
-            <p className="text-[13px] text-white/55 leading-relaxed">
+            <div className="text-[13px] text-white/55 leading-relaxed whitespace-pre-line max-h-[60vh] overflow-y-auto pr-1">
               {t("rulesBody")}
-            </p>
+            </div>
           </div>
         </div>
       )}

@@ -227,8 +227,8 @@ export function ReferralsScreen({
         </div>
         <p className="mt-2.5 px-1 text-[11px] text-white/30 leading-relaxed">
           {tr(
-            "LIVE and SOLO do not count. No signup bonus.",
-            "LIVE и SOLO не участвуют. Бонуса за регистрацию нет."
+            "LIVE Roulette, PvP Roulette and SOLO do not count. No signup bonus.",
+            "LIVE-рулетка, PvP-рулетка и SOLO не участвуют. Бонуса за регистрацию нет."
           )}
         </p>
       </div>
