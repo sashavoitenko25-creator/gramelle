@@ -177,27 +177,32 @@ async function createBettingRound(): Promise<RouletteRoundRow> {
     throw new Error(error?.message || "Failed to create roulette round");
   }
 
-  // If somehow two rows were inserted before index, keep the oldest live
+  // If somehow two rows were inserted before index, keep the oldest live.
+  // DELETE orphans — never settle them with fake colors (that polluted history).
   const after = await getAllLiveRounds();
   if (after.length > 1) {
     const keep = after[0];
     const db2 = getAdminClient();
     for (const orphan of after.slice(1)) {
-      // Force-settle orphan without payouts (no bets should exist on race-copy)
       try {
-        await db2
-          .from("roulette_rounds")
-          .update({
-            status: "settled",
-            result_ends_at: new Date().toISOString(),
-            server_seed: orphan.server_seed || seed,
-            result_slot: orphan.result_slot ?? 0,
-            result_color: orphan.result_color ?? "green",
-          })
-          .eq("id", orphan.id)
-          .in("status", ["betting", "spinning"]);
+        // Only delete if never spun (no spin_ends_at) — pure race copies
+        if (!orphan.spin_ends_at) {
+          await db2.from("roulette_rounds").delete().eq("id", orphan.id);
+        } else {
+          // Already spinning: settle for real via normal path next tick; do not invent color
+          await db2
+            .from("roulette_rounds")
+            .update({
+              status: "settled",
+              result_ends_at: new Date().toISOString(),
+              // keep existing slot/color if any; do NOT invent "green"
+            })
+            .eq("id", orphan.id)
+            .in("status", ["betting", "spinning"])
+            .not("result_color", "is", null);
+        }
       } catch (e) {
-        console.error("[roulette] orphan settle", orphan.id, e);
+        console.error("[roulette] orphan cleanup", orphan.id, e);
       }
     }
     return keep;
@@ -551,11 +556,13 @@ export async function getRouletteState(
 
   const reveal = round.status === "spinning" || round.status === "settled";
 
+  // Only real spins: must have gone through spinning (spin_ends_at set)
   const { data: hist } = await db
     .from("roulette_rounds")
     .select("id, result_color, result_slot, created_at")
     .eq("status", "settled")
     .not("result_color", "is", null)
+    .not("spin_ends_at", "is", null)
     .order("created_at", { ascending: false })
     .limit(24);
 
@@ -795,6 +802,7 @@ export async function getRouletteHistory(limit = 40) {
     )
     .eq("status", "settled")
     .not("result_color", "is", null)
+    .not("spin_ends_at", "is", null)
     .order("created_at", { ascending: false })
     .limit(limit);
   return { history: data || [] };

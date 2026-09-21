@@ -1,10 +1,10 @@
 -- ============================================================
 -- LIVE Roulette: kill double-spin / double-paravoz permanently
+-- + purge phantom history rows
 -- Run once in Supabase SQL Editor
 -- ============================================================
 
 -- 1) At most ONE live round (betting OR spinning) in the whole table.
---    Concurrent createBettingRound inserts will fail unique → code re-fetches.
 CREATE UNIQUE INDEX IF NOT EXISTS roulette_rounds_one_live
   ON public.roulette_rounds ((1))
   WHERE status IN ('betting', 'spinning');
@@ -16,11 +16,10 @@ ALTER TABLE public.roulette_paravoz
 CREATE INDEX IF NOT EXISTS roulette_paravoz_last_round_idx
   ON public.roulette_paravoz (last_round_id);
 
--- 3) If orphans already exist (two+ live rows), keep the oldest, settle the rest
+-- 3) Keep oldest live row; DELETE other live orphans (never invent results)
 DO $$
 DECLARE
   keep_id uuid;
-  r record;
 BEGIN
   SELECT id INTO keep_id
   FROM public.roulette_rounds
@@ -32,17 +31,14 @@ BEGIN
     RETURN;
   END IF;
 
-  FOR r IN
-    SELECT id FROM public.roulette_rounds
-    WHERE status IN ('betting', 'spinning')
-      AND id <> keep_id
-  LOOP
-    UPDATE public.roulette_rounds
-    SET
-      status = 'settled',
-      result_ends_at = COALESCE(result_ends_at, now()),
-      result_slot = COALESCE(result_slot, 0),
-      result_color = COALESCE(result_color, 'green')
-    WHERE id = r.id;
-  END LOOP;
+  DELETE FROM public.roulette_rounds
+  WHERE status IN ('betting', 'spinning')
+    AND id <> keep_id
+    AND spin_ends_at IS NULL;
 END $$;
+
+-- 4) PURGE phantom settled rounds that never actually spun
+--    (these polluted "ИСТОРИЯ" with fake colors)
+DELETE FROM public.roulette_rounds
+WHERE status = 'settled'
+  AND spin_ends_at IS NULL;
