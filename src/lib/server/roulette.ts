@@ -92,17 +92,32 @@ function isColor(c: unknown): c is RouletteColor {
   return c === "red" || c === "black" || c === "green";
 }
 
-/** Prefer an in-progress round so we never run two LIVE rounds at once */
+/**
+ * Prefer an in-progress round so we never run two LIVE rounds at once.
+ * If orphans exist (race before unique index), return the oldest live row
+ * so newer accidental inserts are ignored until settled/cleaned.
+ */
 async function getActiveRound(): Promise<RouletteRoundRow | null> {
   const db = getAdminClient();
   const { data } = await db
     .from("roulette_rounds")
     .select("*")
     .in("status", ["betting", "spinning"])
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
   return (data as RouletteRoundRow) || null;
+}
+
+/** All live rows (should be ≤1 after unique index). */
+async function getAllLiveRounds(): Promise<RouletteRoundRow[]> {
+  const db = getAdminClient();
+  const { data } = await db
+    .from("roulette_rounds")
+    .select("*")
+    .in("status", ["betting", "spinning"])
+    .order("created_at", { ascending: true });
+  return (data as RouletteRoundRow[]) || [];
 }
 
 async function getLatestRound(): Promise<RouletteRoundRow | null> {
@@ -116,10 +131,21 @@ async function getLatestRound(): Promise<RouletteRoundRow | null> {
   return (data as RouletteRoundRow) || null;
 }
 
+/**
+ * Create the next betting round ONLY if no live round exists.
+ * Concurrent inserts are absorbed by:
+ *  1) pre-check getActiveRound
+ *  2) unique partial index roulette_rounds_one_live (SQL)
+ *  3) post-error re-fetch
+ * Never returns a second concurrent live round.
+ */
 async function createBettingRound(): Promise<RouletteRoundRow> {
-  // Guard: if another request already opened a round, reuse it
   const existing = await getActiveRound();
   if (existing) return existing;
+
+  // Extra safety: if any live row exists (race), never insert another
+  const lives = await getAllLiveRounds();
+  if (lives.length > 0) return lives[0];
 
   const db = getAdminClient();
   const seed = randomSeed();
@@ -143,11 +169,40 @@ async function createBettingRound(): Promise<RouletteRoundRow> {
     .single();
 
   if (error || !data) {
-    // concurrent insert race → return active
+    // unique violation / concurrent insert → return the one live round
     const again = await getActiveRound();
     if (again) return again;
+    const latest = await getLatestRound();
+    if (latest) return latest;
     throw new Error(error?.message || "Failed to create roulette round");
   }
+
+  // If somehow two rows were inserted before index, keep the oldest live
+  const after = await getAllLiveRounds();
+  if (after.length > 1) {
+    const keep = after[0];
+    const db2 = getAdminClient();
+    for (const orphan of after.slice(1)) {
+      // Force-settle orphan without payouts (no bets should exist on race-copy)
+      try {
+        await db2
+          .from("roulette_rounds")
+          .update({
+            status: "settled",
+            result_ends_at: new Date().toISOString(),
+            server_seed: orphan.server_seed || seed,
+            result_slot: orphan.result_slot ?? 0,
+            result_color: orphan.result_color ?? "green",
+          })
+          .eq("id", orphan.id)
+          .in("status", ["betting", "spinning"]);
+      } catch (e) {
+        console.error("[roulette] orphan settle", orphan.id, e);
+      }
+    }
+    return keep;
+  }
+
   return data as RouletteRoundRow;
 }
 
@@ -269,16 +324,20 @@ async function settleRound(round: RouletteRoundRow): Promise<RouletteRoundRow> {
  * Advance the global LIVE clock.
  * Runs multiple phase transitions in one call so the game catches up
  * even after a long period with zero online players (no client polls).
+ *
+ * HARD GUARANTEES (anti double-spin / anti double-paravoz):
+ * - ≤1 live row (betting|spinning) — SQL unique index + createBettingRound
+ * - betting→spinning claimed once (status eq)
+ * - spinning→settled claimed once → payouts + paravoz exactly once per roundId
+ * - next betting only after result_ends_at AND no other live row
  */
 export async function advanceRoulette(): Promise<RouletteRoundRow> {
   let round = (await getActiveRound()) || (await getLatestRound());
   if (!round) return createBettingRound();
 
-  // Enough steps for betting→spin→settle→new betting after downtime
   for (let step = 0; step < 8; step++) {
     const now = Date.now();
     const beforeId = round.id;
-    const beforeStatus = round.status;
 
     if (round.status === "betting") {
       if (now < new Date(round.bet_ends_at).getTime()) {
@@ -287,10 +346,13 @@ export async function advanceRoulette(): Promise<RouletteRoundRow> {
         } catch {
           /* */
         }
-        return round; // still accepting bets
+        return round;
       }
       const seed = round.server_seed || randomSeed();
-      const slot = slotFromSeed(seed, round.id);
+      const slot =
+        round.result_slot != null
+          ? Number(round.result_slot)
+          : slotFromSeed(seed, round.id);
       const spinEnds = new Date(now + ROULETTE_SPIN_MS).toISOString();
       const { data } = await dbUpdateSpinning(round.id, {
         seed,
@@ -298,8 +360,14 @@ export async function advanceRoulette(): Promise<RouletteRoundRow> {
         color: rouletteColorAt(slot),
         spinEnds,
       });
-      round = data || (await getActiveRound()) || (await getLatestRound())!;
-      if (round.status === "betting") return round; // race / lock failed
+      if (!data) {
+        round = (await getActiveRound()) || (await getLatestRound())!;
+        if (round.id === beforeId && round.status === "betting") {
+          return round;
+        }
+        continue;
+      }
+      round = data;
       continue;
     }
 
@@ -308,7 +376,7 @@ export async function advanceRoulette(): Promise<RouletteRoundRow> {
         ? new Date(round.spin_ends_at).getTime()
         : 0;
       if (now < spinEnds) {
-        return round; // animation window
+        return round;
       }
       round = await settleRound(round);
       continue;
@@ -328,12 +396,16 @@ export async function advanceRoulette(): Promise<RouletteRoundRow> {
       }
       const resultEnds = new Date(round.result_ends_at).getTime();
       if (now < resultEnds) {
-        return round; // show result
+        return round;
       }
-      // Open next betting round (works with zero players — keeps LIVE alive)
+      const live = await getActiveRound();
+      if (live) {
+        round = live;
+        continue;
+      }
       round = await createBettingRound();
       if (round.id === beforeId && round.status === "settled") {
-        return round; // safety
+        return round;
       }
       continue;
     }

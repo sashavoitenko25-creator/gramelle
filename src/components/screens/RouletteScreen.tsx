@@ -394,28 +394,38 @@ export function RouletteScreen({
   }, [status, roundId]);
 
   /**
-   * A+B: start spin for a round exactly once; if already animating, queue it.
-   * Never restarts the same round id (spunHistory).
+   * ONE spin per round id, forever (anti double-spin).
+   * spunHistory + spinLock close StrictMode/double-effect races.
+   * Queue at most one *different* future round; never re-spin same id.
    */
   const runSpinAnimation = useCallback(
     (opts: { id: string; slot: number; spinEndsAt: string | null }) => {
       const { id, slot, spinEndsAt } = opts;
+      if (!id || slot == null || !Number.isFinite(Number(slot))) return;
       if (spunHistoryRef.current.has(id)) return;
+      if (spinLockRef.current === id) return;
+
       if (animatingRef.current) {
-        // Queue at most one pending (latest wins)
-        pendingSpinRef.current = { id, slot, spinEndsAt };
+        if (
+          pendingSpinRef.current?.id !== id &&
+          !spunHistoryRef.current.has(id)
+        ) {
+          pendingSpinRef.current = { id, slot, spinEndsAt };
+        }
         return;
       }
 
+      // Mark BEFORE RAF — closes any re-entry window
       spunHistoryRef.current.add(id);
-      if (spunHistoryRef.current.size > 50) {
+      if (spunHistoryRef.current.size > 80) {
         spunHistoryRef.current = new Set(
-          Array.from(spunHistoryRef.current).slice(-25)
+          Array.from(spunHistoryRef.current).slice(-40)
         );
       }
       spinLockRef.current = id;
       spunForRound.current = id;
       animatingRef.current = true;
+      pendingSpinRef.current = null;
 
       if (idleRaf.current) {
         cancelAnimationFrame(idleRaf.current);
@@ -454,11 +464,21 @@ export function RouletteScreen({
           spinRaf.current = null;
           animatingRef.current = false;
           hapticSuccess();
-          // Drain queue — only if not already in history
           const next = pendingSpinRef.current;
           pendingSpinRef.current = null;
-          if (next && !spunHistoryRef.current.has(next.id)) {
-            runSpinAnimation(next);
+          if (
+            next &&
+            next.id !== id &&
+            !spunHistoryRef.current.has(next.id)
+          ) {
+            window.setTimeout(() => {
+              if (
+                !animatingRef.current &&
+                !spunHistoryRef.current.has(next.id)
+              ) {
+                runSpinAnimation(next);
+              }
+            }, 120);
           }
         }
       };
@@ -467,11 +487,13 @@ export function RouletteScreen({
     [haptic, hapticSuccess, targetX]
   );
 
-  // Spin when server says spinning (A+B)
+  // Spin when server says spinning — once per round id only
   useEffect(() => {
     if (!state) return;
     const r = state.round;
     if (r.status !== "spinning" || r.resultSlot == null) return;
+    if (spunHistoryRef.current.has(r.id)) return;
+    if (spinLockRef.current === r.id) return;
     runSpinAnimation({
       id: r.id,
       slot: r.resultSlot,
