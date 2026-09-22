@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { getAdminClient } from "./supabase";
 import { creditBalance, getBalance } from "./ledger";
-import { creditHouse } from "./house";
+import { creditHouse, debitHouse } from "./house";
 // LIVE/SOLO: no referral
 // import { payReferralFromHouseFee } from "./referral";
 import {
@@ -308,17 +308,24 @@ async function settleRound(round: RouletteRoundRow): Promise<RouletteRoundRow> {
     console.error("[roulette] paravoz", e);
   }
 
+  // House P/L for the round:
+  //   positive => players lost more than they won, add to profit
+  //   negative => players won more than they staked, subtract from profit
   const houseNet = +(totalStakes - totalPayouts).toFixed(6);
-  if (houseNet > 0) {
-    try {
+  try {
+    if (houseNet > 0) {
       await creditHouse(houseNet, "profit", "house_fee", {
         kind: "roulette",
         round_id: round.id,
       });
-    } catch (e) {
-      console.error("[roulette] house failed", e);
+    } else if (houseNet < 0) {
+      await debitHouse(-houseNet, "profit", "house_payout", {
+        kind: "roulette",
+        round_id: round.id,
+      });
     }
-    // LIVE Roulette: no referral (LIVE/SOLO do not participate)
+  } catch (e) {
+    console.error("[roulette] house settlement failed", round.id, e);
   }
 
   return (claimed as RouletteRoundRow) || (await getLatestRound()) || round;

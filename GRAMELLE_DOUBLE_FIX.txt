@@ -1,0 +1,10 @@
+Gramelle fix based on commit ce285c8 (work-474d809).
+
+Changes:
+1. Double/Roulette now records negative house P/L when payouts exceed stakes:
+   - house profit is increased on a losing round;
+   - house profit is decreased on a winning/net-negative round.
+2. Double page can scroll vertically; the app body explicitly allows vertical scrolling.
+
+Only these three project files are included. Extract this ZIP over the existing Gramelle project and replace files when prompted.
+No database migration is required for this code fix.

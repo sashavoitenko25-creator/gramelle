@@ -8,6 +8,28 @@ export async function creditHouse(
   meta: Record<string, unknown> = {}
 ) {
   if (amount <= 0) return;
+  await changeHouse(amount, kind, reason, meta);
+}
+
+/** Debit the house balance. Used when a game round pays out more than it takes. */
+export async function debitHouse(
+  amount: number,
+  kind: "profit" | "reserve",
+  reason: string,
+  meta: Record<string, unknown> = {}
+) {
+  if (amount <= 0) return;
+  await changeHouse(-amount, kind, reason, meta);
+}
+
+async function changeHouse(
+  amount: number,
+  kind: "profit" | "reserve",
+  reason: string,
+  meta: Record<string, unknown>
+) {
+  if (!Number.isFinite(amount) || amount === 0) return;
+
   const db = getAdminClient();
   const col = kind === "profit" ? "profit_balance" : "reserve_balance";
 

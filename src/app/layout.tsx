@@ -32,7 +32,7 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
       </head>
-      <body className="min-h-full min-h-[100dvh] flex flex-col app-bg text-white overflow-x-hidden">
+      <body className="min-h-full min-h-[100dvh] flex flex-col app-bg text-white overflow-x-hidden overflow-y-auto">
         <div className="flex-1 flex flex-col w-full max-w-lg mx-auto relative">
           <Providers>{children}</Providers>
         </div>
