@@ -985,7 +985,22 @@ export function PvpRouletteScreen({
           placeholder={tr("Amount", "Сумма")}
           disabled={!canBet && status !== "waiting"}
           className="w-full h-11 rounded-2xl bg-white/[0.05] border border-white/10 px-4 text-[15px] font-semibold text-white tabular-nums outline-none focus:border-cyan-400/40 placeholder:text-white/30 disabled:opacity-40"
-        />\n        {selectedCoupon ? <div className="mt-2 flex items-center justify-between rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-xs text-violet-200"><span>🎟️ Купон · {formatGram(selectedCoupon.amount)} GRAM</span><button type="button" onClick={()=>setSelectedCoupon(null)}>✕</button></div> : <CouponPicker game="pvp_roulette" onSelect={(c)=>{setSelectedCoupon(c);setAmountStr(String(c.amount));}} disabled={!canBet || betting || myBet > 0} />
+        />
+        {selectedCoupon ? (
+          <div className="mt-2 flex items-center justify-between rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-xs text-violet-200">
+            <span>🎟️ Купон · {formatGram(selectedCoupon.amount)} GRAM</span>
+            <button type="button" onClick={() => setSelectedCoupon(null)}>✕</button>
+          </div>
+        ) : (
+          <CouponPicker
+            game="pvp_roulette"
+            onSelect={(c) => {
+              setSelectedCoupon(c);
+              setAmountStr(String(c.amount));
+            }}
+            disabled={!canBet || betting || myBet > 0}
+          />
+        )}
         {/* Quick amounts */}
         <div className="mt-2 grid grid-cols-4 gap-2">
           {([1, 5, 10, 25] as const).map((v) => (

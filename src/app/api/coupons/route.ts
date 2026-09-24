@@ -10,8 +10,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await db.from("coupons")
       .select("id,amount,game,status,created_at,used_at,used_game,expires_at,promo_codes(code)")
       .eq("telegram_id", auth.user.id)
-      .order("created_at", { ascending: false })
-      .limit(100);
+      .order("created_at", { ascending: false });
     if (error) throw error;
     const coupons = (data || []).map((c: any) => ({
       ...c,

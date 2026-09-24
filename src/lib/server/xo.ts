@@ -22,6 +22,7 @@ export interface XoRoomRow {
   id: string;
   status: XoStatus;
   amount: number;
+  coupon_id?: string | null;
   creator_telegram_id: number;
   creator_username: string;
   creator_photo_url?: string | null;
@@ -450,11 +451,16 @@ async function settleFinished(room: XoRoomRow): Promise<XoRoomRow> {
   const finished = normalize(claimed as XoRoomRow);
 
   if (winnerId == null) {
-    await creditBalance(creatorId, amount, "refund", {
-      game: "xo",
-      room_id: roomId,
-      result: "draw",
-    });
+    // Draw — preserve the original funding method. Coupon stakes return as coupons.
+    if (finished.coupon_id) {
+      await refundCoupon(creatorId, finished.coupon_id);
+    } else {
+      await creditBalance(creatorId, amount, "refund", {
+        game: "xo",
+        room_id: roomId,
+        result: "draw",
+      });
+    }
     await creditBalance(joinerId, amount, "refund", {
       game: "xo",
       room_id: roomId,

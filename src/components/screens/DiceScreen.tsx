@@ -668,7 +668,8 @@ export function DiceScreen({
                 }}
                 placeholder="0"
                 className="w-full h-12 rounded-2xl bg-black/35 border border-white/10 px-4 text-[15px] font-semibold tabular-nums outline-none focus:border-emerald-500/40"
-              />\n              {selectedCoupon ? <div className="mt-2 flex items-center justify-between rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-xs text-violet-200"><span>🎟️ Купон · {formatGram(selectedCoupon.amount)} GRAM</span><button type="button" onClick={()=>setSelectedCoupon(null)}>✕</button></div> : <CouponPicker game="dice" onSelect={(c)=>{setSelectedCoupon(c);setAmountStr(String(c.amount));}} disabled={busy} />}
+              />
+              {selectedCoupon ? <div className="mt-2 flex items-center justify-between rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-xs text-violet-200"><span>🎟️ Купон · {formatGram(selectedCoupon.amount)} GRAM</span><button type="button" onClick={()=>setSelectedCoupon(null)}>✕</button></div> : <CouponPicker game="dice" onSelect={(c)=>{setSelectedCoupon(c);setAmountStr(String(c.amount));}} disabled={busy} />}
             </div>
             <div>
               <div className="text-[12px] text-white/40 mb-2 font-medium">

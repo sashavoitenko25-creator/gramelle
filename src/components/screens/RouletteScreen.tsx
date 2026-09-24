@@ -1263,7 +1263,8 @@ export function RouletteScreen({
           placeholder={tr("Bet amount", "Сумма ставки")}
           className="w-full h-12 rounded-2xl bg-white/[0.05] border border-white/10 px-4 text-center text-[16px] tabular-nums outline-none focus:border-cyan-500/40 placeholder:text-white/25"
           disabled={status !== "betting" || betting}
-        />\n        {selectedCoupon ? <div className="mt-2 flex items-center justify-between rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-xs text-violet-200"><span>🎟️ Купон · {formatGram(selectedCoupon.amount)} GRAM</span><button type="button" onClick={()=>setSelectedCoupon(null)}>✕</button></div> : <CouponPicker game="roulette" onSelect={(c)=>{setSelectedCoupon(c);setAmountStr(String(c.amount));}} disabled={status !== "betting" || betting} />}
+        />
+        {selectedCoupon ? <div className="mt-2 flex items-center justify-between rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-xs text-violet-200"><span>🎟️ Купон · {formatGram(selectedCoupon.amount)} GRAM</span><button type="button" onClick={()=>setSelectedCoupon(null)}>✕</button></div> : <CouponPicker game="roulette" onSelect={(c)=>{setSelectedCoupon(c);setAmountStr(String(c.amount));}} disabled={status !== "betting" || betting} />}
         <div className="mt-2 grid grid-cols-4 gap-2">
           {(
             [

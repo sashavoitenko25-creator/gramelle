@@ -212,7 +212,8 @@ export async function createRoom(opts: {
       creator_choice: choice,
       creator_choice_nonce: nonce,
       creator_choice_hash: commitment,
-      amount,
+      amount: stake,
+      coupon_id: usedCouponId,
       server_seed: serverSeed,
       server_seed_hash: hashSeed(serverSeed),
       game_no: null,
@@ -442,12 +443,17 @@ export async function finishRoom(roomId: string): Promise<RpsRoomRow | null> {
   const winnerId = finished.winner_telegram_id;
 
   if (winnerId == null) {
-    // Draw — full refund both
-    await creditBalance(creatorId, amount, "refund", {
-      game: "rps",
-      room_id: roomId,
-      result: "draw",
-    });
+    // Draw — refund each player using the same funding method they used.
+    // A coupon must never be convertible into real balance by drawing.
+    if (finished.coupon_id) {
+      await refundCoupon(creatorId, finished.coupon_id);
+    } else {
+      await creditBalance(creatorId, amount, "refund", {
+        game: "rps",
+        room_id: roomId,
+        result: "draw",
+      });
+    }
     await creditBalance(joinerId, amount, "refund", {
       game: "rps",
       room_id: roomId,

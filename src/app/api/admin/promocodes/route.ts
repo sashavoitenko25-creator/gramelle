@@ -8,14 +8,20 @@ export async function GET(req: NextRequest) {
     const db = getAdminClient();
     const { data, error } = await db.from("promo_codes").select("*").order("created_at",{ascending:false}).limit(500);
     if (error) throw error;
-    const { data: red, error: redErr } = await db.from("promo_redemptions").select("promo_id,created_at").limit(5000);
-    if (redErr) throw redErr;
-    const { data: coupons, error: cErr } = await db.from("coupons").select("promo_id,amount,status").not("promo_id","is",null).limit(10000);
-    if (cErr) throw cErr;
+    const { data: analytics, error: aErr } = await db.rpc("promo_code_analytics");
+    if (aErr) throw aErr;
+    const byId = new Map((analytics || []).map((x:any) => [String(x.promo_id), x]));
     const items=(data||[]).map((p:any)=>{
-      const rr=(red||[]).filter((x:any)=>x.promo_id===p.id);
-      const cc=(coupons||[]).filter((x:any)=>x.promo_id===p.id);
-      return {...p, redemptions: rr.length, coupons_issued: cc.length, coupons_active: cc.filter((x:any)=>x.status==="active").length, coupons_used: cc.filter((x:any)=>x.status==="used").length, coupon_value: cc.reduce((s:number,x:any)=>s+Number(x.amount||0),0)};
+      const a:any = byId.get(String(p.id)) || {};
+      return {
+        ...p,
+        redemptions: Number(a.redemptions || 0),
+        coupons_issued: Number(a.coupons_issued || 0),
+        coupons_active: Number(a.coupons_active || 0),
+        coupons_used: Number(a.coupons_used || 0),
+        coupon_value: Number(a.coupon_value || 0),
+        balance_granted: Number(a.balance_granted || 0),
+      };
     });
     return NextResponse.json({ok:true,items});
   } catch(e) {

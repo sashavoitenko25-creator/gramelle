@@ -1,0 +1,17 @@
+FINAL COUPON SECURITY FIX
+
+The application code in this archive contains the fixes.
+
+Because the existing Supabase database is already created, run this file ONCE in
+Supabase SQL Editor before testing the new deployment:
+
+  supabase/coupons_fix.sql
+
+This fixes:
+- RPS coupon stake mismatch.
+- Coupon -> real balance conversion on RPS/XO draws.
+- Case-insensitive promo-code uniqueness.
+- Correct unlimited promo analytics (no 5,000/10,000 row truncation and no join multiplication).
+- Server-only permissions for coupon/promo SECURITY DEFINER functions.
+
+No other existing game/economy logic is intentionally changed.
