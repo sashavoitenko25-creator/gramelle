@@ -48,10 +48,10 @@ export async function diceList() {
   }>("/api/dice/list");
 }
 
-export async function diceCreate(amount: number, maxPlayers: number) {
+export async function diceCreate(amount: number, maxPlayers: number, couponId?: string) {
   return apiFetch<{ ok: boolean; room: DiceRoomPublic; balance: number }>(
     "/api/dice/create",
-    { method: "POST", body: JSON.stringify({ amount, maxPlayers }) }
+    { method: "POST", body: JSON.stringify({ amount, maxPlayers, couponId }) }
   );
 }
 

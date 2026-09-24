@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const amount = Number(body.amount);
     const choice = body.choice;
+    const couponId = body.couponId ? String(body.couponId) : undefined;
 
     if (!isValidChoice(choice)) {
       return NextResponse.json({ error: "Неверный выбор" }, { status: 400 });
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
       photoUrl: auth.user.photo_url || null,
       choice,
       amount,
+      couponId,
     });
 
     return NextResponse.json({ ok: true, ...result });

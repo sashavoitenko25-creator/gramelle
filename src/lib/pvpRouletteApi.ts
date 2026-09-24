@@ -66,12 +66,12 @@ export function fetchPvpRouletteState(opts?: { presence?: boolean }) {
   } as RequestInit);
 }
 
-export function placePvpRouletteBetApi(amount: number) {
+export function placePvpRouletteBetApi(amount: number, couponId?: string) {
   return apiFetch<PvpRouletteStateResponse & { balance: number }>(
     "/api/pvp-roulette/bet",
     {
       method: "POST",
-      body: JSON.stringify({ amount }),
+      body: JSON.stringify({ amount, couponId }),
     }
   );
 }

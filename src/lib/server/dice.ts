@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { getAdminClient } from "./supabase";
-import { creditBalance, recordWinStats } from "./ledger";
+import { consumeCoupon, refundCoupon } from "./coupons";
+import { creditBalance, getBalance, recordWinStats } from "./ledger";
 import { creditHouse } from "./house";
 import { payReferralFromHouseFee } from "./referral";
 import {
@@ -32,6 +33,7 @@ export type DiceRoomRow = {
   started_at: string | null;
   finished_at: string | null;
   game_no?: number | null;
+  coupon_id?: string | null;
 };
 
 export type DicePlayerRow = {
@@ -267,8 +269,9 @@ export async function createTable(opts: {
   photoUrl?: string | null;
   amount: number;
   maxPlayers: number;
+  couponId?: string;
 }) {
-  const { telegramId, username, photoUrl, amount, maxPlayers } = opts;
+  const { telegramId, username, photoUrl, amount, maxPlayers, couponId } = opts;
   if (!Number.isFinite(amount) || amount < DICE_MIN_BET) {
     throw new Error(`Min bet ${DICE_MIN_BET} GRAM`);
   }
@@ -300,10 +303,18 @@ export async function createTable(opts: {
     }
   }
 
-  const { balance } = await creditBalance(telegramId, -amount, "bet", {
-    game: "dice",
-    action: "create",
-  });
+  let stake = amount;
+  let usedCouponId: string | null = null;
+  let balance: number;
+  if (couponId) {
+    const c = await consumeCoupon(telegramId, couponId, "dice");
+    stake = c.amount;
+    if (stake < DICE_MIN_BET || stake > DICE_MAX_BET) { await refundCoupon(telegramId,c.id); throw new Error("Coupon amount is outside this game's limits"); }
+    usedCouponId = c.id;
+    balance = await getBalance(telegramId);
+  } else {
+    ({ balance } = await creditBalance(telegramId, -stake, "bet", { game: "dice", action: "create" }));
+  }
 
   const serverSeed = randomSeed();
   const { data: room, error } = await db
@@ -312,7 +323,8 @@ export async function createTable(opts: {
       status: "open",
       phase: "lobby",
       host_telegram_id: telegramId,
-      amount,
+      amount: stake,
+      coupon_id: usedCouponId,
       max_players: maxP,
       server_seed: serverSeed,
       server_seed_hash: hashSeed(serverSeed),
@@ -323,10 +335,8 @@ export async function createTable(opts: {
 
   if (error || !room) {
     try {
-      await creditBalance(telegramId, amount, "refund", {
-        game: "dice",
-        reason: "create_failed",
-      });
+      if (usedCouponId) await refundCoupon(telegramId, usedCouponId);
+      else await creditBalance(telegramId, stake, "refund", { game: "dice", reason: "create_failed" });
     } catch {
       /* */
     }
@@ -345,10 +355,8 @@ export async function createTable(opts: {
   if (pErr) {
     await db.from("dice_rooms").delete().eq("id", room.id);
     try {
-      await creditBalance(telegramId, amount, "refund", {
-        game: "dice",
-        reason: "seat_failed",
-      });
+      if (usedCouponId) await refundCoupon(telegramId, usedCouponId);
+      else await creditBalance(telegramId, stake, "refund", { game: "dice", reason: "seat_failed" });
     } catch {
       /* */
     }
@@ -504,13 +512,15 @@ export async function cancelTable(opts: {
   const players = await loadPlayers(roomId);
   let balance = 0;
   for (const p of players) {
-    const res = await creditBalance(
-      p.telegram_id,
-      Number(room.amount),
-      "refund",
-      { game: "dice", action: "cancel", room_id: roomId }
-    );
-    if (p.telegram_id === telegramId) balance = res.balance;
+    let resBalance: number;
+    if (p.telegram_id === telegramId && room.coupon_id) {
+      await refundCoupon(p.telegram_id, room.coupon_id);
+      resBalance = await getBalance(p.telegram_id);
+    } else {
+      const res = await creditBalance(p.telegram_id, Number(room.amount), "refund", { game: "dice", action: "cancel", room_id: roomId });
+      resBalance = res.balance;
+    }
+    if (p.telegram_id === telegramId) balance = resBalance;
   }
 
   return {

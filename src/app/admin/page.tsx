@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-type Tab = "withdrawals" | "players" | "stats" | "roulette";
+type Tab = "withdrawals" | "players" | "stats" | "roulette" | "promocodes";
 
+
+type Promo = { id:string; code:string; reward_type:"balance"|"coupon"; amount:number; max_uses:number; uses:number; game:string|null; active:boolean; created_at:string; expires_at:string|null; redemptions:number; coupons_issued:number; coupons_active:number; coupons_used:number; coupon_value:number; balance_granted:number };
 interface Withdrawal {
   id: string;
   telegram_id: number;
@@ -106,6 +108,8 @@ export default function AdminPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [roulette, setRoulette] = useState<RouletteAnalytics | null>(null);
+  const [promos, setPromos] = useState<Promo[]>([]);
+  const [promoForm, setPromoForm] = useState({ code:"", reward_type:"coupon" as "coupon"|"balance", amount:"", max_uses:"1", game:"all" });
   const [search, setSearch] = useState("");
   const [txHash, setTxHash] = useState<Record<string, string>>({});
 
@@ -199,6 +203,22 @@ export default function AdminPage() {
     }
   }, [headers]);
 
+  const loadPromos = useCallback(async () => {
+    setLoading(true); setError(null);
+    try { const res=await fetch("/api/admin/promocodes",{headers:headers()}); const data=await res.json(); if(!res.ok) throw new Error(data.error||"Failed"); setPromos(data.items||[]); }
+    catch(e){ setError(e instanceof Error?e.message:"Error"); } finally { setLoading(false); }
+  },[headers]);
+
+  const createPromo = async () => {
+    try {
+      setLoading(true); setError(null);
+      const res=await fetch("/api/admin/promocodes",{method:"POST",headers:headers(),body:JSON.stringify({code:promoForm.code, reward_type:promoForm.reward_type, amount:Number(promoForm.amount), max_uses:Number(promoForm.max_uses), game:promoForm.reward_type==="coupon"?promoForm.game:null})});
+      const data=await res.json(); if(!res.ok) throw new Error(data.error||"Failed");
+      setPromoForm(v=>({...v,code:"",amount:""})); await loadPromos();
+    } catch(e){setError(e instanceof Error?e.message:"Error");} finally{setLoading(false);}
+  };
+  const togglePromo = async (id:string, active:boolean) => { try { const res=await fetch("/api/admin/promocodes",{method:"PATCH",headers:headers(),body:JSON.stringify({id,active})}); const data=await res.json(); if(!res.ok) throw new Error(data.error||"Failed"); await loadPromos(); } catch(e){setError(e instanceof Error?e.message:"Error");} };
+
   const loadRoulette = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -221,7 +241,8 @@ export default function AdminPage() {
     if (tab === "players") loadPlayers();
     if (tab === "stats") loadStats();
     if (tab === "roulette") loadRoulette();
-  }, [authed, tab, loadWithdrawals, loadPlayers, loadStats, loadRoulette]);
+    if (tab === "promocodes") loadPromos();
+  }, [authed, tab, loadWithdrawals, loadPlayers, loadStats, loadRoulette, loadPromos]);
 
   const copy = async (text: string) => {
     try {
@@ -318,6 +339,7 @@ export default function AdminPage() {
               ["players", "Players"],
               ["stats", "Stats"],
               ["roulette", "Roulette"],
+              ["promocodes", "Promocodes"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -342,6 +364,26 @@ export default function AdminPage() {
 
         {loading && (
           <p className="text-xs text-white/30 mb-3 pulse-soft">Loading…</p>
+        )}
+
+        {tab === "promocodes" && (
+          <div className="space-y-4">
+            <div className="rounded-2xl glass p-4 border border-white/[0.07]">
+              <div className="text-sm font-semibold mb-3">Create promo code</div>
+              <div className="grid grid-cols-2 gap-2">
+                <input value={promoForm.code} onChange={e=>setPromoForm(v=>({...v,code:e.target.value.toUpperCase()}))} placeholder="CODE2026" className="h-11 rounded-xl bg-black/30 border border-white/10 px-3 text-sm" />
+                <select value={promoForm.reward_type} onChange={e=>setPromoForm(v=>({...v,reward_type:e.target.value as any}))} className="h-11 rounded-xl bg-black/30 border border-white/10 px-3 text-sm"><option value="coupon">Coupon</option><option value="balance">Balance</option></select>
+                <input type="number" min="0.01" step="0.01" value={promoForm.amount} onChange={e=>setPromoForm(v=>({...v,amount:e.target.value}))} placeholder="Amount GRAM" className="h-11 rounded-xl bg-black/30 border border-white/10 px-3 text-sm" />
+                <input type="number" min="1" step="1" value={promoForm.max_uses} onChange={e=>setPromoForm(v=>({...v,max_uses:e.target.value}))} placeholder="People" className="h-11 rounded-xl bg-black/30 border border-white/10 px-3 text-sm" />
+              </div>
+              {promoForm.reward_type==="coupon" && <select value={promoForm.game} onChange={e=>setPromoForm(v=>({...v,game:e.target.value}))} className="mt-2 w-full h-11 rounded-xl bg-black/30 border border-white/10 px-3 text-sm"><option value="all">All games</option><option value="rps">RPS</option><option value="dice">Dice</option><option value="xo">XO</option><option value="roulette">Roulette</option><option value="pvp_roulette">PvP Roulette</option></select>}
+              <button onClick={createPromo} className="mt-3 w-full h-11 rounded-xl btn-primary text-sm font-semibold">Create promo</button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[["Codes",promos.length],["Redemptions",promos.reduce((s,p)=>s+p.redemptions,0)],["Coupons active",promos.reduce((s,p)=>s+p.coupons_active,0)],["Coupon value",promos.reduce((s,p)=>s+p.coupon_value,0).toFixed(2)+" GRAM"],["Balance granted",promos.reduce((s,p)=>s+p.balance_granted,0).toFixed(2)+" GRAM"]].map(([k,v])=><div key={String(k)} className="rounded-2xl glass p-4 border border-white/[0.07]"><div className="text-xl font-semibold">{v}</div><div className="text-[10px] text-white/35 uppercase tracking-wider mt-1">{k}</div></div>)}
+            </div>
+            <div className="space-y-2">{promos.map(p=><div key={p.id} className="rounded-2xl bg-white/[0.03] border border-white/[0.07] p-4"><div className="flex items-center justify-between gap-3"><div><div className="font-mono font-semibold">{p.code}</div><div className="text-xs text-white/40 mt-1">{p.reward_type==="coupon"?`Coupon · ${p.amount} GRAM · ${p.game||"all"}`:`Balance · ${p.amount} GRAM`} · {p.uses}/{p.max_uses}</div></div><button onClick={()=>togglePromo(p.id,!p.active)} className={`px-3 py-1.5 rounded-lg text-xs border ${p.active?"border-emerald-500/30 text-emerald-300":"border-white/10 text-white/40"}`}>{p.active?"Active":"Off"}</button></div><div className="mt-3 grid grid-cols-3 gap-2 text-[11px] text-white/40"><span>Redeemed {p.redemptions}</span><span>Active coupons {p.coupons_active}</span><span>Used {p.coupons_used}</span></div></div>)}</div>
+          </div>
         )}
 
         {/* ─── STATS ─── */}

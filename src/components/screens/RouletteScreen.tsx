@@ -12,6 +12,8 @@ import {
   useState,
 } from "react";
 import { useTelegram } from "@/hooks/useTelegram";
+import { CouponPicker } from "@/components/ui/CouponPicker";
+import type { Coupon } from "@/lib/couponsApi";
 import { useI18n } from "@/lib/i18n/context";
 import { formatGram, cn } from "@/lib/utils";
 import {
@@ -147,6 +149,7 @@ export function RouletteScreen({
 
   const [state, setState] = useState<RouletteStateResponse | null>(null);
   const [amountStr, setAmountStr] = useState("");
+  const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [lastAmount, setLastAmount] = useState(1);
   const [betting, setBetting] = useState(false);
   const bettingLockRef = useRef(false);
@@ -583,7 +586,7 @@ export function RouletteScreen({
     if (bettingLockRef.current) return;
 
     // Use local ref — parent `balance` prop lags behind optimistic updates
-    if (amount > balanceRef.current + 1e-9) {
+    if (!selectedCoupon && amount > balanceRef.current + 1e-9) {
       showToast(tr("Insufficient balance", "Недостаточно средств"));
       hapticError();
       return;
@@ -711,7 +714,8 @@ export function RouletteScreen({
     }, 180);
 
     try {
-      const res = await placeRouletteBetApi(color, amount);
+      const res = await placeRouletteBetApi(color, amount, selectedCoupon?.id);
+      setSelectedCoupon(null);
       if (typeof res.balance === "number") {
         balanceRef.current = res.balance;
         onBalanceUpdate(res.balance);
@@ -1259,7 +1263,7 @@ export function RouletteScreen({
           placeholder={tr("Bet amount", "Сумма ставки")}
           className="w-full h-12 rounded-2xl bg-white/[0.05] border border-white/10 px-4 text-center text-[16px] tabular-nums outline-none focus:border-cyan-500/40 placeholder:text-white/25"
           disabled={status !== "betting" || betting}
-        />
+        />\n        {selectedCoupon ? <div className="mt-2 flex items-center justify-between rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-xs text-violet-200"><span>🎟️ Купон · {formatGram(selectedCoupon.amount)} GRAM</span><button type="button" onClick={()=>setSelectedCoupon(null)}>✕</button></div> : <CouponPicker game="roulette" onSelect={(c)=>{setSelectedCoupon(c);setAmountStr(String(c.amount));}} disabled={status !== "betting" || betting} />}
         <div className="mt-2 grid grid-cols-4 gap-2">
           {(
             [

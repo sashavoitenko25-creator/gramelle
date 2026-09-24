@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { getAdminClient } from "./supabase";
+import { consumeCoupon, refundCoupon } from "./coupons";
 import { creditBalance, getBalance } from "./ledger";
 import { creditHouse, debitHouse } from "./house";
 // LIVE/SOLO: no referral
@@ -53,6 +54,7 @@ export type RouletteBetRow = {
   color: RouletteColor;
   amount: number;
   payout: number | null;
+  coupon_id?: string | null;
   created_at: string;
 };
 
@@ -643,8 +645,9 @@ export async function placeRouletteBet(opts: {
   username: string;
   color: RouletteColor;
   amount: number;
+  couponId?: string;
 }) {
-  const { telegramId, username, color, amount } = opts;
+  const { telegramId, username, color, amount, couponId } = opts;
   if (!isColor(color)) throw new Error("Invalid color");
   if (!Number.isFinite(amount) || amount < ROULETTE_MIN_BET) {
     throw new Error(`Min bet ${ROULETTE_MIN_BET} GRAM`);
@@ -687,14 +690,18 @@ export async function placeRouletteBet(opts: {
       );
     }
 
-    // Debit with optimistic balance_version lock (prevents negative balance)
-    const { balance } = await creditBalance(telegramId, -amount, "bet", {
-      kind: "roulette_bet",
-      round_id: round.id,
-      color,
-      amount,
-      username,
-    });
+    // Debit either real balance or one coupon.
+    let balance: number;
+    let usedCouponId: string | null = null;
+    if (couponId) {
+      if (already > 0) throw new Error("Купон можно использовать только для новой ставки");
+      const c = await consumeCoupon(telegramId, couponId, "roulette");
+      if (Math.abs(c.amount - amount) > 1e-9) { await refundCoupon(telegramId,c.id); throw new Error("Сумма купона не совпадает со ставкой"); }
+      usedCouponId = c.id;
+      balance = await getBalance(telegramId);
+    } else {
+      ({ balance } = await creditBalance(telegramId, -amount, "bet", { kind: "roulette_bet", round_id: round.id, color, amount, username }));
+    }
 
     // Re-check stake AFTER debit (multi-instance race on Vercel)
     const { data: existing2 } = await db
@@ -708,7 +715,7 @@ export async function placeRouletteBet(opts: {
     );
     if (already2 + amount > ROULETTE_MAX_STAKE_PER_ROUND + 1e-9) {
       try {
-        await creditBalance(telegramId, amount, "refund", {
+        usedCouponId ? await refundCoupon(telegramId, usedCouponId) : await creditBalance(telegramId, amount, "refund", {
           kind: "roulette_bet_over_cap_pre",
           round_id: round.id,
         });
@@ -728,7 +735,7 @@ export async function placeRouletteBet(opts: {
       roundNow.status !== "betting"
     ) {
       try {
-        await creditBalance(telegramId, amount, "refund", {
+        usedCouponId ? await refundCoupon(telegramId, usedCouponId) : await creditBalance(telegramId, amount, "refund", {
           kind: "roulette_bet_closed",
           round_id: round.id,
         });
@@ -746,6 +753,7 @@ export async function placeRouletteBet(opts: {
         username: String(username || "Player").slice(0, 64),
         color,
         amount,
+        coupon_id: usedCouponId,
         payout: null,
       })
       .select("id, amount")
@@ -753,7 +761,7 @@ export async function placeRouletteBet(opts: {
 
     if (error || !inserted) {
       try {
-        await creditBalance(telegramId, amount, "refund", {
+        usedCouponId ? await refundCoupon(telegramId, usedCouponId) : await creditBalance(telegramId, amount, "refund", {
           kind: "roulette_bet_fail",
           round_id: round.id,
         });
@@ -777,7 +785,7 @@ export async function placeRouletteBet(opts: {
     if (total > ROULETTE_MAX_STAKE_PER_ROUND + 1e-9) {
       await db.from("roulette_bets").delete().eq("id", inserted.id);
       try {
-        await creditBalance(telegramId, amount, "refund", {
+        usedCouponId ? await refundCoupon(telegramId, usedCouponId) : await creditBalance(telegramId, amount, "refund", {
           kind: "roulette_bet_over_cap",
           round_id: round.id,
         });

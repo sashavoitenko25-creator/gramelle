@@ -26,6 +26,8 @@ import {
 } from "@/lib/sounds";
 import { useI18n } from "@/lib/i18n/context";
 import { useTelegram } from "@/hooks/useTelegram";
+import { CouponPicker } from "@/components/ui/CouponPicker";
+import type { Coupon } from "@/lib/couponsApi";
 
 interface XoScreenProps {
   balance: number;
@@ -198,6 +200,7 @@ export function XoScreen({
   const [active, setActive] = useState<XoPublicRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [amountStr, setAmountStr] = useState("1");
   const amount = amountStr === "" ? 0 : parseAmountInput(amountStr);
   const [symbol, setSymbol] = useState<XoSymbol>("X");
@@ -358,14 +361,15 @@ export function XoScreen({
       hapticError();
       return;
     }
-    if (amount > balance) {
+    if (!selectedCoupon && amount > balance) {
       onDeposit?.();
       return;
     }
     setBusy(true);
     try {
       playBetSound();
-      const res = await xoCreate(amount, symbol);
+      const res = await xoCreate(amount, symbol, selectedCoupon?.id);
+      setSelectedCoupon(null);
       onBalanceUpdate(res.balance);
       setActive(res.room);
       setView("play");
@@ -544,7 +548,7 @@ export function XoScreen({
                 onChange={(e) => setAmountStr(sanitizeAmountInput(e.target.value))}
                 className="w-full h-12 rounded-2xl bg-black/35 border border-white/10 px-4 text-[16px] font-semibold tabular-nums outline-none focus:border-cyan-400/40"
                 inputMode="decimal"
-              />
+              />\n              {selectedCoupon ? <div className="mt-2 flex items-center justify-between rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-xs text-violet-200"><span>🎟️ Купон · {formatGram(selectedCoupon.amount)} GRAM</span><button type="button" onClick={()=>setSelectedCoupon(null)}>✕</button></div> : <CouponPicker game="xo" onSelect={(c)=>{setSelectedCoupon(c);setAmountStr(String(c.amount));}} disabled={busy} />}
             </div>
             <div>
               <div className="text-[12px] text-white/40 mb-2 font-medium">

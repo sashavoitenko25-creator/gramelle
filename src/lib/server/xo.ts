@@ -1,5 +1,6 @@
 import { getAdminClient } from "./supabase";
-import { creditBalance, recordWinStats } from "./ledger";
+import { consumeCoupon, refundCoupon } from "./coupons";
+import { creditBalance, getBalance, recordWinStats } from "./ledger";
 import { creditHouse } from "./house";
 import { payReferralFromHouseFee } from "./referral";
 import { HOUSE_EDGE, MIN_BET } from "@/lib/constants";
@@ -233,8 +234,9 @@ export async function createRoom(opts: {
   photoUrl?: string | null;
   amount: number;
   symbol: XoSymbol;
+  couponId?: string;
 }) {
-  const { telegramId, username, photoUrl, amount, symbol } = opts;
+  const { telegramId, username, photoUrl, amount, symbol, couponId } = opts;
   if (!isValidSymbol(symbol)) throw new Error("Invalid symbol");
   if (!Number.isFinite(amount) || amount < XO_MIN_BET) {
     throw new Error(`Min bet ${XO_MIN_BET} GRAM`);
@@ -244,16 +246,25 @@ export async function createRoom(opts: {
   const db = getAdminClient();
   await assertNotInActiveXo(db, telegramId);
 
-  const { balance } = await creditBalance(telegramId, -amount, "bet", {
-    game: "xo",
-    action: "create",
-  });
+  let stake = amount;
+  let usedCouponId: string | null = null;
+  let balance: number;
+  if (couponId) {
+    const c = await consumeCoupon(telegramId, couponId, "xo");
+    stake = c.amount;
+    if (stake < XO_MIN_BET || stake > XO_MAX_BET) { await refundCoupon(telegramId,c.id); throw new Error("Coupon amount is outside this game's limits"); }
+    usedCouponId = c.id;
+    balance = await getBalance(telegramId);
+  } else {
+    ({ balance } = await creditBalance(telegramId, -stake, "bet", { game: "xo", action: "create" }));
+  }
 
   const { data, error } = await db
     .from("xo_rooms")
     .insert({
       status: "open",
-      amount,
+      amount: stake,
+      coupon_id: usedCouponId,
       creator_telegram_id: telegramId,
       creator_username: username,
       creator_photo_url: photoUrl || null,
@@ -268,10 +279,8 @@ export async function createRoom(opts: {
 
   if (error) {
     try {
-      await creditBalance(telegramId, amount, "refund", {
-        game: "xo",
-        reason: "create_failed",
-      });
+      if (usedCouponId) await refundCoupon(telegramId, usedCouponId);
+      else await creditBalance(telegramId, stake, "refund", { game: "xo", reason: "create_failed" });
     } catch {}
     throw error;
   }
@@ -302,11 +311,13 @@ export async function cancelRoom(opts: { telegramId: number; roomId: string }) {
   if (cErr || !claimed) throw new Error("Already taken or cancelled");
 
   const amount = Number(r.amount);
-  const { balance } = await creditBalance(telegramId, amount, "refund", {
-    game: "xo",
-    room_id: roomId,
-    action: "cancel",
-  });
+  let balance: number;
+  if (r.coupon_id) {
+    await refundCoupon(telegramId, r.coupon_id);
+    balance = await getBalance(telegramId);
+  } else {
+    ({ balance } = await creditBalance(telegramId, amount, "refund", { game: "xo", room_id: roomId, action: "cancel" }));
+  }
   return { room: publicRoom(claimed as XoRoomRow, telegramId), balance };
 }
 

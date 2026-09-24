@@ -54,7 +54,7 @@ export async function rpsList(opts?: { fresh?: boolean }) {
   return data;
 }
 
-export async function rpsCreate(choice: RpsChoice, amount: number) {
+export async function rpsCreate(choice: RpsChoice, amount: number, couponId?: string) {
   cacheInvalidate("rps");
   return apiFetch<{
     ok: boolean;
@@ -62,7 +62,7 @@ export async function rpsCreate(choice: RpsChoice, amount: number) {
     balance: number;
   }>("/api/rps/create", {
     method: "POST",
-    body: JSON.stringify({ choice, amount }),
+    body: JSON.stringify({ choice, amount, couponId }),
   });
 }
 

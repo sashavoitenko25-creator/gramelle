@@ -1,9 +1,10 @@
 import crypto from "crypto";
 import { getAdminClient } from "./supabase";
-import { creditBalance, recordWinStats } from "./ledger";
+import { creditBalance, recordWinStats, getBalance } from "./ledger";
 import { creditHouse } from "./house";
 import { payReferralFromHouseFee } from "./referral";
 import { HOUSE_EDGE, MIN_BET } from "@/lib/constants";
+import { consumeCoupon, refundCoupon } from "./coupons";
 
 export type RpsChoice = "rock" | "paper" | "scissors";
 export type RpsStatus = "open" | "playing" | "finished" | "cancelled";
@@ -32,6 +33,7 @@ export interface RpsRoomRow {
   finished_at?: string | null;
   reveal_at?: string | null;
   game_no?: number | null;
+  coupon_id?: string | null;
 }
 
 export const RPS_MIN_BET = MIN_BET;
@@ -147,8 +149,9 @@ export async function createRoom(opts: {
   photoUrl?: string | null;
   choice: RpsChoice;
   amount: number;
+  couponId?: string;
 }) {
-  const { telegramId, username, photoUrl, choice, amount } = opts;
+  const { telegramId, username, photoUrl, choice, amount, couponId } = opts;
 
   if (!isValidChoice(choice)) throw new Error("Invalid choice");
   if (!Number.isFinite(amount) || amount < RPS_MIN_BET) {
@@ -182,10 +185,18 @@ export async function createRoom(opts: {
     throw new Error("Finish your current game first");
   }
 
-  const { balance } = await creditBalance(telegramId, -amount, "bet", {
-    game: "rps",
-    action: "create",
-  });
+  let stake = amount;
+  let usedCouponId: string | null = null;
+  let balance = 0;
+  if (couponId) {
+    const c = await consumeCoupon(telegramId, couponId, "rps");
+    stake = c.amount;
+    if (stake < MIN_BET || stake > RPS_MAX_BET) { await refundCoupon(telegramId, c.id); throw new Error("Coupon amount is outside this game's limits"); }
+    usedCouponId = c.id;
+    balance = await getBalance(telegramId);
+  } else {
+    ({ balance } = await creditBalance(telegramId, -stake, "bet", { game: "rps", action: "create" }));
+  }
 
   const nonce = randomNonce();
   const serverSeed = randomSeed();
@@ -212,10 +223,8 @@ export async function createRoom(opts: {
   if (error) {
     // refund
     try {
-      await creditBalance(telegramId, amount, "refund", {
-        game: "rps",
-        reason: "create_failed",
-      });
+      if (usedCouponId) await refundCoupon(telegramId, usedCouponId);
+      else await creditBalance(telegramId, stake, "refund", { game: "rps", reason: "create_failed" });
     } catch {}
     throw error;
   }
@@ -261,12 +270,13 @@ export async function cancelRoom(opts: {
     throw new Error("Room already joined or cancelled");
   }
 
-  const { balance } = await creditBalance(
-    telegramId,
-    Number(r.amount),
-    "refund",
-    { game: "rps", room_id: roomId, action: "cancel" }
-  );
+  let balance: number;
+  if (r.coupon_id) {
+    await refundCoupon(telegramId, r.coupon_id);
+    balance = await getBalance(telegramId);
+  } else {
+    ({ balance } = await creditBalance(telegramId, Number(r.amount), "refund", { game: "rps", room_id: roomId, action: "cancel" }));
+  }
 
   return { balance, room: publicRoom(claimed as RpsRoomRow, telegramId) };
 }

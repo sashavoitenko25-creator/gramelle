@@ -67,12 +67,12 @@ export function fetchRouletteState(opts?: { presence?: boolean }) {
   } as RequestInit);
 }
 
-export function placeRouletteBetApi(color: RouletteColor, amount: number) {
+export function placeRouletteBetApi(color: RouletteColor, amount: number, couponId?: string) {
   return apiFetch<RouletteStateResponse & { balance: number }>(
     "/api/roulette/bet",
     {
       method: "POST",
-      body: JSON.stringify({ color, amount }),
+      body: JSON.stringify({ color, amount, couponId }),
     }
   );
 }

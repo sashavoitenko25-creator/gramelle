@@ -37,6 +37,8 @@ import {
 } from "@/lib/sounds";
 import { useI18n } from "@/lib/i18n/context";
 import { useTelegram } from "@/hooks/useTelegram";
+import { CouponPicker } from "@/components/ui/CouponPicker";
+import type { Coupon } from "@/lib/couponsApi";
 
 interface Props {
   balance: number;
@@ -227,6 +229,7 @@ export function DiceScreen({
   const [active, setActive] = useState<DiceRoomPublic | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [amountStr, setAmountStr] = useState("1");
   const amount = amountStr === "" ? 0 : parseAmountInput(amountStr);
   const [maxPlayers, setMaxPlayers] = useState(4);
@@ -408,7 +411,7 @@ export function DiceScreen({
       showToast(t("minBet", { n: DICE_MIN_BET }));
       return;
     }
-    if (balance < amount) {
+    if (!selectedCoupon && balance < amount) {
       showToast(tr("Not enough GRAM", "Недостаточно GRAM"));
       onDeposit?.();
       return;
@@ -418,7 +421,8 @@ export function DiceScreen({
     playBetSound();
     haptic("light");
     try {
-      const res = await diceCreate(amount, maxPlayers);
+      const res = await diceCreate(amount, maxPlayers, selectedCoupon?.id);
+      setSelectedCoupon(null);
       onBalanceUpdate(res.balance);
       setLastRoll(null);
       setActiveRoom(res.room);
@@ -664,7 +668,7 @@ export function DiceScreen({
                 }}
                 placeholder="0"
                 className="w-full h-12 rounded-2xl bg-black/35 border border-white/10 px-4 text-[15px] font-semibold tabular-nums outline-none focus:border-emerald-500/40"
-              />
+              />\n              {selectedCoupon ? <div className="mt-2 flex items-center justify-between rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-xs text-violet-200"><span>🎟️ Купон · {formatGram(selectedCoupon.amount)} GRAM</span><button type="button" onClick={()=>setSelectedCoupon(null)}>✕</button></div> : <CouponPicker game="dice" onSelect={(c)=>{setSelectedCoupon(c);setAmountStr(String(c.amount));}} disabled={busy} />}
             </div>
             <div>
               <div className="text-[12px] text-white/40 mb-2 font-medium">

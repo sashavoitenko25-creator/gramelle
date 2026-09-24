@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const amount = Number(body.amount);
     const color = body.color;
+    const couponId = body.couponId ? String(body.couponId) : undefined;
     const username =
       auth.user.username ||
       auth.user.first_name ||
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
       username,
       color,
       amount,
+      couponId,
     });
 
     // Flatten: client expects round/pools at top level (same as GET /state)

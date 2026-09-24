@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const amount = Number(body.amount);
     const symbol = body.symbol === "O" ? "O" : "X";
+    const couponId = body.couponId ? String(body.couponId) : undefined;
     if (!isValidSymbol(symbol)) {
       return NextResponse.json({ error: "Invalid symbol" }, { status: 400 });
     }
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
       photoUrl: auth.user.photo_url || null,
       amount,
       symbol,
+      couponId,
     });
     return NextResponse.json({ ok: true, ...res });
   } catch (e) {

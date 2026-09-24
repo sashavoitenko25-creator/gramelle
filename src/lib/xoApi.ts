@@ -70,11 +70,11 @@ export async function xoList(opts?: { fresh?: boolean }) {
   return data;
 }
 
-export async function xoCreate(amount: number, symbol: XoSymbol = "X") {
+export async function xoCreate(amount: number, symbol: XoSymbol = "X", couponId?: string) {
   cacheInvalidate("xo");
   return apiFetch<{ ok: boolean; room: XoPublicRoom; balance: number }>(
     "/api/xo/create",
-    { method: "POST", body: JSON.stringify({ amount, symbol }) }
+    { method: "POST", body: JSON.stringify({ amount, symbol, couponId }) }
   );
 }
 

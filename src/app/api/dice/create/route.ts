@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       auth.user.first_name ||
       "Player" + String(auth.user.id).slice(-4);
     const photoUrl = auth.user.photo_url || null;
+    const couponId = body.couponId ? String(body.couponId) : undefined;
     const telegramId = auth.user.id;
 
     const result = await dice.createTable({
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
       photoUrl,
       amount: Number(body.amount),
       maxPlayers: Number(body.maxPlayers ?? 2),
+      couponId,
     });
 
     return NextResponse.json({ ok: true, ...result });

@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     await assertNotBanned(auth.user.id);
 
     const body = await req.json();
+    const couponId = body.couponId ? String(body.couponId) : undefined;
     const amount = Number(body.amount);
     const username =
       auth.user.username ||
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
       username,
       avatarUrl,
       amount,
+      couponId,
     });
 
     return NextResponse.json({

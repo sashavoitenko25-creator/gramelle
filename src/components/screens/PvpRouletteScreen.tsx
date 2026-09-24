@@ -15,6 +15,8 @@ import {
 import { cn, formatGram } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 import { useTelegram } from "@/hooks/useTelegram";
+import { CouponPicker } from "@/components/ui/CouponPicker";
+import type { Coupon } from "@/lib/couponsApi";
 import {
   PVP_ROULETTE_MIN_BET,
   PVP_ROULETTE_MAX_BET,
@@ -243,6 +245,7 @@ export function PvpRouletteScreen({
 
   const [state, setState] = useState<PvpRouletteStateResponse | null>(null);
   const [amountStr, setAmountStr] = useState("");
+  const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [lastAmount, setLastAmount] = useState(1);
   const [betting, setBetting] = useState(false);
   const [displayMs, setDisplayMs] = useState(Date.now());
@@ -630,7 +633,7 @@ export function PvpRouletteScreen({
       hapticError();
       return;
     }
-    if (add > balanceRef.current) {
+    if (!selectedCoupon && add > balanceRef.current) {
       showToast(tr("Not enough balance", "Недостаточно средств"));
       onDeposit?.();
       hapticError();
@@ -645,7 +648,8 @@ export function PvpRouletteScreen({
     haptic("medium");
 
     try {
-      const res = await placePvpRouletteBetApi(nextTotal);
+      const res = await placePvpRouletteBetApi(nextTotal, selectedCoupon?.id);
+      setSelectedCoupon(null);
       setState(res);
       if (typeof res.balance === "number") {
         balanceRef.current = res.balance;
@@ -981,7 +985,7 @@ export function PvpRouletteScreen({
           placeholder={tr("Amount", "Сумма")}
           disabled={!canBet && status !== "waiting"}
           className="w-full h-11 rounded-2xl bg-white/[0.05] border border-white/10 px-4 text-[15px] font-semibold text-white tabular-nums outline-none focus:border-cyan-400/40 placeholder:text-white/30 disabled:opacity-40"
-        />
+        />\n        {selectedCoupon ? <div className="mt-2 flex items-center justify-between rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-xs text-violet-200"><span>🎟️ Купон · {formatGram(selectedCoupon.amount)} GRAM</span><button type="button" onClick={()=>setSelectedCoupon(null)}>✕</button></div> : <CouponPicker game="pvp_roulette" onSelect={(c)=>{setSelectedCoupon(c);setAmountStr(String(c.amount));}} disabled={!canBet || betting || myBet > 0} />
         {/* Quick amounts */}
         <div className="mt-2 grid grid-cols-4 gap-2">
           {([1, 5, 10, 25] as const).map((v) => (

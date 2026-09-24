@@ -1,0 +1,14 @@
+GRAMELLE COUPONS PATCH
+
+Added:
+- Promo codes with balance or coupon rewards.
+- Coupon wallet in profile with count and total GRAM value.
+- Promo code redemption UI.
+- Coupon picker in RPS, Dice, XO, Roulette and PvP Roulette.
+- Coupon-backed stakes with atomic consume/refund.
+- Coupon source tracking so cancelled games return coupons instead of real balance.
+- Admin Promocodes section: creation, activation/deactivation and analytics.
+- Supabase migration: supabase/coupons.sql (also included at end of schema.sql).
+
+Important:
+Run the SQL in supabase/coupons.sql once against the existing production Supabase database before using the new coupon/promo features.

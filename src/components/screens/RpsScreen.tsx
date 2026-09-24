@@ -35,6 +35,8 @@ import {
 } from "@/lib/sounds";
 import { useI18n } from "@/lib/i18n/context";
 import { useTelegram } from "@/hooks/useTelegram";
+import { CouponPicker } from "@/components/ui/CouponPicker";
+import type { Coupon } from "@/lib/couponsApi";
 
 interface RpsScreenProps {
   balance: number;
@@ -761,6 +763,7 @@ export function RpsScreen({
 
   const [choice, setChoice] = useState<RpsChoice>("rock");
   const [amountStr, setAmountStr] = useState("1");
+  const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const amount = amountStr === "" ? 0 : parseAmountInput(amountStr);
   const [joinTarget, setJoinTarget] = useState<RpsPublicRoom | null>(null);
   const [joinChoice, setJoinChoice] = useState<RpsChoice>("paper");
@@ -897,7 +900,7 @@ export function RpsScreen({
       showToast(`Bet ${RPS_MIN_BET}–${RPS_MAX_BET} GRAM`);
       return;
     }
-    if (amount > balance) {
+    if (!selectedCoupon && amount > balance) {
       playErrorSound();
       showToast(t("notEnoughBalance"));
       return;
@@ -909,7 +912,8 @@ export function RpsScreen({
         return;
       }
       resumeAudio();
-      const res = await rpsCreate(choice, amount);
+      const res = await rpsCreate(choice, amount, selectedCoupon?.id);
+      setSelectedCoupon(null);
       playBetSound();
       onBalanceUpdate(res.balance);
       setMine(res.room);
@@ -1637,6 +1641,7 @@ export function RpsScreen({
             }}
             className="w-full h-12 rounded-2xl bg-white/[0.04] border border-white/[0.1] px-4 text-[16px] font-semibold tabular-nums outline-none focus:border-fuchsia-400/40 transition"
           />
+          {selectedCoupon ? <div className="mt-2 flex items-center justify-between rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-xs text-violet-200"><span>🎟️ Купон · {formatGram(selectedCoupon.amount)} GRAM</span><button type="button" onClick={()=>setSelectedCoupon(null)} className="text-white/40">✕</button></div> : <CouponPicker game="rps" onSelect={(c)=>{setSelectedCoupon(c);setAmountStr(String(c.amount));}} disabled={busy} />}
           <div className="text-[11px] text-white/28 mt-2 mb-6">
             {t("opponentMatches")}
           </div>

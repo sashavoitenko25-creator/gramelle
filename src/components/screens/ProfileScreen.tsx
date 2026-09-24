@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatGram } from "@/lib/utils";
 import { GramIcon } from "@/components/ui/GramIcon";
 import { ConnectWalletButton } from "@/components/ton/ConnectWalletButton";
 import { useI18n } from "@/lib/i18n/context";
 import type { Lang } from "@/lib/i18n/translations";
 import { SUPPORT_URL, SUPPORT_LABEL } from "@/lib/constants";
+import { CouponBalance, CouponPanel } from "@/components/ui/CouponPanel";
+import { fetchCoupons } from "@/lib/couponsApi";
 
 interface ProfileScreenProps {
   username: string;
@@ -41,6 +43,10 @@ export function ProfileScreen({
   const [langOpen, setLangOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [couponOpen, setCouponOpen] = useState(false);
+  const [couponCount, setCouponCount] = useState(0);
+  const [couponTotal, setCouponTotal] = useState(0);
+  useEffect(() => { void fetchCoupons().then(r=>{setCouponCount(r.count);setCouponTotal(r.total)}).catch(()=>{}); }, []);
   const initial = username.charAt(0).toUpperCase();
   const winrate = games > 0 ? Math.round((wins / games) * 100) : 0;
 
@@ -119,21 +125,14 @@ export function ProfileScreen({
             <span className="text-sm text-white/35 font-normal ml-1.5">GRAM</span>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={onDeposit}
-            className="flex-1 px-4 py-2.5 rounded-xl btn-primary text-xs btn-press"
-          >
-            {t("deposit")}
-          </button>
-          <button
-            onClick={onWithdraw}
-            className="flex-1 px-4 py-2.5 rounded-xl btn-secondary text-xs btn-press border border-white/10"
-          >
-            {t("withdraw")}
-          </button>
+        <div className="grid grid-cols-3 gap-2">
+          <button onClick={onDeposit} className="px-3 py-2.5 rounded-xl btn-primary text-xs btn-press">{t("deposit")}</button>
+          <button onClick={onWithdraw} className="px-3 py-2.5 rounded-xl btn-secondary text-xs btn-press border border-white/10">{t("withdraw")}</button>
+          <button onClick={()=>setCouponOpen(true)} className="px-3 py-2.5 rounded-xl bg-violet-500/15 border border-violet-400/20 text-violet-200 text-xs font-semibold btn-press">Промокоды</button>
         </div>
       </div>
+
+      <div className="mx-4 mt-3"><CouponBalance count={couponCount} total={couponTotal} onClick={()=>setCouponOpen(true)} /></div>
 
       <div className="mx-4 mt-4 grid grid-cols-3 gap-2">
         {[
@@ -255,6 +254,7 @@ export function ProfileScreen({
           {t("rulesTitle")}
         </button>
       </div>
+      <CouponPanel open={couponOpen} onClose={()=>setCouponOpen(false)} onChanged={(n,total)=>{setCouponCount(n);setCouponTotal(total)}} />
       {rulesOpen && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center">
           <button
