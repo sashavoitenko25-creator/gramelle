@@ -125,10 +125,9 @@ export function ProfileScreen({
             <span className="text-sm text-white/35 font-normal ml-1.5">GRAM</span>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <button onClick={onDeposit} className="px-3 py-2.5 rounded-xl btn-primary text-xs btn-press">{t("deposit")}</button>
           <button onClick={onWithdraw} className="px-3 py-2.5 rounded-xl btn-secondary text-xs btn-press border border-white/10">{t("withdraw")}</button>
-          <button onClick={()=>setCouponOpen(true)} className="px-3 py-2.5 rounded-xl bg-violet-500/15 border border-violet-400/20 text-violet-200 text-xs font-semibold btn-press">Промокоды</button>
         </div>
       </div>
 
