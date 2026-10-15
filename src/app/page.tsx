@@ -678,18 +678,12 @@ export default function Home() {
                     },
                     {
                       n: "3",
-                      emoji: "🏆",
-                      title: "PvP и LIVE",
-                      body: "Играй с людьми: банк, ставки на цвет, честный исход",
-                    },
-                    {
-                      n: "4",
                       emoji: "🔐",
                       title: "Честность",
                       body: "Hash + Seed у каждой партии — проверь сам",
                     },
                     {
-                      n: "5",
+                      n: "4",
                       emoji: "🔗",
                       title: "Рефералка",
                       body: "Доля с PvP-игр друзей",
@@ -710,18 +704,12 @@ export default function Home() {
                     },
                     {
                       n: "3",
-                      emoji: "🏆",
-                      title: "PvP & LIVE",
-                      body: "Play with people: pots, color bets, fair outcomes",
-                    },
-                    {
-                      n: "4",
                       emoji: "🔐",
                       title: "Fairness",
                       body: "Hash + Seed every round — verify yourself",
                     },
                     {
-                      n: "5",
+                      n: "4",
                       emoji: "🔗",
                       title: "Referrals",
                       body: "Share from friends' PvP games",

@@ -30,11 +30,17 @@ export function CouponPicker({
     setLoading(true);
     try {
       const result = await fetchCoupons();
+      const now = Date.now();
       setItems(
-        result.coupons.filter(
-          (coupon) =>
-            !coupon.game || coupon.game === "all" || coupon.game === game,
-        ),
+        result.coupons.filter((coupon) => {
+          const active = coupon.status === "active";
+          const notExpired =
+            !coupon.expires_at ||
+            new Date(coupon.expires_at).getTime() > now;
+          const appliesToGame =
+            !coupon.game || coupon.game === "all" || coupon.game === game;
+          return active && notExpired && appliesToGame;
+        }),
       );
     } catch {
       setItems([]);

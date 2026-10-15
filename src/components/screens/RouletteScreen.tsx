@@ -1347,8 +1347,8 @@ export function RouletteScreen({
               </div>
             </button>
 
-            {/* Bettors under this color */}
-            <div className="mt-2 space-y-1.5">
+            {/* Scrollable bettors list stays above the bottom navigation */}
+            <div className="mt-2 space-y-1.5 max-h-[28dvh] overflow-y-auto overscroll-contain pr-1">
               {(betsByColor[btn.c] || []).map((b) => (
                 <div
                   key={`${btn.c}-${b.telegramId}`}

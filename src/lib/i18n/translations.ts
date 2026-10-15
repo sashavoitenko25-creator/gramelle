@@ -282,14 +282,9 @@ export const translations = {
     rulesTitle: "Rules",
     rulesBody:
       "Gramelle — entertainment platform. 18+ only.\n\n" +
-      "GAMES\n" +
-      "• RPS, Dice, XO — play against other people, winner takes the pot.\n" +
-      "• PvP Roulette — shared pot, one winner by chance.\n" +
-      "• Double — Red / Black / Green. Green pays 14x.\n" +
-      "• Min bet from 0.25 GRAM (see limits in the app).\n\n" +
       "BALANCE & MONEY\n" +
-      "• Deposit via TON (and Stars where available).\n" +
-      "• Withdrawals usually within 1 hour.\n" +
+      "• Deposit via TON.\n" +
+      "• Withdrawals within 1 hour.\n" +
       "• Wager x1: play through the deposited amount before a successful withdrawal.\n\n" +
       "REFERRALS\n" +
       "• Earn from friends' activity in PvP games.\n" +
@@ -587,14 +582,9 @@ export const translations = {
     rulesTitle: "Правила",
     rulesBody:
       "Gramelle — развлекательная платформа. Только 18+.\n\n" +
-      "ИГРЫ\n" +
-      "• RPS, Dice, XO — игра против людей, победитель забирает банк.\n" +
-      "• PvP-рулетка — общий банк, один победитель по шансу.\n" +
-      "• Дабл — Красное / Чёрное / Зелёное. Зелёное ×14.\n" +
-      "• Мин. ставка от 0.25 GRAM (актуальные лимиты — в приложении).\n\n" +
       "БАЛАНС И ДЕНЬГИ\n" +
-      "• Депозит через TON (и Stars, где доступно).\n" +
-      "• Вывод обычно в течение 1 часа.\n" +
+      "• Депозит через TON.\n" +
+      "• Вывод в течение 1 часа.\n" +
       "• Вейджер ×1: нужно отыграть сумму депозита для успешного вывода.\n\n" +
       "РЕФЕРАЛКА\n" +
       "• Доход с активности друзей в PvP-играх.\n" +

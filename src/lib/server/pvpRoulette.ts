@@ -123,6 +123,7 @@ async function getActiveRound(): Promise<PvpRoundRow | null> {
     .select("*")
     .in("status", ["waiting", "betting", "spinning"])
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
   return (data as PvpRoundRow) || null;
@@ -134,6 +135,7 @@ async function getLatestRound(): Promise<PvpRoundRow | null> {
     .from("pvp_roulette_rounds")
     .select("*")
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
   return (data as PvpRoundRow) || null;
@@ -199,8 +201,9 @@ function publicBets(bets: PvpBetRow[], totalBank: number) {
 /** Sequential game number: 1, 2, 3… by creation order */
 async function getRoundNumber(createdAt: string, roundId: string): Promise<number> {
   const db = getAdminClient();
-  // Use the UUID as a deterministic tie-breaker when rounds share the same timestamp.
-  const [{ count: earlierCount }, { count: sameTimestampCount }] = await Promise.all([
+  // Count rounds before this one. UUID is a deterministic tie-breaker when
+  // multiple rounds share the same created_at timestamp.
+  const [{ count: earlierCount }, { count: sameTimestampBefore }] = await Promise.all([
     db
       .from("pvp_roulette_rounds")
       .select("id", { count: "exact", head: true })
@@ -209,9 +212,12 @@ async function getRoundNumber(createdAt: string, roundId: string): Promise<numbe
       .from("pvp_roulette_rounds")
       .select("id", { count: "exact", head: true })
       .eq("created_at", createdAt)
-      .lte("id", roundId),
+      .lt("id", roundId),
   ]);
-  return Math.max(1, (earlierCount || 0) + (sameTimestampCount || 0));
+  return Math.max(
+    1,
+    (Number(earlierCount) || 0) + (Number(sameTimestampBefore) || 0) + 1,
+  );
 }
 
 async function publicRound(r: PvpRoundRow) {
@@ -322,6 +328,7 @@ export async function getRecentHistory(limit: number) {
     )
     .eq("status", "finished")
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(limit);
 
   if (!rounds?.length) return [];
