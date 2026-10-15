@@ -559,8 +559,7 @@ export async function getRouletteState(
         photoUrl: photoMap.get(a.telegramId) ?? null,
         amount: a.amount,
       }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 12);
+      .sort((a, b) => b.amount - a.amount);
   }
 
   const reveal = round.status === "spinning" || round.status === "settled";

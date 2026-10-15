@@ -197,18 +197,26 @@ function publicBets(bets: PvpBetRow[], totalBank: number) {
 }
 
 /** Sequential game number: 1, 2, 3… by creation order */
-async function getRoundNumber(createdAt: string): Promise<number> {
+async function getRoundNumber(createdAt: string, roundId: string): Promise<number> {
   const db = getAdminClient();
-  const { count } = await db
-    .from("pvp_roulette_rounds")
-    .select("id", { count: "exact", head: true })
-    .lte("created_at", createdAt);
-  return Math.max(1, count || 1);
+  // Use the UUID as a deterministic tie-breaker when rounds share the same timestamp.
+  const [{ count: earlierCount }, { count: sameTimestampCount }] = await Promise.all([
+    db
+      .from("pvp_roulette_rounds")
+      .select("id", { count: "exact", head: true })
+      .lt("created_at", createdAt),
+    db
+      .from("pvp_roulette_rounds")
+      .select("id", { count: "exact", head: true })
+      .eq("created_at", createdAt)
+      .lte("id", roundId),
+  ]);
+  return Math.max(1, (earlierCount || 0) + (sameTimestampCount || 0));
 }
 
 async function publicRound(r: PvpRoundRow) {
   const revealed = r.status === "finished" || r.status === "cancelled";
-  const roundNumber = await getRoundNumber(r.created_at);
+  const roundNumber = await getRoundNumber(r.created_at, r.id);
   return {
     id: r.id,
     status: r.status,
@@ -362,7 +370,7 @@ export async function getRecentHistory(limit: number) {
   }
 
   const numbers = await Promise.all(
-    rounds.map((r) => getRoundNumber(r.created_at))
+    rounds.map((r) => getRoundNumber(r.created_at, r.id))
   );
 
   return rounds.map((r, i) => {

@@ -295,7 +295,7 @@ export function RouletteScreen({
               });
             }
             list.sort((a, b) => b.amount - a.amount);
-            betsByColor[c] = list.slice(0, 12);
+            betsByColor[c] = list;
           }
         }
         flat = {
@@ -700,7 +700,7 @@ export function RouletteScreen({
           red: prev.betsByColor?.red || [],
           black: prev.betsByColor?.black || [],
           green: prev.betsByColor?.green || [],
-          [color]: list.slice(0, 12),
+          [color]: list,
         },
       };
     });
@@ -1348,7 +1348,7 @@ export function RouletteScreen({
             </button>
 
             {/* Bettors under this color */}
-            <div className="mt-2 space-y-1.5 max-h-[120px] overflow-y-auto no-scrollbar">
+            <div className="mt-2 space-y-1.5">
               {(betsByColor[btn.c] || []).map((b) => (
                 <div
                   key={`${btn.c}-${b.telegramId}`}
